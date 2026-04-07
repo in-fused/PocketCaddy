@@ -719,43 +719,57 @@ input:focus, select:focus {
     table-layout: auto;
   }
 
+  .leaderboard-main-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    min-width: unset;
+  }
   .leaderboard-main-table thead {
-    display: none;
+    display: table-header-group;
   }
   .leaderboard-main-table tbody {
-    display: grid;
-    gap: 8px;
-    padding: 8px;
+    display: table-row-group;
   }
   .leaderboard-main-table tr {
-    display: block;
-    border: 1px solid #dce6de;
-    border-radius: 10px;
-    background: #fff;
-    padding: 8px 10px;
+    display: table-row;
   }
+  .leaderboard-main-table th,
   .leaderboard-main-table td {
-    display: grid;
-    grid-template-columns: 86px 1fr;
-    align-items: center;
-    gap: 8px;
-    border: 0;
-    padding: 4px 0;
+    display: table-cell;
+    padding: 6px 5px;
+    border-bottom: 1px solid #dfe8e1;
+    font-size: 0.84rem;
     text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .leaderboard-main-table td::before {
-    content: "";
-    color: #4a5d4f;
-    font-size: 0.76rem;
-    font-weight: 700;
+  .leaderboard-main-table th {
+    font-size: 0.72rem;
     letter-spacing: 0.01em;
-    text-transform: uppercase;
   }
-  .leaderboard-main-table td:nth-child(1)::before { content: "Rank"; }
-  .leaderboard-main-table td:nth-child(2)::before { content: "Name"; }
-  .leaderboard-main-table td:nth-child(3)::before { content: "Front"; }
-  .leaderboard-main-table td:nth-child(4)::before { content: "Back"; }
-  .leaderboard-main-table td:last-child::before { content: "Total"; }
+  .leaderboard-main-table th:nth-child(1),
+  .leaderboard-main-table td:nth-child(1) {
+    width: 48px;
+  }
+  .leaderboard-main-table th:nth-child(2),
+  .leaderboard-main-table td:nth-child(2) {
+    width: auto;
+  }
+  .leaderboard-main-table th:last-child,
+  .leaderboard-main-table td:last-child {
+    width: 64px;
+    text-align: right;
+  }
+  .leaderboard-main-table th:nth-child(3),
+  .leaderboard-main-table td:nth-child(3) {
+    display: none;
+  }
+  .leaderboard-main-table th:nth-child(4):not(:last-child),
+  .leaderboard-main-table td:nth-child(4):not(:last-child) {
+    display: none;
+  }
 
   .payout-position-table thead,
   .payout-player-table thead {

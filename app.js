@@ -115,11 +115,6 @@
     }
 
     const session = getSession();
-    if (session && session.roundId) {
-      showView("start-choice");
-      return;
-    }
-
     showView("home");
   }
 
