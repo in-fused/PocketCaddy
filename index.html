@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>PocketCaddy Live</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="card section app-header">
+      <h1>PocketCaddy Live</h1>
+      <p>Realtime shared golf scoring.</p>
+    </header>
+
+    <main>
+      <section id="start-choice-view" class="card section hidden">
+        <h2>Saved Session Found</h2>
+        <p class="muted">Resume your last round session or start fresh.</p>
+        <div class="actions">
+          <button id="resume-session-btn" class="btn btn-primary" type="button">Resume Saved Round</button>
+          <button id="start-fresh-btn" class="btn btn-secondary" type="button">Start Fresh</button>
+        </div>
+      </section>
+
+      <section id="home-view" class="card section hidden">
+        <h2>Create Round</h2>
+
+        <div class="form-grid">
+          <label><span>Round Name</span><input id="round-name" type="text" placeholder="Saturday Match"></label>
+          <label><span>Course Name</span><input id="course-name" type="text" placeholder="Eagle Creek"></label>
+          <label><span>Tee / Color</span><input id="tee" type="text" placeholder="Blue (optional)"></label>
+          <label>
+            <span>Holes</span>
+            <select id="holes">
+              <option value="9">9</option>
+              <option value="18" selected>18</option>
+            </select>
+          </label>
+        </div>
+
+        <section class="card-sub">
+          <h3>Players <small id="player-count">(0 / 30)</small></h3>
+          <div class="player-add-row">
+            <input id="new-player" type="text" placeholder="Add player name">
+            <button id="add-player-btn" class="btn btn-primary" type="button">Add</button>
+          </div>
+          <p class="muted tiny">Edit/remove players before creating the round.</p>
+          <div id="setup-player-list" class="setup-player-list"></div>
+        </section>
+
+        <div id="home-error" class="error hidden"></div>
+        <div class="actions">
+          <button id="create-round-btn" class="btn btn-primary" type="button">Create Round</button>
+        </div>
+
+        <hr class="divider">
+
+        <h2>Join Round</h2>
+        <label><span>Round Link or Full Round ID</span><input id="join-input" type="text" placeholder="?round=... or full round id"></label>
+        <div id="join-error" class="error hidden"></div>
+        <div class="actions">
+          <button id="join-round-btn" class="btn btn-secondary" type="button">Join Round</button>
+        </div>
+      </section>
+
+      <section id="score-view" class="hidden">
+        <div class="top-sticky">
+          <section class="card section">
+            <h2 id="meta-round-name">Round</h2>
+            <div class="meta-grid">
+              <p><strong>Course:</strong> <span id="meta-course"></span></p>
+              <p><strong>Tee:</strong> <span id="meta-tee"></span></p>
+              <p><strong>Holes:</strong> <span id="meta-holes"></span></p>
+              <p><strong>Players:</strong> <span id="meta-player-count"></span></p>
+            </div>
+            <p class="identity-line"><strong>You are:</strong> <span id="meta-user-name" class="identity-badge">-</span></p>
+            <div class="actions compact-actions">
+              <button id="switch-player-btn" class="btn btn-secondary" type="button">Switch Player</button>
+            </div>
+
+            <div class="share-wrap">
+              <div id="qr-box" class="qr-box" aria-label="Round QR code"></div>
+              <div class="share-fields">
+                <label><span>Round ID</span><input id="round-id" type="text" readonly></label>
+                <label><span>Share Link</span><input id="share-link" type="text" readonly></label>
+                <div class="actions">
+                  <button id="copy-link-btn" class="btn btn-secondary" type="button">Copy Link</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button id="back-home-btn" class="btn btn-secondary" type="button">Back to Home</button>
+              <button id="new-round-btn" class="btn btn-primary" type="button">Start New Round</button>
+              <button id="clear-round-btn" class="btn btn-danger" type="button">Clear Current Round Data</button>
+            </div>
+          </section>
+
+          <section class="card section">
+            <h3>Leaderboard</h3>
+            <div class="table-scroll">
+              <table class="leaderboard-table">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Player</th>
+                    <th>Front</th>
+                    <th id="leaderboard-back-head">Back</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody id="leaderboard-body"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="card section">
+            <h3>Pot & Payouts</h3>
+            <div id="payout-settings-grid" class="payout-settings-grid">
+              <label><span>Total Pot</span><input id="pot-amount" type="number" min="0" step="0.01" value="0"></label>
+              <label><span>1st %</span><input id="payout-first" type="number" min="0" step="0.01" value="60"></label>
+              <label><span>2nd %</span><input id="payout-second" type="number" min="0" step="0.01" value="30"></label>
+              <label><span>3rd %</span><input id="payout-third" type="number" min="0" step="0.01" value="10"></label>
+            </div>
+            <p id="payout-lock-message" class="payout-lock-message hidden">Pot settings are locked once scoring begins.</p>
+            <p id="payout-save-status" class="payout-save-status hidden">Saving pot settings...</p>
+            <p id="payout-warning" class="payout-warning hidden"></p>
+            <div class="table-scroll">
+              <table class="leaderboard-table">
+                <thead>
+                  <tr>
+                    <th>Position</th>
+                    <th>Percent</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+                <tbody id="payout-position-body"></tbody>
+              </table>
+            </div>
+            <div class="table-scroll">
+              <table class="leaderboard-table">
+                <thead>
+                  <tr>
+                    <th>Player</th>
+                    <th>Projected Payout</th>
+                  </tr>
+                </thead>
+                <tbody id="payout-player-body"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <section class="card section">
+          <div id="score-scroll-container" class="table-scroll score-scroll">
+            <table id="score-table" class="score-table"></table>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div id="score-feedback" class="feedback hidden" role="status" aria-live="polite"></div>
+
+  <div id="name-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-card">
+      <h3>Enter Your Name</h3>
+      <p class="muted">You can only edit scores for your own player row.</p>
+      <label><span>Your Name</span><input id="name-modal-input" type="text" placeholder="Type your player name"></label>
+      <div id="name-modal-error" class="error hidden"></div>
+      <div class="actions">
+        <button id="name-modal-submit" class="btn btn-primary" type="button">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="score-picker" class="picker hidden">
+    <h4 id="picker-title">Set Score</h4>
+    <p id="picker-status" class="picker-status hidden">Saving score...</p>
+    <div id="picker-grid" class="picker-grid"></div>
+    <div class="actions">
+      <button id="picker-minus" class="btn btn-secondary" type="button">-1</button>
+      <button id="picker-plus" class="btn btn-secondary" type="button">+1</button>
+      <button id="picker-clear" class="btn btn-danger" type="button">Clear</button>
+      <button id="picker-done" class="btn btn-primary" type="button">Done</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="qr.js"></script>
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

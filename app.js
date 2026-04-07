@@ -1,0 +1,1119 @@
+(function () {
+  "use strict";
+
+  const MAX_PLAYERS = 30;
+  const MIN_SCORE = 1;
+  const MAX_SCORE = 15;
+  const SESSION_KEY = "pocketcaddy_live_session_v2";
+  const IDENTITY_KEY_PREFIX = "pocketcaddy_identity_";
+
+  const dom = {
+    startChoiceView: document.getElementById("start-choice-view"),
+    resumeSessionBtn: document.getElementById("resume-session-btn"),
+    startFreshBtn: document.getElementById("start-fresh-btn"),
+
+    homeView: document.getElementById("home-view"),
+    roundName: document.getElementById("round-name"),
+    courseName: document.getElementById("course-name"),
+    tee: document.getElementById("tee"),
+    holes: document.getElementById("holes"),
+    newPlayer: document.getElementById("new-player"),
+    addPlayerBtn: document.getElementById("add-player-btn"),
+    playerCount: document.getElementById("player-count"),
+    setupPlayerList: document.getElementById("setup-player-list"),
+    homeError: document.getElementById("home-error"),
+    createRoundBtn: document.getElementById("create-round-btn"),
+    joinInput: document.getElementById("join-input"),
+    joinRoundBtn: document.getElementById("join-round-btn"),
+    joinError: document.getElementById("join-error"),
+
+    scoreView: document.getElementById("score-view"),
+    metaRoundName: document.getElementById("meta-round-name"),
+    metaCourse: document.getElementById("meta-course"),
+    metaTee: document.getElementById("meta-tee"),
+    metaHoles: document.getElementById("meta-holes"),
+    metaPlayerCount: document.getElementById("meta-player-count"),
+    metaUserName: document.getElementById("meta-user-name"),
+    switchPlayerBtn: document.getElementById("switch-player-btn"),
+    roundId: document.getElementById("round-id"),
+    shareLink: document.getElementById("share-link"),
+    qrBox: document.getElementById("qr-box"),
+    copyLinkBtn: document.getElementById("copy-link-btn"),
+    backHomeBtn: document.getElementById("back-home-btn"),
+    newRoundBtn: document.getElementById("new-round-btn"),
+    clearRoundBtn: document.getElementById("clear-round-btn"),
+    leaderboardBackHead: document.getElementById("leaderboard-back-head"),
+    leaderboardBody: document.getElementById("leaderboard-body"),
+    scoreTable: document.getElementById("score-table"),
+    scoreScrollContainer: document.getElementById("score-scroll-container"),
+    payoutSettingsGrid: document.getElementById("payout-settings-grid"),
+    potAmount: document.getElementById("pot-amount"),
+    payoutFirst: document.getElementById("payout-first"),
+    payoutSecond: document.getElementById("payout-second"),
+    payoutThird: document.getElementById("payout-third"),
+    payoutLockMessage: document.getElementById("payout-lock-message"),
+    payoutWarning: document.getElementById("payout-warning"),
+    payoutSaveStatus: document.getElementById("payout-save-status"),
+    payoutPositionBody: document.getElementById("payout-position-body"),
+    payoutPlayerBody: document.getElementById("payout-player-body"),
+
+    nameModal: document.getElementById("name-modal"),
+    nameModalInput: document.getElementById("name-modal-input"),
+    nameModalError: document.getElementById("name-modal-error"),
+    nameModalSubmit: document.getElementById("name-modal-submit"),
+
+    picker: document.getElementById("score-picker"),
+    pickerTitle: document.getElementById("picker-title"),
+    pickerStatus: document.getElementById("picker-status"),
+    pickerGrid: document.getElementById("picker-grid"),
+    pickerMinus: document.getElementById("picker-minus"),
+    pickerPlus: document.getElementById("picker-plus"),
+    pickerClear: document.getElementById("picker-clear"),
+    pickerDone: document.getElementById("picker-done"),
+
+    scoreFeedback: document.getElementById("score-feedback")
+  };
+
+  const state = {
+    setupPlayers: [],
+    round: null,
+    players: [],
+    scoreMap: {},
+    pendingScoreKeys: new Set(),
+    channel: null,
+    activeCell: null,
+    identityName: null,
+    identityPlayerId: null,
+    feedbackTimer: null,
+    copyBtnTimer: null,
+    settingsSaveTimer: null,
+    potSettingsLocked: false,
+    lastAutoScrollIdentityToken: null
+  };
+
+  function init() {
+    console.log("PocketCaddy v1 live");
+    wireEvents();
+    renderSetupPlayers();
+
+    const fromUrl = getRoundIdFromUrl();
+    if (fromUrl) {
+      joinRoundById(fromUrl).catch((err) => {
+        showError(dom.homeError, "Could not open that shared round link.");
+        showFeedback("Unable to open round from link.", true);
+        showView("home");
+        console.error(err);
+      });
+      return;
+    }
+
+    const session = getSession();
+    if (session && session.roundId) {
+      showView("start-choice");
+      return;
+    }
+
+    showView("home");
+  }
+
+  function wireEvents() {
+    dom.resumeSessionBtn.addEventListener("click", resumeSession);
+    dom.startFreshBtn.addEventListener("click", () => {
+      clearSession();
+      showView("home");
+    });
+
+    dom.addPlayerBtn.addEventListener("click", addSetupPlayer);
+    dom.newPlayer.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        addSetupPlayer();
+      }
+    });
+
+    dom.createRoundBtn.addEventListener("click", createRound);
+    dom.joinRoundBtn.addEventListener("click", joinFromInput);
+
+    dom.copyLinkBtn.addEventListener("click", copyShareLink);
+    dom.switchPlayerBtn.addEventListener("click", () => openNameModal(true));
+    dom.backHomeBtn.addEventListener("click", () => {
+      closePicker();
+      showView("home");
+    });
+    dom.newRoundBtn.addEventListener("click", startNewRound);
+    dom.clearRoundBtn.addEventListener("click", clearCurrentRoundData);
+
+    dom.nameModalSubmit.addEventListener("click", submitIdentityName);
+    dom.nameModalInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        submitIdentityName();
+      }
+    });
+
+    dom.pickerMinus.addEventListener("click", () => adjustScore(-1));
+    dom.pickerPlus.addEventListener("click", () => adjustScore(1));
+    dom.pickerClear.addEventListener("click", clearActiveScore);
+    dom.pickerDone.addEventListener("click", closePicker);
+
+    [dom.potAmount, dom.payoutFirst, dom.payoutSecond, dom.payoutThird].forEach((input) => {
+      input.addEventListener("input", onPayoutInputChanged);
+      input.addEventListener("blur", normalizePayoutInputValues);
+    });
+  }
+
+  function showView(name) {
+    dom.startChoiceView.classList.add("hidden");
+    dom.homeView.classList.add("hidden");
+    dom.scoreView.classList.add("hidden");
+    if (name === "start-choice") dom.startChoiceView.classList.remove("hidden");
+    if (name === "home") {
+      dom.homeView.classList.remove("hidden");
+      setTimeout(() => dom.joinInput.focus(), 0);
+    }
+    if (name === "score") dom.scoreView.classList.remove("hidden");
+  }
+
+  function showError(node, message) {
+    if (!message) {
+      node.classList.add("hidden");
+      node.textContent = "";
+      return;
+    }
+    node.classList.remove("hidden");
+    node.textContent = message;
+  }
+
+  function showFeedback(message, isError) {
+    clearTimeout(state.feedbackTimer);
+    dom.scoreFeedback.textContent = message;
+    dom.scoreFeedback.classList.remove("hidden");
+    dom.scoreFeedback.classList.toggle("error", Boolean(isError));
+    state.feedbackTimer = setTimeout(() => {
+      dom.scoreFeedback.classList.add("hidden");
+      dom.scoreFeedback.classList.remove("error");
+    }, 2200);
+  }
+
+  function addSetupPlayer() {
+    const name = dom.newPlayer.value.trim();
+    if (!name) return;
+    if (state.setupPlayers.length >= MAX_PLAYERS) {
+      showError(dom.homeError, `Maximum ${MAX_PLAYERS} players.`);
+      return;
+    }
+    state.setupPlayers.push({ id: `local-${Date.now()}-${Math.random()}`, name: name.trim() });
+    dom.newPlayer.value = "";
+    dom.newPlayer.focus();
+    showError(dom.homeError, "");
+    renderSetupPlayers();
+  }
+
+  function removeSetupPlayer(localId) {
+    state.setupPlayers = state.setupPlayers.filter((p) => p.id !== localId);
+    renderSetupPlayers();
+  }
+
+  function renderSetupPlayers() {
+    dom.playerCount.textContent = `(${state.setupPlayers.length} / ${MAX_PLAYERS})`;
+    if (!state.setupPlayers.length) {
+      dom.setupPlayerList.innerHTML = '<p class="muted tiny">No players added yet.</p>';
+      return;
+    }
+    dom.setupPlayerList.innerHTML = state.setupPlayers.map((p, i) => {
+      return `
+        <div class="setup-player-row">
+          <div class="setup-player-main">
+            <span class="setup-player-index">${i + 1}.</span>
+            <input class="setup-player-name" type="text" data-local-id="${p.id}" value="${escapeHtml(p.name)}">
+          </div>
+          <button class="btn btn-danger setup-remove-btn" type="button" data-local-id="${p.id}">Remove</button>
+        </div>
+      `;
+    }).join("");
+
+    dom.setupPlayerList.querySelectorAll(".setup-player-name").forEach((input) => {
+      input.addEventListener("input", (e) => {
+        const id = e.target.getAttribute("data-local-id");
+        const p = state.setupPlayers.find((x) => x.id === id);
+        if (p) p.name = e.target.value;
+      });
+      input.addEventListener("blur", (e) => {
+        const id = e.target.getAttribute("data-local-id");
+        const p = state.setupPlayers.find((x) => x.id === id);
+        if (!p) return;
+        p.name = String(p.name || "").trim();
+        e.target.value = p.name;
+      });
+    });
+    dom.setupPlayerList.querySelectorAll(".setup-remove-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => removeSetupPlayer(e.target.getAttribute("data-local-id")));
+    });
+  }
+
+  function validateCreateInputs() {
+    const roundName = dom.roundName.value.trim();
+    const courseName = dom.courseName.value.trim();
+    const tee = dom.tee.value.trim();
+    dom.roundName.value = roundName;
+    dom.courseName.value = courseName;
+    dom.tee.value = tee;
+    const holes = Number(dom.holes.value) === 9 ? 9 : 18;
+    if (!roundName) return { error: "Round name is required." };
+    if (!courseName) return { error: "Course name is required." };
+    if (!state.setupPlayers.length) return { error: "Add at least one player." };
+    if (state.setupPlayers.some((p) => !p.name.trim())) return { error: "All players need a name." };
+    return {
+      roundName: roundName,
+      courseName: courseName,
+      tee: tee,
+      holes: holes,
+      players: state.setupPlayers
+        .map((p) => p.name.trim())
+        .filter((name) => name.length > 0)
+    };
+  }
+
+  async function createRound() {
+    const input = validateCreateInputs();
+    if (input.error) {
+      showError(dom.homeError, input.error);
+      return;
+    }
+    dom.createRoundBtn.disabled = true;
+    showError(dom.homeError, "");
+    try {
+      const created = await window.SupabaseAPI.createRoundWithPlayers(input);
+      await loadRound(created.round.id);
+      saveSession({ roundId: created.round.id });
+      updateUrlRoundParam(created.round.id);
+      showView("score");
+    } catch (err) {
+      showError(dom.homeError, "Could not create round. Please try again.");
+      console.error(err);
+    } finally {
+      dom.createRoundBtn.disabled = false;
+    }
+  }
+
+  async function joinFromInput() {
+    const text = dom.joinInput.value.trim();
+    dom.joinInput.value = text;
+    if (!text) {
+      showError(dom.joinError, "Enter a round link or code.");
+      return;
+    }
+    dom.joinRoundBtn.disabled = true;
+    showError(dom.joinError, "");
+    try {
+      const round = await window.SupabaseAPI.findRoundByCodeOrLink(text);
+      if (!round) {
+        showError(dom.joinError, "Round not found.");
+        return;
+      }
+      await joinRoundById(round.id);
+    } catch (err) {
+      showError(dom.joinError, "Could not join that round.");
+      console.error(err);
+    } finally {
+      dom.joinRoundBtn.disabled = false;
+    }
+  }
+
+  async function joinRoundById(roundId) {
+    await loadRound(roundId);
+    saveSession({ roundId: roundId });
+    updateUrlRoundParam(roundId);
+    showView("score");
+  }
+
+  async function loadRound(roundId) {
+    stopRealtime();
+    const [round, players, scores] = await Promise.all([
+      window.SupabaseAPI.getRoundById(roundId),
+      window.SupabaseAPI.getPlayers(roundId),
+      window.SupabaseAPI.getScores(roundId)
+    ]);
+    if (!round) throw new Error("Round not found.");
+
+    state.round = round;
+    if (state.round.pot_amount == null) state.round.pot_amount = 0;
+    if (state.round.payout_first == null) state.round.payout_first = 60;
+    if (state.round.payout_second == null) state.round.payout_second = 30;
+    if (state.round.payout_third == null) state.round.payout_third = 10;
+    state.players = players;
+    state.scoreMap = buildScoreMap(scores);
+    state.pendingScoreKeys.clear();
+    state.activeCell = null;
+
+    applyStoredIdentityOrPrompt();
+    renderRound({ scrollToIdentity: true });
+    startRealtime(roundId);
+  }
+
+  function buildScoreMap(scoreRows) {
+    const map = {};
+    scoreRows.forEach((row) => {
+      map[scoreKey(row.player_id, row.hole)] = row.value;
+    });
+    return map;
+  }
+
+  function scoreKey(playerId, hole) {
+    return `${playerId}:${hole}`;
+  }
+
+  function getScore(playerId, hole) {
+    const v = state.scoreMap[scoreKey(playerId, hole)];
+    return Number.isInteger(v) ? v : null;
+  }
+
+  function applyStoredIdentityOrPrompt() {
+    state.identityName = null;
+    state.identityPlayerId = null;
+    const key = identityKey(state.round.id);
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      const found = findPlayerByName(stored);
+      if (found) {
+        state.identityName = found.name;
+        state.identityPlayerId = found.id;
+      }
+    }
+    if (!state.identityPlayerId) openNameModal(false);
+    else closeNameModal();
+  }
+
+  function openNameModal(fromSwitch) {
+    dom.nameModal.classList.remove("hidden");
+    dom.nameModal.setAttribute("aria-hidden", "false");
+    dom.nameModalInput.value = fromSwitch ? (state.identityName || "") : "";
+    showError(dom.nameModalError, "");
+    setTimeout(() => dom.nameModalInput.focus(), 0);
+  }
+
+  function closeNameModal() {
+    dom.nameModal.classList.add("hidden");
+    dom.nameModal.setAttribute("aria-hidden", "true");
+  }
+
+  function findPlayerByName(name) {
+    const needle = String(name || "").trim().toLowerCase();
+    if (!needle) return null;
+    return state.players.find((p) => p.name.trim().toLowerCase() === needle) || null;
+  }
+
+  function submitIdentityName() {
+    const typed = dom.nameModalInput.value.trim();
+    dom.nameModalInput.value = typed;
+    const found = findPlayerByName(typed);
+    if (!found) {
+      showError(dom.nameModalError, "Name not in this round");
+      return;
+    }
+    state.identityName = found.name;
+    state.identityPlayerId = found.id;
+    localStorage.setItem(identityKey(state.round.id), found.name);
+    closeNameModal();
+    renderRound({ scrollToIdentity: true, forceScroll: true });
+  }
+
+  function renderRound(options) {
+    if (!state.round) return;
+    const opts = options || {};
+    dom.metaRoundName.textContent = state.round.name;
+    dom.metaCourse.textContent = state.round.course || "-";
+    dom.metaTee.textContent = state.round.tee || "-";
+    dom.metaHoles.textContent = String(state.round.holes);
+    dom.metaPlayerCount.textContent = String(state.players.length);
+    dom.metaUserName.textContent = state.identityName || "Select your name";
+    dom.roundId.value = state.round.id;
+
+    const link = buildShareLink(state.round.id);
+    dom.shareLink.value = link;
+    renderQr(link);
+
+    const showBack = state.round.holes === 18;
+    dom.leaderboardBackHead.classList.toggle("hidden", !showBack);
+
+    dom.potAmount.value = formatMoneyInput(state.round.pot_amount);
+    dom.payoutFirst.value = formatPercentInput(state.round.payout_first);
+    dom.payoutSecond.value = formatPercentInput(state.round.payout_second);
+    dom.payoutThird.value = formatPercentInput(state.round.payout_third);
+    syncPotSettingsLockState();
+    renderPayouts();
+
+    renderLeaderboard();
+    renderScoreTable();
+    if (opts.scrollToIdentity) scheduleScrollToIdentityRow(Boolean(opts.forceScroll));
+  }
+
+  function renderQr(link) {
+    dom.qrBox.innerHTML = "";
+    try {
+      if (!window.LocalQR || typeof window.LocalQR.render !== "function") {
+        throw new Error("LocalQR renderer missing");
+      }
+      window.LocalQR.render(dom.qrBox, link, { modules: 33, scale: 4, quietZone: 2 });
+      if (!dom.qrBox.firstChild) {
+        throw new Error("QR output empty");
+      }
+    } catch (_err) {
+      const fallback = document.createElement("div");
+      fallback.className = "qr-fallback";
+      fallback.textContent = link;
+      dom.qrBox.appendChild(fallback);
+    }
+  }
+
+  function buildShareLink(roundId) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("round", roundId);
+    return url.toString();
+  }
+
+  function getRoundIdFromUrl() {
+    const url = new URL(window.location.href);
+    const round = url.searchParams.get("round");
+    if (!round) return null;
+    return window.SupabaseAPI.extractRoundId(round);
+  }
+
+  function updateUrlRoundParam(roundId) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("round", roundId);
+    window.history.replaceState({}, "", url.toString());
+  }
+
+  function clearUrlRoundParam() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("round");
+    window.history.replaceState({}, "", url.toString());
+  }
+
+  function getTotals(playerId) {
+    const holes = state.round.holes;
+    const front = sumRange(playerId, 1, Math.min(9, holes));
+    const back = holes === 18 ? sumRange(playerId, 10, 18) : null;
+    const total = holes === 18 ? sumNullable(front, back) : front;
+    return { front: front, back: back, total: total };
+  }
+
+  function sumRange(playerId, from, to) {
+    let sum = 0;
+    let has = false;
+    for (let h = from; h <= to; h += 1) {
+      const v = getScore(playerId, h);
+      if (Number.isInteger(v)) {
+        sum += v;
+        has = true;
+      }
+    }
+    return has ? sum : null;
+  }
+
+  function sumNullable(a, b) {
+    if (a == null && b == null) return null;
+    return (a || 0) + (b || 0);
+  }
+
+  function buildStandings() {
+    const rows = state.players.map((p) => {
+      const t = getTotals(p.id);
+      return { id: p.id, name: p.name, front: t.front, back: t.back, total: t.total };
+    });
+
+    rows.sort((a, b) => {
+      const av = a.total == null ? Number.POSITIVE_INFINITY : a.total;
+      const bv = b.total == null ? Number.POSITIVE_INFINITY : b.total;
+      if (av !== bv) return av - bv;
+      return a.name.localeCompare(b.name);
+    });
+
+    const played = rows.filter((r) => r.total != null);
+    const rankMap = new Map();
+    for (let i = 0; i < played.length; i += 1) {
+      const score = played[i].total;
+      if (!rankMap.has(score)) rankMap.set(score, { pos: i + 1, count: 1 });
+      else rankMap.get(score).count += 1;
+    }
+
+    rows.forEach((r) => {
+      if (r.total == null) r.rank = "-";
+      else {
+        const info = rankMap.get(r.total);
+        r.rank = info.count > 1 ? `T${info.pos}` : String(info.pos);
+      }
+    });
+
+    const leadScore = played.length ? played[0].total : null;
+    rows.forEach((r) => {
+      r.isLeader = leadScore != null && r.total === leadScore;
+    });
+
+    return rows;
+  }
+
+  function renderLeaderboard() {
+    const showBack = state.round.holes === 18;
+    const rows = buildStandings();
+    dom.leaderboardBody.innerHTML = rows.map((r) => `
+      <tr class="${r.isLeader ? "leader-row" : ""}">
+        <td><strong>${r.rank}</strong></td>
+        <td>${escapeHtml(r.name)}</td>
+        <td>${display(r.front)}</td>
+        ${showBack ? `<td>${display(r.back)}</td>` : ""}
+        <td><strong>${display(r.total)}</strong></td>
+      </tr>
+    `).join("");
+  }
+
+  function renderScoreTable() {
+    const holes = state.round.holes;
+    const showBack = holes === 18;
+    const standings = buildStandings();
+    const leaders = new Set(standings.filter((s) => s.isLeader).map((s) => s.id));
+
+    let head = '<thead><tr><th class="sticky-player">Player</th>';
+    for (let hole = 1; hole <= holes; hole += 1) {
+      head += `<th class="${hole <= 9 ? "front-head" : "back-head"}">H${hole}</th>`;
+    }
+    head += '<th class="tot-head">Front</th>';
+    if (showBack) head += '<th class="tot-head">Back</th>';
+    head += '<th class="tot-head">Total</th></tr></thead>';
+
+    let body = "<tbody>";
+    state.players.forEach((player) => {
+      const totals = getTotals(player.id);
+      const editableRow = Boolean(state.identityPlayerId && state.identityPlayerId === player.id);
+      const rowClasses = [
+        leaders.has(player.id) ? "score-leader-row" : "",
+        editableRow ? "your-player-row" : ""
+      ].filter(Boolean).join(" ");
+      body += `<tr class="${rowClasses}" data-player-id="${player.id}">`;
+      body += `<td class="sticky-player"><span class="player-name">${escapeHtml(player.name)}</span><span class="player-note">${editableRow ? "You can edit this row" : "Read-only"}</span></td>`;
+      for (let hole = 1; hole <= holes; hole += 1) {
+        const key = scoreKey(player.id, hole);
+        const val = getScore(player.id, hole);
+        const text = val == null ? "-" : String(val);
+        const active = state.activeCell && state.activeCell.playerId === player.id && state.activeCell.hole === hole;
+        const saving = state.pendingScoreKeys.has(key);
+        body += `
+          <td class="${hole > 9 ? "back-cell" : ""}">
+            <button
+              class="score-btn ${val == null ? "empty" : ""} ${active ? "active" : ""} ${editableRow ? "" : "readonly"} ${saving ? "saving" : ""}"
+              type="button"
+              data-player-id="${player.id}"
+              data-hole="${hole}"
+              ${(editableRow && !saving) ? "" : "disabled"}
+              aria-label="${escapeHtml(player.name)} hole ${hole} score ${text}">
+              ${saving ? "..." : text}
+            </button>
+          </td>
+        `;
+      }
+      body += `<td class="tot-cell">${display(totals.front)}</td>`;
+      if (showBack) body += `<td class="tot-cell">${display(totals.back)}</td>`;
+      body += `<td class="tot-cell">${display(totals.total)}</td>`;
+      body += "</tr>";
+    });
+    body += "</tbody>";
+    dom.scoreTable.innerHTML = head + body;
+
+    dom.scoreTable.querySelectorAll(".score-btn:not([disabled])").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const playerId = btn.getAttribute("data-player-id");
+        const hole = Number(btn.getAttribute("data-hole"));
+        openPicker(playerId, hole);
+      });
+    });
+  }
+
+  function openPicker(playerId, hole) {
+    state.activeCell = { playerId: playerId, hole: hole };
+    const player = state.players.find((p) => p.id === playerId);
+    dom.pickerTitle.textContent = `${player ? player.name : "Player"} - Hole ${hole} (Current: ${display(getScore(playerId, hole))})`;
+    dom.pickerStatus.classList.add("hidden");
+    dom.pickerGrid.innerHTML = Array.from({ length: 15 }, (_, i) => i + 1)
+      .map((v) => `<button class="pick-btn" type="button" data-v="${v}">${v}</button>`)
+      .join("");
+
+    dom.pickerGrid.querySelectorAll(".pick-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        await setScore(Number(btn.getAttribute("data-v")));
+      });
+    });
+    dom.picker.classList.remove("hidden");
+    updatePickerBusyState();
+    renderScoreTable();
+  }
+
+  function closePicker() {
+    state.activeCell = null;
+    dom.picker.classList.add("hidden");
+    if (state.round) renderScoreTable();
+  }
+
+  async function setScore(value) {
+    if (!state.activeCell || !state.round) return;
+    const { playerId, hole } = state.activeCell;
+    const key = scoreKey(playerId, hole);
+    if (state.pendingScoreKeys.has(key)) return;
+
+    const nextValue = value == null ? null : clampScore(value);
+    if (nextValue === undefined) return;
+
+    const hadPrev = Object.prototype.hasOwnProperty.call(state.scoreMap, key);
+    const prevValue = hadPrev ? state.scoreMap[key] : undefined;
+
+    state.pendingScoreKeys.add(key);
+    if (nextValue == null) delete state.scoreMap[key];
+    else state.scoreMap[key] = nextValue;
+    syncPotSettingsLockState();
+    renderLeaderboard();
+    renderScoreTable();
+    updatePickerBusyState();
+
+    try {
+      if (nextValue == null) {
+        await window.SupabaseAPI.deleteScore({ roundId: state.round.id, playerId: playerId, hole: hole });
+      } else {
+        await window.SupabaseAPI.upsertScore({ roundId: state.round.id, playerId: playerId, hole: hole, value: nextValue });
+      }
+    } catch (_err) {
+      if (hadPrev) state.scoreMap[key] = prevValue;
+      else delete state.scoreMap[key];
+      showFeedback("Could not save score. Please try again.", true);
+    } finally {
+      state.pendingScoreKeys.delete(key);
+      syncPotSettingsLockState();
+      renderLeaderboard();
+      renderScoreTable();
+      updatePickerBusyState();
+    }
+  }
+
+  async function adjustScore(delta) {
+    if (!state.activeCell) return;
+    const key = scoreKey(state.activeCell.playerId, state.activeCell.hole);
+    if (state.pendingScoreKeys.has(key)) return;
+    const current = getScore(state.activeCell.playerId, state.activeCell.hole);
+    const base = current == null ? 0 : current;
+    const next = base + delta;
+    if (next < MIN_SCORE) {
+      await clearActiveScore();
+      return;
+    }
+    await setScore(next);
+  }
+
+  async function clearActiveScore() {
+    if (!state.activeCell) return;
+    await setScore(null);
+  }
+
+  function updatePickerBusyState() {
+    if (!state.activeCell) return;
+    const key = scoreKey(state.activeCell.playerId, state.activeCell.hole);
+    const busy = state.pendingScoreKeys.has(key);
+    dom.pickerStatus.classList.toggle("hidden", !busy);
+    dom.pickerGrid.querySelectorAll(".pick-btn").forEach((btn) => { btn.disabled = busy; });
+    dom.pickerMinus.disabled = busy;
+    dom.pickerPlus.disabled = busy;
+    dom.pickerClear.disabled = busy;
+  }
+
+  function clampScore(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return undefined;
+    const r = Math.round(n);
+    if (r < MIN_SCORE) return MIN_SCORE;
+    if (r > MAX_SCORE) return MAX_SCORE;
+    return r;
+  }
+
+  async function refreshScores() {
+    if (!state.round) return;
+    const rows = await window.SupabaseAPI.getScores(state.round.id);
+    state.scoreMap = buildScoreMap(rows);
+    syncPotSettingsLockState();
+    renderLeaderboard();
+    renderScoreTable();
+  }
+
+  async function refreshPlayers() {
+    if (!state.round) return;
+    state.players = await window.SupabaseAPI.getPlayers(state.round.id);
+    const found = state.identityName ? findPlayerByName(state.identityName) : null;
+    if (!found) {
+      state.identityName = null;
+      state.identityPlayerId = null;
+      openNameModal(false);
+    } else {
+      state.identityPlayerId = found.id;
+    }
+    renderRound();
+  }
+
+  async function refreshRound() {
+    if (!state.round) return;
+    const latest = await window.SupabaseAPI.getRoundById(state.round.id);
+    if (!latest) return;
+    state.round = {
+      ...state.round,
+      ...latest
+    };
+    if (state.round.pot_amount == null) state.round.pot_amount = 0;
+    if (state.round.payout_first == null) state.round.payout_first = 60;
+    if (state.round.payout_second == null) state.round.payout_second = 30;
+    if (state.round.payout_third == null) state.round.payout_third = 10;
+    renderRound();
+  }
+
+  function startRealtime(roundId) {
+    state.channel = window.SupabaseAPI.subscribeToRound(roundId, {
+      onScoresChanged: refreshScores,
+      onPlayersChanged: refreshPlayers,
+      onRoundChanged: refreshRound
+    });
+  }
+
+  function stopRealtime() {
+    if (!state.channel) return;
+    window.SupabaseAPI.unsubscribeFromRound(state.channel);
+    state.channel = null;
+  }
+
+  async function resumeSession() {
+    const session = getSession();
+    if (!session || !session.roundId) {
+      showView("home");
+      return;
+    }
+    try {
+      await joinRoundById(session.roundId);
+    } catch (err) {
+      clearSession();
+      showView("home");
+      showError(dom.homeError, "Could not resume saved session.");
+      console.error(err);
+    }
+  }
+
+  function startNewRound() {
+    const ok = window.confirm("Start a new round locally? This leaves the current round.");
+    if (!ok) return;
+    stopRealtime();
+    state.round = null;
+    state.players = [];
+    state.scoreMap = {};
+    state.pendingScoreKeys.clear();
+    state.activeCell = null;
+    state.identityName = null;
+    state.identityPlayerId = null;
+    state.lastAutoScrollIdentityToken = null;
+    clearSession();
+    clearUrlRoundParam();
+    closePicker();
+    closeNameModal();
+    showView("home");
+  }
+
+  function clearCurrentRoundData() {
+    if (!state.round) return;
+    const ok = window.confirm("Clear all scores in this round?");
+    if (!ok) return;
+    (async () => {
+      await window.SupabaseAPI.clearScores(state.round.id);
+      state.scoreMap = {};
+      state.pendingScoreKeys.clear();
+      closePicker();
+      renderRound();
+      showFeedback("Round scores cleared.");
+    })().catch((err) => {
+      showFeedback("Could not clear scores. Please try again.", true);
+      console.error(err);
+    });
+  }
+
+  function parseMoney(value) {
+    const n = Number(String(value || "").trim());
+    if (!Number.isFinite(n) || n < 0) return 0;
+    return n;
+  }
+
+  function parsePercent(value) {
+    const n = Number(String(value || "").trim());
+    if (!Number.isFinite(n) || n < 0) return 0;
+    return n;
+  }
+
+  function formatMoneyInput(value) {
+    const n = parseMoney(value);
+    return Number.isInteger(n) ? String(n) : n.toFixed(2);
+  }
+
+  function formatPercentInput(value) {
+    const n = parsePercent(value);
+    return Number.isInteger(n) ? String(n) : n.toFixed(2);
+  }
+
+  function normalizePayoutInputValues() {
+    if (state.potSettingsLocked && state.round) {
+      dom.potAmount.value = formatMoneyInput(state.round.pot_amount);
+      dom.payoutFirst.value = formatPercentInput(state.round.payout_first);
+      dom.payoutSecond.value = formatPercentInput(state.round.payout_second);
+      dom.payoutThird.value = formatPercentInput(state.round.payout_third);
+      return;
+    }
+    dom.potAmount.value = formatMoneyInput(dom.potAmount.value);
+    dom.payoutFirst.value = formatPercentInput(dom.payoutFirst.value);
+    dom.payoutSecond.value = formatPercentInput(dom.payoutSecond.value);
+    dom.payoutThird.value = formatPercentInput(dom.payoutThird.value);
+  }
+
+  function onPayoutInputChanged() {
+    if (!state.round) return;
+    if (state.potSettingsLocked) {
+      dom.potAmount.value = formatMoneyInput(state.round.pot_amount);
+      dom.payoutFirst.value = formatPercentInput(state.round.payout_first);
+      dom.payoutSecond.value = formatPercentInput(state.round.payout_second);
+      dom.payoutThird.value = formatPercentInput(state.round.payout_third);
+      return;
+    }
+    const next = {
+      pot_amount: parseMoney(dom.potAmount.value),
+      payout_first: parsePercent(dom.payoutFirst.value),
+      payout_second: parsePercent(dom.payoutSecond.value),
+      payout_third: parsePercent(dom.payoutThird.value)
+    };
+    state.round.pot_amount = next.pot_amount;
+    state.round.payout_first = next.payout_first;
+    state.round.payout_second = next.payout_second;
+    state.round.payout_third = next.payout_third;
+    renderPayouts();
+    queueRoundSettingsSave();
+  }
+
+  function queueRoundSettingsSave() {
+    if (!state.round) return;
+    if (state.potSettingsLocked) return;
+    clearTimeout(state.settingsSaveTimer);
+    dom.payoutSaveStatus.classList.remove("hidden");
+    dom.payoutSaveStatus.textContent = "Saving pot settings...";
+    state.settingsSaveTimer = setTimeout(async () => {
+      if (state.potSettingsLocked || !state.round) return;
+      try {
+        const updated = await window.SupabaseAPI.updateRoundSettings({
+          roundId: state.round.id,
+          potAmount: parseMoney(dom.potAmount.value),
+          payoutFirst: parsePercent(dom.payoutFirst.value),
+          payoutSecond: parsePercent(dom.payoutSecond.value),
+          payoutThird: parsePercent(dom.payoutThird.value)
+        });
+        state.round = { ...state.round, ...updated };
+        dom.payoutSaveStatus.textContent = "Saved";
+        setTimeout(() => {
+          dom.payoutSaveStatus.classList.add("hidden");
+        }, 900);
+      } catch (err) {
+        dom.payoutSaveStatus.classList.remove("hidden");
+        dom.payoutSaveStatus.textContent = "Save failed. Try again.";
+        showFeedback("Could not save pot settings.", true);
+        console.error(err);
+      }
+    }, 350);
+  }
+
+  function hasAnyScores() {
+    return Object.keys(state.scoreMap).length > 0;
+  }
+
+  function syncPotSettingsLockState() {
+    const locked = hasAnyScores();
+    state.potSettingsLocked = locked;
+    [dom.potAmount, dom.payoutFirst, dom.payoutSecond, dom.payoutThird].forEach((input) => {
+      input.disabled = locked;
+      input.readOnly = locked;
+    });
+    dom.payoutSettingsGrid.classList.toggle("locked", locked);
+    dom.payoutLockMessage.classList.toggle("hidden", !locked);
+    if (locked && state.settingsSaveTimer) {
+      clearTimeout(state.settingsSaveTimer);
+      state.settingsSaveTimer = null;
+      dom.payoutSaveStatus.classList.add("hidden");
+    }
+  }
+
+  function scheduleScrollToIdentityRow(force) {
+    if (!state.round || !state.identityPlayerId || !dom.scoreTable) return;
+    const identityToken = `${state.round.id}:${state.identityPlayerId}`;
+    if (!force && state.lastAutoScrollIdentityToken === identityToken) return;
+    window.requestAnimationFrame(() => {
+      const targetRow = getIdentityPlayerRow();
+      if (!targetRow) return;
+      const container = dom.scoreScrollContainer;
+      if (container && typeof container.scrollTo === "function") {
+        const rowOffset = targetRow.offsetTop - container.offsetTop;
+        const targetTop = Math.max(0, rowOffset - Math.max(12, (container.clientHeight - targetRow.offsetHeight) / 2));
+        try {
+          container.scrollTo({ top: targetTop, behavior: "smooth" });
+        } catch (_err) {
+          container.scrollTop = targetTop;
+        }
+      } else {
+        try {
+          targetRow.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+        } catch (_err) {
+          targetRow.scrollIntoView();
+        }
+      }
+      state.lastAutoScrollIdentityToken = identityToken;
+    });
+  }
+
+  function getIdentityPlayerRow() {
+    const rows = dom.scoreTable.querySelectorAll("tbody tr[data-player-id]");
+    for (const row of rows) {
+      if (row.getAttribute("data-player-id") === state.identityPlayerId) return row;
+    }
+    return null;
+  }
+
+  function money(n) {
+    return `$${(Number(n) || 0).toFixed(2)}`;
+  }
+
+  function renderPayouts() {
+    if (!state.round) return;
+    const pot = parseMoney(state.round.pot_amount);
+    const p1 = parsePercent(state.round.payout_first);
+    const p2 = parsePercent(state.round.payout_second);
+    const p3 = parsePercent(state.round.payout_third);
+    const payoutByPos = {
+      1: pot * (p1 / 100),
+      2: pot * (p2 / 100),
+      3: pot * (p3 / 100)
+    };
+
+    const totalPct = p1 + p2 + p3;
+    if (Math.abs(totalPct - 100) > 0.0001) {
+      dom.payoutWarning.classList.remove("hidden");
+      dom.payoutWarning.textContent = `Payout percentages total ${totalPct.toFixed(2)}% (not 100%).`;
+    } else {
+      dom.payoutWarning.classList.add("hidden");
+      dom.payoutWarning.textContent = "";
+    }
+
+    dom.payoutPositionBody.innerHTML = `
+      <tr><td>1st</td><td>${p1.toFixed(2)}%</td><td>${money(payoutByPos[1])}</td></tr>
+      <tr><td>2nd</td><td>${p2.toFixed(2)}%</td><td>${money(payoutByPos[2])}</td></tr>
+      <tr><td>3rd</td><td>${p3.toFixed(2)}%</td><td>${money(payoutByPos[3])}</td></tr>
+      <tr><td><strong>Total Pot</strong></td><td>-</td><td><strong>${money(pot)}</strong></td></tr>
+    `;
+
+    const standings = buildStandings();
+    const payoutMap = calculateProjectedPayouts(standings, payoutByPos);
+    dom.payoutPlayerBody.innerHTML = standings.map((row) => {
+      return `<tr><td>${escapeHtml(row.name)}</td><td><strong>${money(payoutMap[row.id] || 0)}</strong></td></tr>`;
+    }).join("");
+  }
+
+  function calculateProjectedPayouts(standings, payoutByPos) {
+    const map = {};
+    standings.forEach((s) => { map[s.id] = 0; });
+    let i = 0;
+    while (i < standings.length) {
+      let j = i + 1;
+      while (j < standings.length && standings[j].total === standings[i].total) j += 1;
+      if (standings[i].total == null) {
+        i = j;
+        continue;
+      }
+      const rankStart = i + 1;
+      const rankEnd = j;
+      let pool = 0;
+      for (let pos = Math.max(rankStart, 1); pos <= Math.min(rankEnd, 3); pos += 1) {
+        pool += payoutByPos[pos] || 0;
+      }
+      if (pool > 0) {
+        const split = pool / (j - i);
+        for (let k = i; k < j; k += 1) {
+          map[standings[k].id] += split;
+        }
+      }
+      i = j;
+    }
+    return map;
+  }
+
+  async function copyShareLink() {
+    const text = dom.shareLink.value;
+    try {
+      await navigator.clipboard.writeText(text);
+      const prev = dom.copyLinkBtn.textContent;
+      clearTimeout(state.copyBtnTimer);
+      dom.copyLinkBtn.textContent = "Copied";
+      showFeedback("Share link copied.");
+      state.copyBtnTimer = setTimeout(() => { dom.copyLinkBtn.textContent = prev; }, 1000);
+    } catch (_err) {
+      window.alert(text);
+    }
+  }
+
+  function saveSession(session) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  }
+
+  function getSession() {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  function clearSession() {
+    localStorage.removeItem(SESSION_KEY);
+  }
+
+  function identityKey(roundId) {
+    return `${IDENTITY_KEY_PREFIX}${roundId}`;
+  }
+
+  function getRoundIdFromUrl() {
+    const url = new URL(window.location.href);
+    const round = url.searchParams.get("round");
+    if (!round) return null;
+    return window.SupabaseAPI.extractRoundId(round);
+  }
+
+  function updateUrlRoundParam(roundId) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("round", roundId);
+    window.history.replaceState({}, "", url.toString());
+  }
+
+  function clearUrlRoundParam() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("round");
+    window.history.replaceState({}, "", url.toString());
+  }
+
+  function display(v) {
+    return v == null ? "-" : String(v);
+  }
+
+  function escapeHtml(text) {
+    return String(text)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+})();
