@@ -155,6 +155,7 @@
     dom.pickerPlus.addEventListener("click", () => adjustScore(1));
     dom.pickerClear.addEventListener("click", clearActiveScore);
     dom.pickerDone.addEventListener("click", closePicker);
+    dom.scoreTable.addEventListener("click", onScoreTableClick);
 
     [dom.potAmount, dom.payoutFirst, dom.payoutSecond, dom.payoutThird].forEach((input) => {
       input.addEventListener("input", onPayoutInputChanged);
@@ -585,7 +586,7 @@
     let body = "<tbody>";
     state.players.forEach((player) => {
       const totals = getTotals(player.id);
-      const editableRow = Boolean(state.identityPlayerId && state.identityPlayerId === player.id);
+      const editableRow = isEditablePlayerRow(player.id);
       const rowClasses = [
         leaders.has(player.id) ? "score-leader-row" : "",
         editableRow ? "your-player-row" : ""
@@ -619,14 +620,17 @@
     });
     body += "</tbody>";
     dom.scoreTable.innerHTML = head + body;
+  }
 
-    dom.scoreTable.querySelectorAll(".score-btn:not([disabled])").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const playerId = btn.getAttribute("data-player-id");
-        const hole = Number(btn.getAttribute("data-hole"));
-        openPicker(playerId, hole);
-      });
-    });
+  function onScoreTableClick(event) {
+    const btn = event.target.closest(".score-btn");
+    if (!btn || !dom.scoreTable.contains(btn)) return;
+    if (btn.disabled) return;
+    const playerId = btn.getAttribute("data-player-id");
+    const hole = Number(btn.getAttribute("data-hole"));
+    if (!playerId || !Number.isInteger(hole) || hole < 1) return;
+    console.log("score-click", { playerId: playerId, hole: hole });
+    openPicker(playerId, hole);
   }
 
   function openPicker(playerId, hole) {
@@ -978,6 +982,11 @@
       if (row.getAttribute("data-player-id") === state.identityPlayerId) return row;
     }
     return null;
+  }
+
+  function isEditablePlayerRow(playerId) {
+    if (state.identityPlayerId == null || playerId == null) return false;
+    return String(state.identityPlayerId) === String(playerId);
   }
 
   function money(n) {
