@@ -332,7 +332,7 @@
     const text = dom.joinInput.value.trim();
     dom.joinInput.value = text;
     if (!text) {
-      showError(dom.joinError, "Enter a round link or code.");
+      showError(dom.joinError, "Enter a Round Link or Full Round ID.");
       return;
     }
     dom.joinRoundBtn.disabled = true;
