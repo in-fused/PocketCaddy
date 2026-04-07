@@ -26,6 +26,13 @@
     joinInput: document.getElementById("join-input"),
     joinRoundBtn: document.getElementById("join-round-btn"),
     joinError: document.getElementById("join-error"),
+    hubCreateBtn: document.getElementById("hub-create-btn"),
+    hubJoinBtn: document.getElementById("hub-join-btn"),
+    quickCreateBtn: document.getElementById("quick-create-btn"),
+    quickJoinBtn: document.getElementById("quick-join-btn"),
+    quickResumeBtn: document.getElementById("quick-resume-btn"),
+    createRoundSection: document.getElementById("create-round-section"),
+    joinRoundSection: document.getElementById("join-round-section"),
 
     scoreView: document.getElementById("score-view"),
     metaRoundName: document.getElementById("meta-round-name"),
@@ -133,6 +140,11 @@
 
     dom.createRoundBtn.addEventListener("click", createRound);
     dom.joinRoundBtn.addEventListener("click", joinFromInput);
+    dom.hubCreateBtn.addEventListener("click", () => jumpToHomeSection("create"));
+    dom.hubJoinBtn.addEventListener("click", () => jumpToHomeSection("join"));
+    dom.quickCreateBtn.addEventListener("click", () => jumpToHomeSection("create"));
+    dom.quickJoinBtn.addEventListener("click", () => jumpToHomeSection("join"));
+    dom.quickResumeBtn.addEventListener("click", resumeSession);
 
     dom.copyLinkBtn.addEventListener("click", copyShareLink);
     dom.switchPlayerBtn.addEventListener("click", () => openNameModal(true));
@@ -170,6 +182,7 @@
     if (name === "start-choice") dom.startChoiceView.classList.remove("hidden");
     if (name === "home") {
       dom.homeView.classList.remove("hidden");
+      updateHomeQuickActions();
       setTimeout(() => dom.joinInput.focus(), 0);
     }
     if (name === "score") dom.scoreView.classList.remove("hidden");
@@ -194,6 +207,24 @@
       dom.scoreFeedback.classList.add("hidden");
       dom.scoreFeedback.classList.remove("error");
     }, 2200);
+  }
+
+  function updateHomeQuickActions() {
+    const session = getSession();
+    const hasSavedRound = Boolean(session && session.roundId);
+    dom.quickResumeBtn.classList.toggle("hidden", !hasSavedRound);
+  }
+
+  function jumpToHomeSection(section) {
+    if (section === "create") {
+      if (dom.createRoundSection) dom.createRoundSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      setTimeout(() => dom.roundName.focus(), 80);
+      return;
+    }
+    if (section === "join") {
+      if (dom.joinRoundSection) dom.joinRoundSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      setTimeout(() => dom.joinInput.focus(), 80);
+    }
   }
 
   function addSetupPlayer() {

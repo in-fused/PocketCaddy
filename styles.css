@@ -75,6 +75,111 @@ h2, h3, h4, p { margin: 0; }
   border-top: 1px solid var(--line);
 }
 
+.home-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(145deg, #f8fcf9 0%, #eef6f0 100%);
+}
+
+.home-hero::after {
+  content: "";
+  position: absolute;
+  right: -28px;
+  top: -18px;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, rgba(31, 122, 62, 0.2), rgba(31, 122, 62, 0));
+  pointer-events: none;
+}
+
+.home-kicker {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: #2d653f;
+}
+
+.home-title {
+  margin-top: 6px;
+}
+
+.home-tagline {
+  margin-top: 8px;
+  color: #3c5643;
+  max-width: 48ch;
+}
+
+.home-hero-actions {
+  margin-top: 12px;
+}
+
+.home-quick h3,
+.home-media h3,
+.home-featured h3 {
+  margin-bottom: 8px;
+}
+
+.home-quick-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.home-link-grid {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.golf-link-card {
+  border: 1px solid #d8e4db;
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px;
+}
+
+.golf-link-card h4 {
+  font-size: 1rem;
+}
+
+.golf-link-card p {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.link-btn {
+  margin-top: 8px;
+  width: auto;
+  min-height: 40px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-featured-list {
+  display: grid;
+  gap: 8px;
+}
+
+.home-featured-item {
+  display: block;
+  padding: 9px 10px;
+  border: 1px solid #d7e3da;
+  border-radius: 10px;
+  background: #fff;
+  color: #224634;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.home-featured-item:hover {
+  background: #f6fbf7;
+  border-color: #bfd2c5;
+}
+
 .form-grid {
   display: grid;
   gap: 10px;
@@ -746,6 +851,12 @@ input:focus, select:focus {
     width: 38px;
     height: 36px;
   }
+  .home-tagline {
+    font-size: 0.92rem;
+  }
+  .golf-link-card {
+    padding: 9px;
+  }
 }
 
 @media (min-width: 760px) {
@@ -760,5 +871,14 @@ input:focus, select:focus {
   }
   .payout-settings-grid {
     grid-template-columns: repeat(4, minmax(120px, 1fr));
+  }
+  .home-quick-grid {
+    grid-template-columns: repeat(3, minmax(120px, 1fr));
+  }
+  .home-link-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .home-featured-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

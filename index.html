@@ -24,6 +24,26 @@
       </section>
 
       <section id="home-view" class="card section hidden">
+        <section class="home-hero card-sub">
+          <p class="home-kicker">PocketCaddy Home</p>
+          <h2 class="home-title">PocketCaddy</h2>
+          <p class="home-tagline">Live scoring for your golf group, built for quick rounds and clean payouts.</p>
+          <div class="actions home-hero-actions">
+            <button id="hub-create-btn" class="btn btn-primary" type="button">Create Round</button>
+            <button id="hub-join-btn" class="btn btn-secondary" type="button">Join Round</button>
+          </div>
+        </section>
+
+        <section class="home-quick card-sub">
+          <h3>Quick Actions</h3>
+          <div class="home-quick-grid">
+            <button id="quick-create-btn" class="btn btn-primary" type="button">Create Round</button>
+            <button id="quick-join-btn" class="btn btn-secondary" type="button">Join Round</button>
+            <button id="quick-resume-btn" class="btn btn-secondary hidden" type="button">Resume Saved Round</button>
+          </div>
+        </section>
+
+        <div id="create-round-section"></div>
         <h2>Create Round</h2>
 
         <div class="form-grid">
@@ -56,12 +76,49 @@
 
         <hr class="divider">
 
+        <div id="join-round-section"></div>
         <h2>Join Round</h2>
         <label><span>Round Link or Full Round ID</span><input id="join-input" type="text" placeholder="?round=... or full round id"></label>
         <div id="join-error" class="error hidden"></div>
         <div class="actions">
           <button id="join-round-btn" class="btn btn-secondary" type="button">Join Round</button>
         </div>
+
+        <section class="home-media card-sub">
+          <h3>Now in Golf</h3>
+          <p class="muted tiny">Quick links to major golf destinations.</p>
+          <div class="home-link-grid">
+            <article class="golf-link-card">
+              <h4>PGA TOUR Schedule</h4>
+              <p>See upcoming PGA TOUR events and dates.</p>
+              <a class="btn btn-secondary link-btn" href="https://www.pgatour.com/schedule" target="_blank" rel="noopener noreferrer">Open</a>
+            </article>
+            <article class="golf-link-card">
+              <h4>LPGA Tournaments</h4>
+              <p>Track the latest LPGA tournament calendar.</p>
+              <a class="btn btn-secondary link-btn" href="https://www.lpga.com/tournaments" target="_blank" rel="noopener noreferrer">Open</a>
+            </article>
+            <article class="golf-link-card">
+              <h4>Masters Official</h4>
+              <p>Official Masters information, updates, and coverage.</p>
+              <a class="btn btn-secondary link-btn" href="https://www.masters.com/index.html" target="_blank" rel="noopener noreferrer">Open</a>
+            </article>
+            <article class="golf-link-card">
+              <h4>Golf Digest News</h4>
+              <p>Latest golf headlines from Golf Digest.</p>
+              <a class="btn btn-secondary link-btn" href="https://www.golfdigest.com/golf-news" target="_blank" rel="noopener noreferrer">Open</a>
+            </article>
+          </div>
+        </section>
+
+        <section class="home-featured card-sub">
+          <h3>Featured Golf Links</h3>
+          <div class="home-featured-list">
+            <a class="home-featured-item" href="https://www.pgatour.com/" target="_blank" rel="noopener noreferrer">PGA TOUR Home</a>
+            <a class="home-featured-item" href="https://www.masters.com/en_US/live/index.html" target="_blank" rel="noopener noreferrer">Masters Live / Watch</a>
+            <a class="home-featured-item" href="https://www.golfdigest.com/equipment/hot-list" target="_blank" rel="noopener noreferrer">Golf Digest Hot List</a>
+          </div>
+        </section>
       </section>
 
       <section id="score-view" class="hidden">
