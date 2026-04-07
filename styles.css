@@ -601,9 +601,87 @@ input:focus, select:focus {
   .table-scroll {
     border-radius: 8px;
   }
-  .leaderboard-table th,
-  .leaderboard-table td {
-    padding: 8px 6px;
+  .table-scroll:not(.score-scroll) {
+    overflow-x: hidden;
+  }
+  .table-scroll:not(.score-scroll) .leaderboard-table {
+    min-width: unset;
+    width: 100%;
+    table-layout: auto;
+  }
+  .table-scroll:not(.score-scroll) .leaderboard-table thead {
+    display: none;
+  }
+  .table-scroll:not(.score-scroll) .leaderboard-table tbody {
+    display: grid;
+    gap: 8px;
+    padding: 8px;
+  }
+  .table-scroll:not(.score-scroll) .leaderboard-table tr {
+    display: block;
+    border: 1px solid #dce6de;
+    border-radius: 10px;
+    background: #fff;
+    padding: 8px 10px;
+  }
+  .table-scroll:not(.score-scroll) .leaderboard-table td {
+    display: grid;
+    grid-template-columns: 86px 1fr;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    padding: 4px 0;
+    text-align: left;
+  }
+  .table-scroll:not(.score-scroll) .leaderboard-table td::before {
+    content: "";
+    color: #4a5d4f;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+  }
+  .table-scroll:not(.score-scroll) .leaderboard-table td:nth-child(1)::before { content: "Rank"; }
+  .table-scroll:not(.score-scroll) .leaderboard-table td:nth-child(2)::before { content: "Name"; }
+  .table-scroll:not(.score-scroll) .leaderboard-table td:nth-child(3)::before { content: "Front"; }
+  .table-scroll:not(.score-scroll) .leaderboard-table td:nth-child(4)::before { content: "Back"; }
+  .table-scroll:not(.score-scroll) .leaderboard-table td:last-child::before { content: "Total"; }
+  #payout-position-body td:nth-child(1)::before { content: ""; }
+  #payout-position-body td:nth-child(2)::before { content: ""; }
+  #payout-position-body td:nth-child(3)::before { content: ""; }
+  #payout-position-body tr td:nth-child(1) {
+    font-weight: 800;
+  }
+  #payout-position-body td {
+    display: block;
+    padding: 2px 0;
+  }
+  #payout-position-body tr td:nth-child(2),
+  #payout-position-body tr td:nth-child(3) {
+    display: inline;
+    padding: 0;
+  }
+  #payout-position-body tr td:nth-child(2)::after {
+    content: " \2014 ";
+    font-weight: 600;
+  }
+  #payout-player-body td {
+    display: inline;
+    padding: 0;
+    border: 0;
+  }
+  #payout-player-body td::before {
+    content: "";
+  }
+  #payout-player-body tr td:first-child {
+    font-weight: 700;
+  }
+  #payout-player-body tr td:first-child::after {
+    content: " \2014 ";
+    font-weight: 600;
+  }
+  #payout-player-body tr td:last-child strong {
+    font-size: 1rem;
   }
   .payout-settings-grid {
     margin-top: 8px;
@@ -624,7 +702,7 @@ input:focus, select:focus {
   .score-table th,
   .score-table td {
     height: 52px;
-    padding: 4px 3px;
+    padding: 3px 2px;
   }
   .sticky-player {
     min-width: 150px;
@@ -638,8 +716,8 @@ input:focus, select:focus {
     font-size: 0.74rem;
   }
   .score-btn {
-    width: 42px;
-    height: 38px;
+    width: 38px;
+    height: 36px;
   }
 }
 
