@@ -70,6 +70,14 @@
     payoutPositionBody: document.getElementById("payout-position-body"),
     payoutPlayerBody: document.getElementById("payout-player-body"),
     scoreHint: document.querySelector("#score-view .card.section .muted.tiny"),
+    courseIntelCard: document.getElementById("course-intel-card"),
+    courseIntelName: document.getElementById("course-intel-name"),
+    courseIntelLocation: document.getElementById("course-intel-location"),
+    courseIntelCoords: document.getElementById("course-intel-coords"),
+    courseIntelWeather: document.getElementById("course-intel-weather"),
+    courseIntelWind: document.getElementById("course-intel-wind"),
+    courseIntelPreview: document.getElementById("course-intel-preview"),
+    courseIntelPreviewFallback: document.getElementById("course-intel-preview-fallback"),
 
     nameModal: document.getElementById("name-modal"),
     nameModalInput: document.getElementById("name-modal-input"),
@@ -107,6 +115,7 @@
     courseSearchTimer: null,
     courseSearchResults: [],
     selectedCourseMetadata: null,
+    courseContextRequestId: 0,
     potSettingsLocked: false,
     lastAutoScrollIdentityToken: null,
     recentScoreFlashKey: null,
@@ -691,6 +700,7 @@
     dom.payoutThird.value = formatPercentInput(state.round.payout_third);
     syncPotSettingsLockState();
     renderPayouts();
+    renderCourseIntelligence();
 
     renderScoreUxMeta();
     renderParRow();
@@ -698,6 +708,123 @@
     renderScoreTable();
     maybeShowScoreTooltipOnce();
     if (opts.scrollToIdentity) scheduleScrollToIdentityRow(Boolean(opts.forceScroll));
+  }
+
+  async function getCourseContext() {
+    if (!state.round) {
+      return {
+        name: "-",
+        locationText: "Location unavailable",
+        coordsText: "Coordinates unavailable",
+        weatherText: "Weather unavailable",
+        windText: "Weather unavailable",
+        previewUrl: null
+      };
+    }
+    const round = state.round;
+    const name = round.course || "-";
+    const locationText = round.course_location_text || "Location unavailable";
+    const lat = Number(round.course_lat);
+    const lng = Number(round.course_lng);
+    const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+    const coordsText = hasCoords ? `${lat.toFixed(4)}, ${lng.toFixed(4)}` : "Coordinates unavailable";
+    const previewUrl = hasCoords ? buildCoursePreviewUrl(lat, lng) : null;
+
+    if (!hasCoords) {
+      return {
+        name: name,
+        locationText: locationText,
+        coordsText: coordsText,
+        weatherText: "Weather unavailable",
+        windText: "Weather unavailable",
+        previewUrl: previewUrl
+      };
+    }
+
+    const weather = await fetchCourseWeather(lat, lng);
+    return {
+      name: name,
+      locationText: locationText,
+      coordsText: coordsText,
+      weatherText: weather.temperatureText || "Weather unavailable",
+      windText: weather.windText || "Weather unavailable",
+      previewUrl: previewUrl
+    };
+  }
+
+  function buildCoursePreviewUrl(lat, lng) {
+    return `https://staticmap.openstreetmap.de/staticmap.php?center=${encodeURIComponent(`${lat},${lng}`)}&zoom=12&size=640x240&markers=${encodeURIComponent(`${lat},${lng},red-pushpin`)}`;
+  }
+
+  async function fetchCourseWeather(lat, lng) {
+    try {
+      const url = new URL("https://api.open-meteo.com/v1/forecast");
+      url.searchParams.set("latitude", String(lat));
+      url.searchParams.set("longitude", String(lng));
+      url.searchParams.set("current_weather", "true");
+      url.searchParams.set("temperature_unit", "fahrenheit");
+      url.searchParams.set("windspeed_unit", "mph");
+      const response = await fetch(url.toString(), { method: "GET" });
+      if (!response.ok) throw new Error("Weather request failed");
+      const data = await response.json();
+      const current = data && data.current_weather ? data.current_weather : null;
+      const temp = current && Number.isFinite(Number(current.temperature)) ? Number(current.temperature) : null;
+      const wind = current && Number.isFinite(Number(current.windspeed)) ? Number(current.windspeed) : null;
+      return {
+        temperatureText: temp == null ? null : `${Math.round(temp)}F`,
+        windText: wind == null ? null : `${Math.round(wind)} mph`
+      };
+    } catch (_err) {
+      return { temperatureText: null, windText: null };
+    }
+  }
+
+  function renderCourseIntelligenceCard(context) {
+    if (!dom.courseIntelCard) return;
+    dom.courseIntelCard.classList.remove("hidden");
+    dom.courseIntelName.textContent = context.name || "-";
+    dom.courseIntelLocation.textContent = context.locationText || "Location unavailable";
+    dom.courseIntelCoords.textContent = context.coordsText || "Coordinates unavailable";
+    dom.courseIntelWeather.textContent = context.weatherText || "Weather unavailable";
+    dom.courseIntelWind.textContent = context.windText || "Weather unavailable";
+
+    if (context.previewUrl) {
+      dom.courseIntelPreview.classList.remove("hidden");
+      dom.courseIntelPreviewFallback.classList.add("hidden");
+      dom.courseIntelPreview.src = context.previewUrl;
+      dom.courseIntelPreview.onerror = function onCoursePreviewError() {
+        dom.courseIntelPreview.classList.add("hidden");
+        dom.courseIntelPreviewFallback.classList.remove("hidden");
+        dom.courseIntelPreviewFallback.textContent = "No course preview available";
+      };
+    } else {
+      dom.courseIntelPreview.classList.add("hidden");
+      dom.courseIntelPreview.removeAttribute("src");
+      dom.courseIntelPreviewFallback.classList.remove("hidden");
+      dom.courseIntelPreviewFallback.textContent = "No course preview available";
+    }
+  }
+
+  async function renderCourseIntelligence() {
+    if (!dom.courseIntelCard) return;
+    const hasCoords = state.round && Number.isFinite(Number(state.round.course_lat)) && Number.isFinite(Number(state.round.course_lng));
+    const requestId = (state.courseContextRequestId || 0) + 1;
+    state.courseContextRequestId = requestId;
+    renderCourseIntelligenceCard({
+      name: state.round && state.round.course ? state.round.course : "-",
+      locationText: state.round && state.round.course_location_text ? state.round.course_location_text : "Location unavailable",
+      coordsText: hasCoords
+        ? `${Number(state.round.course_lat).toFixed(4)}, ${Number(state.round.course_lng).toFixed(4)}`
+        : "Coordinates unavailable",
+      weatherText: hasCoords ? "Loading..." : "Weather unavailable",
+      windText: hasCoords ? "Loading..." : "Weather unavailable",
+      previewUrl: hasCoords
+        ? buildCoursePreviewUrl(Number(state.round.course_lat), Number(state.round.course_lng))
+        : null
+    });
+    const context = await getCourseContext();
+    if (requestId !== state.courseContextRequestId) return;
+    renderCourseIntelligenceCard(context);
   }
 
   function renderScoreUxMeta() {
@@ -1349,6 +1476,7 @@
     state.activeCell = null;
     state.identityName = null;
     state.identityPlayerId = null;
+    state.courseContextRequestId = 0;
     state.lastAutoScrollIdentityToken = null;
     state.recentScoreFlashKey = null;
     state.leaderPulseOn = false;
