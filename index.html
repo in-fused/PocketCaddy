@@ -48,6 +48,13 @@
 
         <div class="form-grid">
           <label><span>Round Name</span><input id="round-name" type="text" placeholder="Saturday Match"></label>
+          <label class="course-search-field">
+            <span>Course Search (optional)</span>
+            <input id="course-search" type="text" placeholder="Search golf courses">
+            <div id="course-search-list" class="course-search-list hidden" role="listbox" aria-label="Course suggestions"></div>
+            <p id="course-search-status" class="course-search-status hidden"></p>
+            <div id="selected-course-card" class="selected-course-card hidden"></div>
+          </label>
           <label><span>Course Name</span><input id="course-name" type="text" placeholder="Eagle Creek"></label>
           <label><span>Tee / Color</span><input id="tee" type="text" placeholder="Blue (optional)"></label>
           <label>

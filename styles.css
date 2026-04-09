@@ -185,6 +185,83 @@ h2, h3, h4, p { margin: 0; }
   gap: 10px;
 }
 
+.course-search-field {
+  position: relative;
+}
+
+.course-search-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 2px);
+  background: #fff;
+  border: 1px solid #cfdccf;
+  border-radius: 10px;
+  box-shadow: 0 8px 18px rgba(15, 35, 20, 0.12);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 15;
+}
+
+.course-suggestion {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid #e5ede7;
+  background: #fff;
+  text-align: left;
+  padding: 10px 10px;
+  cursor: pointer;
+}
+
+.course-suggestion:last-child {
+  border-bottom: 0;
+}
+
+.course-suggestion-main {
+  font-size: 0.94rem;
+  font-weight: 800;
+  color: #1e3527;
+}
+
+.course-suggestion-sub {
+  margin-top: 3px;
+  font-size: 0.78rem;
+  color: #56705e;
+}
+
+.course-search-status {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  color: #506455;
+  font-weight: 700;
+}
+
+.selected-course-card {
+  margin-top: 8px;
+  border: 1px solid #d4e1d7;
+  background: #f5faf6;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.selected-course-card h4 {
+  font-size: 0.9rem;
+  color: #214a33;
+}
+
+.selected-course-card p {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: #4c6657;
+}
+
+.selected-course-card .btn {
+  margin-top: 6px;
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 0.84rem;
+}
+
 label span {
   display: block;
   margin-bottom: 6px;
@@ -1086,6 +1163,12 @@ input:focus, select:focus {
   }
   .golf-link-card {
     padding: 9px;
+  }
+  .course-search-list {
+    max-height: 260px;
+  }
+  .course-suggestion {
+    padding: 11px 10px;
   }
 }
 

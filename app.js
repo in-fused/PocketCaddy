@@ -14,6 +14,10 @@
 
     homeView: document.getElementById("home-view"),
     roundName: document.getElementById("round-name"),
+    courseSearchInput: document.getElementById("course-search"),
+    courseSearchList: document.getElementById("course-search-list"),
+    courseSearchStatus: document.getElementById("course-search-status"),
+    selectedCourseCard: document.getElementById("selected-course-card"),
     courseName: document.getElementById("course-name"),
     tee: document.getElementById("tee"),
     holes: document.getElementById("holes"),
@@ -100,6 +104,9 @@
     feedbackTimer: null,
     copyBtnTimer: null,
     settingsSaveTimer: null,
+    courseSearchTimer: null,
+    courseSearchResults: [],
+    selectedCourseMetadata: null,
     potSettingsLocked: false,
     lastAutoScrollIdentityToken: null,
     recentScoreFlashKey: null,
@@ -113,6 +120,8 @@
     console.log("PocketCaddy v1 live");
     wireEvents();
     renderSetupPlayers();
+    renderSelectedCourseCard();
+    renderCourseSuggestions([]);
 
     const fromUrl = getRoundIdFromUrl();
     if (fromUrl) {
@@ -137,6 +146,20 @@
     });
 
     dom.addPlayerBtn.addEventListener("click", addSetupPlayer);
+    if (dom.courseSearchInput) {
+      dom.courseSearchInput.addEventListener("input", onCourseSearchInput);
+      dom.courseSearchInput.addEventListener("focus", onCourseSearchFocus);
+      dom.courseSearchInput.addEventListener("blur", onCourseSearchBlur);
+    }
+    if (dom.courseSearchList) {
+      dom.courseSearchList.addEventListener("click", onCourseSuggestionClick);
+    }
+    if (dom.selectedCourseCard) {
+      dom.selectedCourseCard.addEventListener("click", onSelectedCourseCardClick);
+    }
+    if (dom.courseName) {
+      dom.courseName.addEventListener("input", onCourseNameInput);
+    }
     dom.newPlayer.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
@@ -249,6 +272,156 @@
     renderSetupPlayers();
   }
 
+  function onCourseSearchInput() {
+    if (!dom.courseSearchInput) return;
+    const query = dom.courseSearchInput.value.trim();
+    if (query.length < 2) {
+      state.courseSearchResults = [];
+      renderCourseSuggestions([]);
+      setCourseSearchStatus(query.length === 0 ? "" : "Type at least 2 characters");
+      return;
+    }
+    clearTimeout(state.courseSearchTimer);
+    setCourseSearchStatus("Searching...");
+    state.courseSearchTimer = setTimeout(() => {
+      searchCourses(query);
+    }, 220);
+  }
+
+  function onCourseSearchFocus() {
+    if (state.courseSearchResults.length > 0) {
+      renderCourseSuggestions(state.courseSearchResults);
+    }
+  }
+
+  function onCourseSearchBlur() {
+    setTimeout(() => {
+      if (dom.courseSearchList) dom.courseSearchList.classList.add("hidden");
+    }, 130);
+  }
+
+  function onCourseSuggestionClick(event) {
+    const button = event.target.closest(".course-suggestion");
+    if (!button) return;
+    const idx = Number(button.getAttribute("data-index"));
+    if (!Number.isInteger(idx)) return;
+    const selected = state.courseSearchResults[idx];
+    if (!selected) return;
+    applySelectedCourse(selected);
+  }
+
+  function onSelectedCourseCardClick(event) {
+    const button = event.target.closest("[data-action]");
+    if (!button) return;
+    const action = button.getAttribute("data-action");
+    if (action === "clear") {
+      clearSelectedCourse();
+      if (dom.courseSearchInput) dom.courseSearchInput.focus();
+    }
+  }
+
+  function onCourseNameInput() {
+    if (!state.selectedCourseMetadata || !dom.courseName) return;
+    const typed = dom.courseName.value.trim().toLowerCase();
+    const selectedName = String(state.selectedCourseMetadata.displayName || "").trim().toLowerCase();
+    if (!typed || typed !== selectedName) clearSelectedCourse({ keepCourseName: true });
+  }
+
+  async function searchCourses(query) {
+    try {
+      const results = await window.SupabaseAPI.searchCourses(query);
+      state.courseSearchResults = Array.isArray(results) ? results : [];
+      renderCourseSuggestions(state.courseSearchResults);
+      if (state.courseSearchResults.length === 0) {
+        setCourseSearchStatus("No matches found. You can still type Course Name manually.");
+      } else {
+        setCourseSearchStatus("");
+      }
+    } catch (_err) {
+      state.courseSearchResults = [];
+      renderCourseSuggestions([]);
+      setCourseSearchStatus("Search unavailable. Enter Course Name manually.");
+    }
+  }
+
+  function renderCourseSuggestions(results) {
+    if (!dom.courseSearchList) return;
+    const list = Array.isArray(results) ? results : [];
+    if (list.length === 0) {
+      dom.courseSearchList.classList.add("hidden");
+      dom.courseSearchList.innerHTML = "";
+      return;
+    }
+    dom.courseSearchList.innerHTML = list.map((item, index) => `
+      <button class="course-suggestion" type="button" data-index="${index}" role="option">
+        <div class="course-suggestion-main">${escapeHtml(item.displayName || "")}</div>
+        <div class="course-suggestion-sub">${escapeHtml(item.locationText || "Location unavailable")}</div>
+      </button>
+    `).join("");
+    dom.courseSearchList.classList.remove("hidden");
+  }
+
+  function setCourseSearchStatus(message) {
+    if (!dom.courseSearchStatus) return;
+    const text = String(message || "");
+    if (!text) {
+      dom.courseSearchStatus.classList.add("hidden");
+      dom.courseSearchStatus.textContent = "";
+      return;
+    }
+    dom.courseSearchStatus.classList.remove("hidden");
+    dom.courseSearchStatus.textContent = text;
+  }
+
+  function applySelectedCourse(course) {
+    if (!course) return;
+    state.selectedCourseMetadata = {
+      displayName: String(course.displayName || "").trim(),
+      locationText: course.locationText ? String(course.locationText) : null,
+      lat: Number.isFinite(Number(course.lat)) ? Number(course.lat) : null,
+      lng: Number.isFinite(Number(course.lng)) ? Number(course.lng) : null,
+      placeId: course.placeId ? String(course.placeId) : null,
+      source: course.source ? String(course.source) : null
+    };
+    if (dom.courseName) dom.courseName.value = state.selectedCourseMetadata.displayName;
+    if (dom.courseSearchInput) dom.courseSearchInput.value = state.selectedCourseMetadata.displayName;
+    state.courseSearchResults = [];
+    renderCourseSuggestions([]);
+    setCourseSearchStatus("Course selected");
+    renderSelectedCourseCard();
+  }
+
+  function clearSelectedCourse(options) {
+    const opts = options || {};
+    state.selectedCourseMetadata = null;
+    if (!opts.keepCourseName && dom.courseName) dom.courseName.value = "";
+    if (dom.courseSearchInput) dom.courseSearchInput.value = "";
+    state.courseSearchResults = [];
+    renderCourseSuggestions([]);
+    setCourseSearchStatus("");
+    renderSelectedCourseCard();
+  }
+
+  function renderSelectedCourseCard() {
+    if (!dom.selectedCourseCard) return;
+    const selected = state.selectedCourseMetadata;
+    if (!selected) {
+      dom.selectedCourseCard.classList.add("hidden");
+      dom.selectedCourseCard.innerHTML = "";
+      return;
+    }
+    const latLng = Number.isFinite(selected.lat) && Number.isFinite(selected.lng)
+      ? `${selected.lat.toFixed(4)}, ${selected.lng.toFixed(4)}`
+      : "Unavailable";
+    dom.selectedCourseCard.innerHTML = `
+      <h4>Selected: ${escapeHtml(selected.displayName || "-")}</h4>
+      <p>${escapeHtml(selected.locationText || "Location unavailable")}</p>
+      <p>Coordinates: ${escapeHtml(latLng)}</p>
+      <button class="btn btn-secondary" type="button" data-action="clear">Clear Selection</button>
+    `;
+    dom.selectedCourseCard.classList.remove("hidden");
+  }
+
   function removeSetupPlayer(localId) {
     state.setupPlayers = state.setupPlayers.filter((p) => p.id !== localId);
     renderSetupPlayers();
@@ -306,6 +479,14 @@
     return {
       roundName: roundName,
       courseName: courseName,
+      courseMetadata: state.selectedCourseMetadata ? {
+        displayName: state.selectedCourseMetadata.displayName,
+        locationText: state.selectedCourseMetadata.locationText,
+        lat: state.selectedCourseMetadata.lat,
+        lng: state.selectedCourseMetadata.lng,
+        placeId: state.selectedCourseMetadata.placeId,
+        source: state.selectedCourseMetadata.source
+      } : null,
       tee: tee,
       holes: holes,
       players: state.setupPlayers
@@ -377,7 +558,7 @@
     ]);
     if (!round) throw new Error("Round not found.");
 
-    state.round = round;
+    state.round = normalizeRoundCourseMetadata(round);
     if (state.round.pot_amount == null) state.round.pot_amount = 0;
     if (state.round.payout_first == null) state.round.payout_first = 60;
     if (state.round.payout_second == null) state.round.payout_second = 30;
@@ -402,6 +583,16 @@
       map[scoreKey(row.player_id, row.hole)] = row.value;
     });
     return map;
+  }
+
+  function normalizeRoundCourseMetadata(round) {
+    if (!round) return round;
+    const next = { ...round };
+    if (!Object.prototype.hasOwnProperty.call(next, "course_place_id")) next.course_place_id = null;
+    if (!Object.prototype.hasOwnProperty.call(next, "course_location_text")) next.course_location_text = null;
+    if (!Object.prototype.hasOwnProperty.call(next, "course_lat")) next.course_lat = null;
+    if (!Object.prototype.hasOwnProperty.call(next, "course_lng")) next.course_lng = null;
+    return next;
   }
 
   function buildParMap(parRows, holes) {
@@ -1100,10 +1291,10 @@
     if (!state.round) return;
     const latest = await window.SupabaseAPI.getRoundById(state.round.id);
     if (!latest) return;
-    state.round = {
+    state.round = normalizeRoundCourseMetadata({
       ...state.round,
       ...latest
-    };
+    });
     if (state.round.pot_amount == null) state.round.pot_amount = 0;
     if (state.round.payout_first == null) state.round.payout_first = 60;
     if (state.round.payout_second == null) state.round.payout_second = 30;
