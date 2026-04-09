@@ -70,6 +70,10 @@
     payoutPositionBody: document.getElementById("payout-position-body"),
     payoutPlayerBody: document.getElementById("payout-player-body"),
     holeIntelligenceStrip: document.getElementById("hole-intelligence-strip"),
+    shotIntelHole: document.getElementById("shot-intel-hole"),
+    shotIntelWind: document.getElementById("shot-intel-wind"),
+    shotIntelClub: document.getElementById("shot-intel-club"),
+    shotIntelTip: document.getElementById("shot-intel-tip"),
     scoreHint: document.querySelector("#score-view .card.section .muted.tiny"),
     courseIntelCard: document.getElementById("course-intel-card"),
     courseIntelName: document.getElementById("course-intel-name"),
@@ -117,6 +121,7 @@
     courseSearchResults: [],
     selectedCourseMetadata: null,
     courseContextRequestId: 0,
+    courseIntelContext: null,
     potSettingsLocked: false,
     holeDetails: {},
     selectedHole: null,
@@ -346,7 +351,7 @@
       state.courseSearchResults = Array.isArray(results) ? results : [];
       renderCourseSuggestions(state.courseSearchResults);
       if (state.courseSearchResults.length === 0) {
-        setCourseSearchStatus("No matches found. You can still type Course Name manually.");
+        setCourseSearchStatus("Search unavailable. Enter Course Name manually.");
       } else {
         setCourseSearchStatus("");
       }
@@ -579,7 +584,7 @@
     state.players = players;
     state.scoreMap = buildScoreMap(scores);
     state.parMap = buildParMap(pars, round.holes);
-    state.holeDetails = buildMockHoleDetails(round.holes, state.holeDetails);
+    state.holeDetails = buildHoleDetails(round.holes, state.holeDetails);
     state.selectedHole = clampHoleSelection(state.selectedHole, round.holes);
     if (state.selectedHole == null && round.holes >= 1) state.selectedHole = 1;
     state.pendingScoreKeys.clear();
@@ -624,37 +629,14 @@
     return map;
   }
 
-  function buildMockHoleDetails(holes, previous) {
+  function buildHoleDetails(holes, previous) {
     const prev = previous || {};
     const next = {};
-    const presets = [
-      { distance: 410, difficulty: "medium" },
-      { distance: 180, difficulty: "easy" },
-      { distance: 455, difficulty: "hard" },
-      { distance: 365, difficulty: "medium" },
-      { distance: 520, difficulty: "hard" },
-      { distance: 160, difficulty: "easy" },
-      { distance: 430, difficulty: "medium" },
-      { distance: 205, difficulty: "hard" },
-      { distance: 395, difficulty: "medium" },
-      { distance: 415, difficulty: "medium" },
-      { distance: 175, difficulty: "easy" },
-      { distance: 470, difficulty: "hard" },
-      { distance: 350, difficulty: "easy" },
-      { distance: 540, difficulty: "hard" },
-      { distance: 190, difficulty: "medium" },
-      { distance: 445, difficulty: "hard" },
-      { distance: 325, difficulty: "easy" },
-      { distance: 485, difficulty: "hard" }
-    ];
     for (let hole = 1; hole <= holes; hole += 1) {
       const existing = prev[hole];
-      if (existing && Number.isFinite(Number(existing.distance)) && isValidDifficulty(existing.difficulty)) {
-        next[hole] = { distance: Number(existing.distance), difficulty: existing.difficulty };
-        continue;
-      }
-      const preset = presets[(hole - 1) % presets.length];
-      next[hole] = { distance: preset.distance, difficulty: preset.difficulty };
+      const distance = existing && Number.isFinite(Number(existing.distance)) ? Number(existing.distance) : null;
+      const difficulty = existing && isValidDifficulty(existing.difficulty) ? existing.difficulty : null;
+      next[hole] = { distance: distance, difficulty: difficulty };
     }
     return next;
   }
@@ -672,7 +654,7 @@
   function getHoleDetail(hole) {
     const detail = state.holeDetails[hole] || {};
     const distance = Number.isFinite(Number(detail.distance)) ? Math.round(Number(detail.distance)) : null;
-    const difficulty = isValidDifficulty(detail.difficulty) ? detail.difficulty : "medium";
+    const difficulty = isValidDifficulty(detail.difficulty) ? detail.difficulty : null;
     return { distance: distance, difficulty: difficulty };
   }
 
@@ -696,8 +678,8 @@
             <span class="hole-intelligence-hole">H${hole}</span>
             <span class="hole-intelligence-par">Par ${display(par)}</span>
           </div>
-          <div class="hole-intelligence-distance">${detail.distance == null ? "-" : detail.distance} yds</div>
-          <div class="hole-intelligence-difficulty ${detail.difficulty}">${detail.difficulty}</div>
+          <div class="hole-intelligence-distance">${detail.distance == null ? "Distance unavailable" : `${detail.distance} yds`}</div>
+          <div class="hole-intelligence-difficulty ${detail.difficulty || ""}">${detail.difficulty == null ? "Difficulty unavailable" : detail.difficulty}</div>
         </button>
       `;
     }
@@ -716,6 +698,7 @@
     if (!state.round) return;
     state.selectedHole = clampHoleSelection(hole, state.round.holes);
     renderHoleIntelligenceStrip();
+    renderShotIntelligencePanel();
     renderScoreTable();
     scrollScoreTableToHole(hole);
     scrollHoleTileIntoView(hole);
@@ -742,6 +725,45 @@
     } catch (_err) {
       tile.scrollIntoView();
     }
+  }
+
+  function getSuggestedClub(distance) {
+    if (!Number.isFinite(distance)) return "-";
+    if (distance < 150) return "Wedge";
+    if (distance <= 180) return "9/8 Iron";
+    if (distance <= 210) return "7/6 Iron";
+    if (distance <= 250) return "Hybrid";
+    return "Driver";
+  }
+
+  function parseWindMph(windText) {
+    const source = String(windText || "");
+    const match = source.match(/(\d+(?:\.\d+)?)\s*mph/i);
+    if (!match) return null;
+    const value = Number(match[1]);
+    return Number.isFinite(value) ? value : null;
+  }
+
+  function renderShotIntelligencePanel() {
+    if (!state.round || !dom.shotIntelHole || !dom.shotIntelWind || !dom.shotIntelClub || !dom.shotIntelTip) return;
+    const selectedHole = clampHoleSelection(state.selectedHole, state.round.holes) || 1;
+    const detail = getHoleDetail(selectedHole);
+    const distanceLabel = detail.distance == null ? "Distance unavailable" : `${detail.distance} yds`;
+    const windText = state.courseIntelContext && state.courseIntelContext.windText
+      ? state.courseIntelContext.windText
+      : "Weather unavailable";
+    const windMph = parseWindMph(windText);
+    const hasDistance = Number.isFinite(detail.distance);
+    const suggestedClub = hasDistance ? getSuggestedClub(detail.distance) : "Unavailable";
+    const needsAdjustment = windMph != null && windMph > 10;
+
+    dom.shotIntelHole.textContent = `Hole ${selectedHole} - ${distanceLabel}`;
+    dom.shotIntelWind.textContent = `Wind: ${windText}`;
+    dom.shotIntelClub.textContent = `Suggested: ${suggestedClub}`;
+    dom.shotIntelTip.textContent = hasDistance
+      ? (needsAdjustment ? "Tip: Slight wind adjustment" : "Tip: Standard shot")
+      : "Tip: Hole detail unavailable";
+    dom.shotIntelTip.classList.toggle("wind-adjust", hasDistance && needsAdjustment);
   }
 
   function scoreKey(playerId, hole) {
@@ -829,6 +851,7 @@
     renderPayouts();
     renderCourseIntelligence();
     renderHoleIntelligenceStrip();
+    renderShotIntelligencePanel();
 
     renderScoreUxMeta();
     renderParRow();
@@ -909,6 +932,7 @@
 
   function renderCourseIntelligenceCard(context) {
     if (!dom.courseIntelCard) return;
+    state.courseIntelContext = context || null;
     dom.courseIntelCard.classList.remove("hidden");
     dom.courseIntelName.textContent = context.name || "-";
     dom.courseIntelLocation.textContent = context.locationText || "Location unavailable";
@@ -931,6 +955,7 @@
       dom.courseIntelPreviewFallback.classList.remove("hidden");
       dom.courseIntelPreviewFallback.textContent = "No course preview available";
     }
+    renderShotIntelligencePanel();
   }
 
   async function renderCourseIntelligence() {
@@ -1329,6 +1354,7 @@
     if (!playerId || !Number.isInteger(hole) || hole < 1) return;
     if (state.round) state.selectedHole = clampHoleSelection(hole, state.round.holes);
     renderHoleIntelligenceStrip();
+    renderShotIntelligencePanel();
     renderScoreTable();
     scrollHoleTileIntoView(hole);
     openPicker(playerId, hole);
@@ -1563,7 +1589,7 @@
     if (state.round.payout_first == null) state.round.payout_first = 60;
     if (state.round.payout_second == null) state.round.payout_second = 30;
     if (state.round.payout_third == null) state.round.payout_third = 10;
-    state.holeDetails = buildMockHoleDetails(state.round.holes, state.holeDetails);
+    state.holeDetails = buildHoleDetails(state.round.holes, state.holeDetails);
     state.selectedHole = clampHoleSelection(state.selectedHole, state.round.holes);
     if (state.selectedHole == null && state.round.holes >= 1) state.selectedHole = 1;
     state.parMap = buildParMap(Object.keys(state.parMap).map((hole) => ({ hole: Number(hole), par: state.parMap[hole] })), state.round.holes);
@@ -1619,6 +1645,7 @@
     state.identityName = null;
     state.identityPlayerId = null;
     state.courseContextRequestId = 0;
+    state.courseIntelContext = null;
     state.lastAutoScrollIdentityToken = null;
     state.recentScoreFlashKey = null;
     state.leaderPulseOn = false;

@@ -284,42 +284,10 @@ async function updateRoundSettings(payload) {
   return data;
 }
 
-// Phase-1 course search abstraction.
-// This local catalog is intentionally isolated so it can be replaced by a live provider later.
-const COURSE_CATALOG = [
-  { displayName: "Pebble Beach Golf Links", locationText: "Pebble Beach, CA", lat: 36.5682, lng: -121.9502, placeId: "mock-pebble-beach", source: "local_mock" },
-  { displayName: "Torrey Pines Golf Course", locationText: "La Jolla, CA", lat: 32.9049, lng: -117.252, placeId: "mock-torrey-pines", source: "local_mock" },
-  { displayName: "Augusta National Golf Club", locationText: "Augusta, GA", lat: 33.5031, lng: -82.0208, placeId: "mock-augusta-national", source: "local_mock" },
-  { displayName: "TPC Sawgrass", locationText: "Ponte Vedra Beach, FL", lat: 30.2042, lng: -81.3893, placeId: "mock-tpc-sawgrass", source: "local_mock" },
-  { displayName: "Bethpage Black Course", locationText: "Farmingdale, NY", lat: 40.7384, lng: -73.4537, placeId: "mock-bethpage-black", source: "local_mock" },
-  { displayName: "Pinehurst No. 2", locationText: "Pinehurst, NC", lat: 35.194, lng: -79.4694, placeId: "mock-pinehurst-2", source: "local_mock" },
-  { displayName: "Whistling Straits", locationText: "Kohler, WI", lat: 43.8502, lng: -87.7249, placeId: "mock-whistling-straits", source: "local_mock" },
-  { displayName: "Kiawah Island Ocean Course", locationText: "Kiawah Island, SC", lat: 32.6089, lng: -80.0847, placeId: "mock-kiawah-ocean", source: "local_mock" },
-  { displayName: "Bandon Dunes Golf Resort", locationText: "Bandon, OR", lat: 43.1917, lng: -124.3894, placeId: "mock-bandon-dunes", source: "local_mock" },
-  { displayName: "Muirfield Village Golf Club", locationText: "Dublin, OH", lat: 40.1596, lng: -83.1399, placeId: "mock-muirfield-village", source: "local_mock" },
-  { displayName: "Winged Foot Golf Club", locationText: "Mamaroneck, NY", lat: 40.9483, lng: -73.7313, placeId: "mock-winged-foot", source: "local_mock" },
-  { displayName: "Oakmont Country Club", locationText: "Oakmont, PA", lat: 40.5214, lng: -79.8363, placeId: "mock-oakmont", source: "local_mock" }
-];
-
 async function searchCourses(query) {
-  const needle = String(query || "").trim().toLowerCase();
+  const needle = String(query || "").trim();
   if (!needle || needle.length < 2) return [];
-  const results = COURSE_CATALOG
-    .filter((item) => {
-      const name = item.displayName.toLowerCase();
-      const loc = (item.locationText || "").toLowerCase();
-      return name.includes(needle) || loc.includes(needle);
-    })
-    .slice(0, 8)
-    .map((item) => ({
-      displayName: item.displayName,
-      locationText: item.locationText || null,
-      lat: Number.isFinite(item.lat) ? item.lat : null,
-      lng: Number.isFinite(item.lng) ? item.lng : null,
-      placeId: item.placeId || null,
-      source: item.source || "local_mock"
-    }));
-  return results;
+  return [];
 }
 
 function subscribeToRound(roundId, handlers) {
