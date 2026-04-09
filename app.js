@@ -51,6 +51,8 @@
     clearRoundBtn: document.getElementById("clear-round-btn"),
     leaderboardBackHead: document.getElementById("leaderboard-back-head"),
     leaderboardBody: document.getElementById("leaderboard-body"),
+    parRow: document.getElementById("par-row"),
+    parSaveStatus: document.getElementById("par-save-status"),
     scoreTable: document.getElementById("score-table"),
     scoreScrollContainer: document.getElementById("score-scroll-container"),
     payoutSettingsGrid: document.getElementById("payout-settings-grid"),
@@ -63,6 +65,7 @@
     payoutSaveStatus: document.getElementById("payout-save-status"),
     payoutPositionBody: document.getElementById("payout-position-body"),
     payoutPlayerBody: document.getElementById("payout-player-body"),
+    scoreHint: document.querySelector("#score-view .card.section .muted.tiny"),
 
     nameModal: document.getElementById("name-modal"),
     nameModalInput: document.getElementById("name-modal-input"),
@@ -86,7 +89,10 @@
     round: null,
     players: [],
     scoreMap: {},
+    parMap: {},
     pendingScoreKeys: new Set(),
+    pendingParHoles: new Set(),
+    parSaveTimers: new Map(),
     channel: null,
     activeCell: null,
     identityName: null,
@@ -95,7 +101,12 @@
     copyBtnTimer: null,
     settingsSaveTimer: null,
     potSettingsLocked: false,
-    lastAutoScrollIdentityToken: null
+    lastAutoScrollIdentityToken: null,
+    recentScoreFlashKey: null,
+    scoreFlashTimer: null,
+    lastLeaderSignature: null,
+    leaderPulseOn: false,
+    leaderPulseTimer: null
   };
 
   function init() {
@@ -163,6 +174,8 @@
     dom.pickerClear.addEventListener("click", clearActiveScore);
     dom.pickerDone.addEventListener("click", closePicker);
     dom.scoreTable.addEventListener("click", onScoreTableClick);
+    dom.parRow.addEventListener("change", onParInputChanged);
+    dom.parRow.addEventListener("blur", onParInputBlur, true);
 
     [dom.potAmount, dom.payoutFirst, dom.payoutSecond, dom.payoutThird].forEach((input) => {
       input.addEventListener("input", onPayoutInputChanged);
@@ -356,10 +369,11 @@
 
   async function loadRound(roundId) {
     stopRealtime();
-    const [round, players, scores] = await Promise.all([
+    const [round, players, scores, pars] = await Promise.all([
       window.SupabaseAPI.getRoundById(roundId),
       window.SupabaseAPI.getPlayers(roundId),
-      window.SupabaseAPI.getScores(roundId)
+      window.SupabaseAPI.getScores(roundId),
+      window.SupabaseAPI.getRoundHoles(roundId)
     ]);
     if (!round) throw new Error("Round not found.");
 
@@ -370,7 +384,11 @@
     if (state.round.payout_third == null) state.round.payout_third = 10;
     state.players = players;
     state.scoreMap = buildScoreMap(scores);
+    state.parMap = buildParMap(pars, round.holes);
     state.pendingScoreKeys.clear();
+    state.pendingParHoles.clear();
+    state.parSaveTimers.forEach((timerId) => clearTimeout(timerId));
+    state.parSaveTimers.clear();
     state.activeCell = null;
 
     applyStoredIdentityOrPrompt();
@@ -382,6 +400,19 @@
     const map = {};
     scoreRows.forEach((row) => {
       map[scoreKey(row.player_id, row.hole)] = row.value;
+    });
+    return map;
+  }
+
+  function buildParMap(parRows, holes) {
+    const map = {};
+    for (let hole = 1; hole <= holes; hole += 1) map[hole] = 4;
+    (parRows || []).forEach((row) => {
+      const hole = Number(row.hole);
+      const par = clampPar(row.par);
+      if (Number.isInteger(hole) && hole >= 1 && hole <= holes && par != null) {
+        map[hole] = par;
+      }
     });
     return map;
   }
@@ -470,9 +501,140 @@
     syncPotSettingsLockState();
     renderPayouts();
 
+    renderScoreUxMeta();
+    renderParRow();
     renderLeaderboard();
     renderScoreTable();
+    maybeShowScoreTooltipOnce();
     if (opts.scrollToIdentity) scheduleScrollToIdentityRow(Boolean(opts.forceScroll));
+  }
+
+  function renderScoreUxMeta() {
+    if (!dom.scoreHint) return;
+    dom.scoreHint.textContent = "Tap a hole to enter score";
+    dom.scoreHint.classList.add("score-entry-hint");
+    const scoreSection = dom.scoreScrollContainer && dom.scoreScrollContainer.closest("section");
+    if (!scoreSection) return;
+
+    let summary = document.getElementById("score-summary-bar");
+    if (!summary) {
+      summary = document.createElement("div");
+      summary.id = "score-summary-bar";
+      summary.className = "score-summary-bar hidden";
+      scoreSection.insertBefore(summary, dom.scoreHint);
+    }
+
+    const standings = buildStandings();
+    let target = null;
+    if (state.identityPlayerId) {
+      target = standings.find((r) => String(r.id) === String(state.identityPlayerId)) || null;
+    }
+    if (!target && standings.length) target = standings.find((r) => r.total != null) || standings[0];
+
+    if (!target || target.total == null) {
+      summary.classList.add("hidden");
+      summary.textContent = "";
+      return;
+    }
+    const birdies = countBirdies(target.id);
+    summary.textContent = `${target.name}: ${formatRelativeToPar(target.relative)} (Birdies: ${birdies})`;
+    summary.classList.remove("hidden");
+  }
+
+  function maybeShowScoreTooltipOnce() {
+    if (!state.round || !dom.scoreScrollContainer) return;
+    const key = `pocketcaddy_score_tooltip_seen_${state.round.id}`;
+    if (sessionStorage.getItem(key)) return;
+    const scoreSection = dom.scoreScrollContainer.closest("section");
+    if (!scoreSection) return;
+    scoreSection.style.position = "relative";
+    let tip = document.getElementById("score-entry-tooltip");
+    if (!tip) {
+      tip = document.createElement("div");
+      tip.id = "score-entry-tooltip";
+      tip.className = "score-entry-tooltip";
+      tip.textContent = "Tap any hole cell to open the score picker";
+      scoreSection.appendChild(tip);
+    }
+    tip.classList.add("show");
+    sessionStorage.setItem(key, "1");
+    setTimeout(() => {
+      tip.classList.remove("show");
+    }, 3600);
+  }
+
+  function renderParRow() {
+    if (!state.round) return;
+    const holes = state.round.holes;
+    let html = "";
+    for (let hole = 1; hole <= holes; hole += 1) {
+      const par = getPar(hole);
+      const saving = state.pendingParHoles.has(hole);
+      html += `
+        <label class="par-input-wrap ${saving ? "saving" : ""}">
+          <span>H${hole}</span>
+          <input class="par-input" type="number" min="3" max="6" step="1" data-hole="${hole}" value="${par == null ? "" : par}">
+        </label>
+      `;
+    }
+    dom.parRow.innerHTML = html;
+  }
+
+  function onParInputChanged(event) {
+    const input = event.target;
+    if (!input.classList.contains("par-input") || !state.round) return;
+    const hole = Number(input.getAttribute("data-hole"));
+    if (!Number.isInteger(hole) || hole < 1 || hole > state.round.holes) return;
+    const nextPar = clampPar(input.value);
+    if (nextPar == null) {
+      input.value = String(getPar(hole) || 4);
+      return;
+    }
+    state.parMap[hole] = nextPar;
+    renderLeaderboard();
+    renderScoreTable();
+    queueParSave(hole, nextPar);
+  }
+
+  function onParInputBlur(event) {
+    const input = event.target;
+    if (!input.classList.contains("par-input") || !state.round) return;
+    const hole = Number(input.getAttribute("data-hole"));
+    if (!Number.isInteger(hole)) return;
+    input.value = String(getPar(hole) || 4);
+  }
+
+  function queueParSave(hole, par) {
+    if (!state.round) return;
+    const pendingTimer = state.parSaveTimers.get(hole);
+    if (pendingTimer) clearTimeout(pendingTimer);
+    dom.parSaveStatus.classList.remove("hidden");
+    dom.parSaveStatus.textContent = "Saving par settings...";
+    const timerId = setTimeout(async () => {
+      state.pendingParHoles.add(hole);
+      renderParRow();
+      try {
+        await window.SupabaseAPI.upsertRoundHolePar({
+          roundId: state.round.id,
+          hole: hole,
+          par: par
+        });
+        dom.parSaveStatus.textContent = "Par saved";
+        setTimeout(() => {
+          dom.parSaveStatus.classList.add("hidden");
+        }, 900);
+      } catch (err) {
+        dom.parSaveStatus.classList.remove("hidden");
+        dom.parSaveStatus.textContent = "Par save failed. Try again.";
+        showFeedback("Could not save par settings.", true);
+        console.error(err);
+      } finally {
+        state.pendingParHoles.delete(hole);
+        state.parSaveTimers.delete(hole);
+        renderParRow();
+      }
+    }, 300);
+    state.parSaveTimers.set(hole, timerId);
   }
 
   function renderQr(link) {
@@ -526,6 +688,30 @@
     return { front: front, back: back, total: total };
   }
 
+  function getRelativeToParTotals(playerId) {
+    const holes = state.round.holes;
+    let totalDelta = 0;
+    let has = false;
+    for (let h = 1; h <= holes; h += 1) {
+      const score = getScore(playerId, h);
+      const delta = getScoreDelta(score, h);
+      if (delta == null) continue;
+      totalDelta += delta;
+      has = true;
+    }
+    return has ? totalDelta : null;
+  }
+
+  function countBirdies(playerId) {
+    const holes = state.round ? state.round.holes : 0;
+    let count = 0;
+    for (let h = 1; h <= holes; h += 1) {
+      const term = getGolfTerm(getScore(playerId, h), getPar(h));
+      if (term === "Birdie" || term === "Eagle" || term === "Albatross" || term === "Ace") count += 1;
+    }
+    return count;
+  }
+
   function sumRange(playerId, from, to) {
     let sum = 0;
     let has = false;
@@ -547,7 +733,8 @@
   function buildStandings() {
     const rows = state.players.map((p) => {
       const t = getTotals(p.id);
-      return { id: p.id, name: p.name, front: t.front, back: t.back, total: t.total };
+      const relative = getRelativeToParTotals(p.id);
+      return { id: p.id, name: p.name, front: t.front, back: t.back, total: t.total, relative: relative };
     });
 
     rows.sort((a, b) => {
@@ -584,18 +771,31 @@
   function renderLeaderboard() {
     const showBack = state.round.holes === 18;
     const rows = buildStandings();
+    const leaderIds = rows.filter((r) => r.isLeader).map((r) => String(r.id)).sort();
+    const signature = leaderIds.join("|");
+    if (state.lastLeaderSignature !== null && state.lastLeaderSignature !== signature) {
+      state.leaderPulseOn = true;
+      clearTimeout(state.leaderPulseTimer);
+      state.leaderPulseTimer = setTimeout(() => {
+        state.leaderPulseOn = false;
+        renderLeaderboard();
+      }, 850);
+    }
+    state.lastLeaderSignature = signature;
+
     dom.leaderboardBody.innerHTML = rows.map((r) => `
-      <tr class="${r.isLeader ? "leader-row" : ""}">
+      <tr class="${r.isLeader ? "leader-row" : ""} ${r.isLeader && state.leaderPulseOn ? "leader-pulse" : ""}">
         <td><strong>${r.rank}</strong></td>
         <td>${escapeHtml(r.name)}</td>
         <td>${display(r.front)}</td>
         ${showBack ? `<td>${display(r.back)}</td>` : ""}
-        <td><strong>${display(r.total)}</strong></td>
+        <td><strong>${display(r.total)}</strong>${r.total == null ? "" : ` <span class="leader-relative">${formatRelativeToPar(r.relative)}</span>`}</td>
       </tr>
     `).join("");
   }
 
   function renderScoreTable() {
+    renderScoreUxMeta();
     const holes = state.round.holes;
     const showBack = holes === 18;
     const standings = buildStandings();
@@ -610,6 +810,16 @@
     head += '<th class="tot-head">Total</th></tr></thead>';
 
     let body = "<tbody>";
+    body += '<tr class="par-display-row">';
+    body += '<td class="sticky-player"><span class="player-name">Par</span><span class="player-note">By hole</span></td>';
+    for (let hole = 1; hole <= holes; hole += 1) {
+      body += `<td class="${hole > 9 ? "back-cell" : ""}"><span class="par-chip">${display(getPar(hole))}</span></td>`;
+    }
+    body += '<td class="tot-cell">-</td>';
+    if (showBack) body += '<td class="tot-cell">-</td>';
+    body += '<td class="tot-cell">-</td>';
+    body += "</tr>";
+
     state.players.forEach((player) => {
       const totals = getTotals(player.id);
       const editableRow = isEditablePlayerRow(player.id);
@@ -623,18 +833,30 @@
         const key = scoreKey(player.id, hole);
         const val = getScore(player.id, hole);
         const text = val == null ? "-" : String(val);
+        const par = getPar(hole);
+        const delta = getScoreDelta(val, hole);
+        const relative = formatRelativeToPar(delta);
+        const term = getGolfTerm(val, par);
+        const termClass = getGolfTermClass(term);
         const active = state.activeCell && state.activeCell.playerId === player.id && state.activeCell.hole === hole;
         const saving = state.pendingScoreKeys.has(key);
+        const flash = state.recentScoreFlashKey === key;
+        const subLabel = val == null ? "" : (term || relative);
+        const title = val == null
+          ? `${player.name} hole ${hole}`
+          : `${player.name} hole ${hole}: ${text} (${relative})${term ? ` ${term}` : ""}`;
         body += `
           <td class="${hole > 9 ? "back-cell" : ""}">
             <button
-              class="score-btn ${val == null ? "empty" : ""} ${active ? "active" : ""} ${editableRow ? "" : "readonly"} ${saving ? "saving" : ""}"
+              class="score-btn ${val == null ? "empty" : ""} ${active ? "active" : ""} ${editableRow ? "" : "readonly"} ${saving ? "saving" : ""} ${termClass} ${flash ? "score-updated-flash" : ""}"
               type="button"
               data-player-id="${player.id}"
               data-hole="${hole}"
               ${(editableRow && !saving) ? "" : "disabled"}
-              aria-label="${escapeHtml(player.name)} hole ${hole} score ${text}">
-              ${saving ? "..." : text}
+              aria-label="${escapeHtml(player.name)} hole ${hole} score ${text} ${term ? term : ""}"
+              title="${escapeHtml(title)}">
+              <span class="score-main">${saving ? "..." : text}</span>
+              <span class="score-sub ${subLabel ? "" : "hidden"}">${escapeHtml(subLabel)}</span>
             </button>
           </td>
         `;
@@ -655,14 +877,19 @@
     const playerId = btn.getAttribute("data-player-id");
     const hole = Number(btn.getAttribute("data-hole"));
     if (!playerId || !Number.isInteger(hole) || hole < 1) return;
-    console.log("score-click", { playerId: playerId, hole: hole });
     openPicker(playerId, hole);
   }
 
   function openPicker(playerId, hole) {
     state.activeCell = { playerId: playerId, hole: hole };
     const player = state.players.find((p) => p.id === playerId);
-    dom.pickerTitle.textContent = `${player ? player.name : "Player"} - Hole ${hole} (Current: ${display(getScore(playerId, hole))})`;
+    const current = getScore(playerId, hole);
+    const par = getPar(hole);
+    const term = getGolfTerm(current, par);
+    const rel = formatRelativeToPar(getScoreDelta(current, hole));
+    const parText = Number.isInteger(par) ? `Par ${par}` : "Par -";
+    const currentText = current == null ? "-" : `${current} (${rel}${term ? ` ${term}` : ""})`;
+    dom.pickerTitle.textContent = `${player ? player.name : "Player"} - Hole ${hole} (${parText}, Current: ${currentText})`;
     dom.pickerStatus.classList.add("hidden");
     dom.pickerGrid.innerHTML = Array.from({ length: 15 }, (_, i) => i + 1)
       .map((v) => `<button class="pick-btn" type="button" data-v="${v}">${v}</button>`)
@@ -710,6 +937,7 @@
       } else {
         await window.SupabaseAPI.upsertScore({ roundId: state.round.id, playerId: playerId, hole: hole, value: nextValue });
       }
+      setRecentScoreFlash(key);
     } catch (_err) {
       if (hadPrev) state.scoreMap[key] = prevValue;
       else delete state.scoreMap[key];
@@ -762,11 +990,94 @@
     return r;
   }
 
+  function clampPar(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+    const r = Math.round(n);
+    if (r < 3) return 3;
+    if (r > 6) return 6;
+    return r;
+  }
+
+  function getPar(hole) {
+    const v = state.parMap[hole];
+    return Number.isInteger(v) ? v : null;
+  }
+
+  function getScoreDelta(score, hole) {
+    const par = getPar(hole);
+    if (!Number.isInteger(score) || !Number.isInteger(par)) return null;
+    return score - par;
+  }
+
+  function formatRelativeToPar(delta) {
+    if (delta == null) return "-";
+    if (delta === 0) return "E";
+    if (delta > 0) return `+${delta}`;
+    return String(delta);
+  }
+
+  function getGolfTerm(score, par) {
+    if (!Number.isInteger(score) || !Number.isInteger(par)) return "";
+    if (score === 1) return "Ace";
+    if (score <= par - 3) return "Albatross";
+    if (score === par - 2) return "Eagle";
+    if (score === par - 1) return "Birdie";
+    if (score === par) return "Par";
+    if (score === par + 1) return "Bogey";
+    if (score === par + 2) return "Double Bogey";
+    if (score >= par + 3) return "Triple Bogey+";
+    return "";
+  }
+
+  function getGolfTermClass(term) {
+    if (term === "Ace") return "score-state-ace";
+    if (term === "Albatross") return "score-state-albatross";
+    if (term === "Eagle") return "score-state-eagle";
+    if (term === "Birdie") return "score-state-birdie";
+    if (term === "Par") return "score-state-par";
+    if (term === "Bogey") return "score-state-bogey";
+    if (term === "Double Bogey") return "score-state-double-bogey";
+    if (term === "Triple Bogey+") return "score-state-triple-bogey";
+    return "";
+  }
+
   async function refreshScores() {
     if (!state.round) return;
+    const prevMap = state.scoreMap;
     const rows = await window.SupabaseAPI.getScores(state.round.id);
-    state.scoreMap = buildScoreMap(rows);
+    const nextMap = buildScoreMap(rows);
+    const changedKey = findChangedScoreKey(prevMap, nextMap);
+    state.scoreMap = nextMap;
+    if (changedKey) setRecentScoreFlash(changedKey);
     syncPotSettingsLockState();
+    renderLeaderboard();
+    renderScoreTable();
+  }
+
+  function findChangedScoreKey(beforeMap, afterMap) {
+    const keys = new Set([...Object.keys(beforeMap || {}), ...Object.keys(afterMap || {})]);
+    for (const key of keys) {
+      if ((beforeMap && beforeMap[key]) !== (afterMap && afterMap[key])) return key;
+    }
+    return null;
+  }
+
+  function setRecentScoreFlash(key) {
+    if (!key) return;
+    clearTimeout(state.scoreFlashTimer);
+    state.recentScoreFlashKey = key;
+    state.scoreFlashTimer = setTimeout(() => {
+      state.recentScoreFlashKey = null;
+      renderScoreTable();
+    }, 700);
+  }
+
+  async function refreshPars() {
+    if (!state.round) return;
+    const rows = await window.SupabaseAPI.getRoundHoles(state.round.id);
+    state.parMap = buildParMap(rows, state.round.holes);
+    renderParRow();
     renderLeaderboard();
     renderScoreTable();
   }
@@ -797,6 +1108,7 @@
     if (state.round.payout_first == null) state.round.payout_first = 60;
     if (state.round.payout_second == null) state.round.payout_second = 30;
     if (state.round.payout_third == null) state.round.payout_third = 10;
+    state.parMap = buildParMap(Object.keys(state.parMap).map((hole) => ({ hole: Number(hole), par: state.parMap[hole] })), state.round.holes);
     renderRound();
   }
 
@@ -804,7 +1116,8 @@
     state.channel = window.SupabaseAPI.subscribeToRound(roundId, {
       onScoresChanged: refreshScores,
       onPlayersChanged: refreshPlayers,
-      onRoundChanged: refreshRound
+      onRoundChanged: refreshRound,
+      onParsChanged: refreshPars
     });
   }
 
@@ -837,11 +1150,19 @@
     state.round = null;
     state.players = [];
     state.scoreMap = {};
+    state.parMap = {};
     state.pendingScoreKeys.clear();
+    state.pendingParHoles.clear();
+    state.parSaveTimers.forEach((timerId) => clearTimeout(timerId));
+    state.parSaveTimers.clear();
     state.activeCell = null;
     state.identityName = null;
     state.identityPlayerId = null;
     state.lastAutoScrollIdentityToken = null;
+    state.recentScoreFlashKey = null;
+    state.leaderPulseOn = false;
+    clearTimeout(state.scoreFlashTimer);
+    clearTimeout(state.leaderPulseTimer);
     clearSession();
     clearUrlRoundParam();
     closePicker();
@@ -1116,25 +1437,6 @@
 
   function identityKey(roundId) {
     return `${IDENTITY_KEY_PREFIX}${roundId}`;
-  }
-
-  function getRoundIdFromUrl() {
-    const url = new URL(window.location.href);
-    const round = url.searchParams.get("round");
-    if (!round) return null;
-    return window.SupabaseAPI.extractRoundId(round);
-  }
-
-  function updateUrlRoundParam(roundId) {
-    const url = new URL(window.location.href);
-    url.searchParams.set("round", roundId);
-    window.history.replaceState({}, "", url.toString());
-  }
-
-  function clearUrlRoundParam() {
-    const url = new URL(window.location.href);
-    url.searchParams.delete("round");
-    window.history.replaceState({}, "", url.toString());
   }
 
   function display(v) {

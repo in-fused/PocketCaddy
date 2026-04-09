@@ -29,13 +29,23 @@ create table if not exists scores (
   value int not null check (value between 1 and 15)
 );
 
+create table if not exists round_holes (
+  id uuid primary key default gen_random_uuid(),
+  round_id uuid not null references rounds(id) on delete cascade,
+  hole int not null check (hole between 1 and 18),
+  par int not null check (par between 3 and 6)
+);
+
 create unique index if not exists scores_unique_round_player_hole
   on scores(round_id, player_id, hole);
+create unique index if not exists round_holes_unique_round_hole
+  on round_holes(round_id, hole);
 
 -- RLS notes for MVP (public access)
 alter table rounds enable row level security;
 alter table players enable row level security;
 alter table scores enable row level security;
+alter table round_holes enable row level security;
 
 drop policy if exists rounds_public_all on rounds;
 create policy rounds_public_all on rounds for all using (true) with check (true);
@@ -45,6 +55,9 @@ create policy players_public_all on players for all using (true) with check (tru
 
 drop policy if exists scores_public_all on scores;
 create policy scores_public_all on scores for all using (true) with check (true);
+
+drop policy if exists round_holes_public_all on round_holes;
+create policy round_holes_public_all on round_holes for all using (true) with check (true);
 */
 
 /* global supabase */
@@ -53,6 +66,12 @@ const SUPABASE_URL = "https://kvbdkduveaqapvrtwjha.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_hMwWJGMS9nrLf52SMb3B8w_Oh4CGNgs";
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function isRoundHolesTableMissing(error) {
+  if (!error) return false;
+  const message = `${error.message || ""} ${error.details || ""}`.toLowerCase();
+  return error.code === "42P01" || message.includes("round_holes");
+}
 
 async function createRoundWithPlayers(payload) {
   const { roundName, courseName, tee, holes, players } = payload;
@@ -79,7 +98,21 @@ async function createRoundWithPlayers(payload) {
     .select();
   if (playersErr) throw playersErr;
 
+  await seedRoundHoles(round.id, holes);
+
   return { round: round, players: insertedPlayers };
+}
+
+async function seedRoundHoles(roundId, holes) {
+  const rows = Array.from({ length: holes }, (_, i) => ({
+    round_id: roundId,
+    hole: i + 1,
+    par: 4
+  }));
+  const { error } = await supabaseClient
+    .from("round_holes")
+    .upsert(rows, { onConflict: "round_id,hole" });
+  if (error && !isRoundHolesTableMissing(error)) throw error;
 }
 
 async function getRoundById(roundId) {
@@ -133,6 +166,35 @@ async function getScores(roundId) {
     .eq("round_id", roundId);
   if (error) throw error;
   return data || [];
+}
+
+async function getRoundHoles(roundId) {
+  const { data, error } = await supabaseClient
+    .from("round_holes")
+    .select("*")
+    .eq("round_id", roundId)
+    .order("hole", { ascending: true });
+  if (error) {
+    if (isRoundHolesTableMissing(error)) return [];
+    throw error;
+  }
+  return data || [];
+}
+
+async function upsertRoundHolePar(payload) {
+  const { roundId, hole, par } = payload;
+  const { error } = await supabaseClient
+    .from("round_holes")
+    .upsert({
+      round_id: roundId,
+      hole: hole,
+      par: par
+    }, { onConflict: "round_id,hole" });
+  if (error) {
+    if (isRoundHolesTableMissing(error)) return null;
+    throw error;
+  }
+  return true;
 }
 
 async function upsertScore(payload) {
@@ -202,6 +264,11 @@ function subscribeToRound(roundId, handlers) {
       { event: "*", schema: "public", table: "rounds", filter: `id=eq.${roundId}` },
       () => handlers && handlers.onRoundChanged && handlers.onRoundChanged()
     )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "round_holes", filter: `round_id=eq.${roundId}` },
+      () => handlers && handlers.onParsChanged && handlers.onParsChanged()
+    )
     .subscribe();
   return channel;
 }
@@ -218,7 +285,9 @@ window.SupabaseAPI = {
   extractRoundId,
   getPlayers,
   getScores,
+  getRoundHoles,
   upsertScore,
+  upsertRoundHolePar,
   deleteScore,
   clearScores,
   updateRoundSettings,
