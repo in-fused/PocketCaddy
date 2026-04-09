@@ -258,6 +258,27 @@
           <p id="shot-intel-tip" class="shot-intel-tip">Tip: Hole detail unavailable</p>
         </section>
 
+        <section class="card section hole-detail-editor-section">
+          <h3>Hole Details</h3>
+          <p id="hole-detail-editor-hole" class="hole-detail-editor-hole">Hole -</p>
+          <div class="hole-detail-editor-grid">
+            <label>
+              <span>Distance (yards)</span>
+              <input id="hole-detail-distance-input" type="number" min="1" step="1" placeholder="Distance unavailable">
+            </label>
+            <label>
+              <span>Difficulty</span>
+              <select id="hole-detail-difficulty-select">
+                <option value="">Unavailable</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </label>
+          </div>
+          <p id="hole-detail-save-status" class="payout-save-status hidden">Saving hole details...</p>
+        </section>
+
         <section class="card section">
           <p class="muted tiny">Swipe sideways to enter scores -&gt;</p>
           <div id="score-scroll-container" class="table-scroll score-scroll">

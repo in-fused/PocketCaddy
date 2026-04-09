@@ -33,7 +33,9 @@ create table if not exists round_holes (
   id uuid primary key default gen_random_uuid(),
   round_id uuid not null references rounds(id) on delete cascade,
   hole int not null check (hole between 1 and 18),
-  par int not null check (par between 3 and 6)
+  par int not null check (par between 3 and 6),
+  distance_yards int,
+  difficulty text check (difficulty in ('easy','medium','hard'))
 );
 
 create unique index if not exists scores_unique_round_player_hole
@@ -77,6 +79,12 @@ function isMissingColumnError(error) {
   if (!error) return false;
   const message = `${error.message || ""} ${error.details || ""}`.toLowerCase();
   return error.code === "42703" || message.includes("column") && message.includes("does not exist");
+}
+
+function isHoleDetailColumnMissing(error) {
+  if (!isMissingColumnError(error)) return false;
+  const message = `${error.message || ""} ${error.details || ""}`.toLowerCase();
+  return message.includes("distance_yards") || message.includes("difficulty");
 }
 
 function normalizeCourseMetadata(meta) {
@@ -235,6 +243,51 @@ async function upsertRoundHolePar(payload) {
   return true;
 }
 
+async function upsertRoundHoleDetails(payload) {
+  const { roundId, hole, par, distanceYards, difficulty } = payload;
+  const normalizedDistance = Number.isFinite(Number(distanceYards)) ? Math.round(Number(distanceYards)) : null;
+  const normalizedDifficulty = difficulty === "easy" || difficulty === "medium" || difficulty === "hard"
+    ? difficulty
+    : null;
+
+  let updated = null;
+  let updateErr = null;
+  ({ data: updated, error: updateErr } = await supabaseClient
+    .from("round_holes")
+    .update({
+      distance_yards: normalizedDistance,
+      difficulty: normalizedDifficulty
+    })
+    .eq("round_id", roundId)
+    .eq("hole", hole)
+    .select("id")
+    .limit(1));
+
+  if (updateErr) {
+    if (isRoundHolesTableMissing(updateErr)) return null;
+    if (isHoleDetailColumnMissing(updateErr)) return null;
+    throw updateErr;
+  }
+  if (Array.isArray(updated) && updated.length > 0) return true;
+
+  const { error: insertErr } = await supabaseClient
+    .from("round_holes")
+    .upsert({
+      round_id: roundId,
+      hole: hole,
+      par: Number.isFinite(Number(par)) ? Math.round(Number(par)) : 4,
+      distance_yards: normalizedDistance,
+      difficulty: normalizedDifficulty
+    }, { onConflict: "round_id,hole" });
+
+  if (insertErr) {
+    if (isRoundHolesTableMissing(insertErr)) return null;
+    if (isHoleDetailColumnMissing(insertErr)) return null;
+    throw insertErr;
+  }
+  return true;
+}
+
 async function upsertScore(payload) {
   const { roundId, playerId, hole, value } = payload;
   const { error } = await supabaseClient
@@ -333,6 +386,7 @@ window.SupabaseAPI = {
   getRoundHoles,
   upsertScore,
   upsertRoundHolePar,
+  upsertRoundHoleDetails,
   deleteScore,
   clearScores,
   updateRoundSettings,

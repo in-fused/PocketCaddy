@@ -74,6 +74,10 @@
     shotIntelWind: document.getElementById("shot-intel-wind"),
     shotIntelClub: document.getElementById("shot-intel-club"),
     shotIntelTip: document.getElementById("shot-intel-tip"),
+    holeDetailEditorHole: document.getElementById("hole-detail-editor-hole"),
+    holeDetailDistanceInput: document.getElementById("hole-detail-distance-input"),
+    holeDetailDifficultySelect: document.getElementById("hole-detail-difficulty-select"),
+    holeDetailSaveStatus: document.getElementById("hole-detail-save-status"),
     scoreHint: document.querySelector("#score-view .card.section .muted.tiny"),
     courseIntelCard: document.getElementById("course-intel-card"),
     courseIntelName: document.getElementById("course-intel-name"),
@@ -110,6 +114,8 @@
     pendingScoreKeys: new Set(),
     pendingParHoles: new Set(),
     parSaveTimers: new Map(),
+    pendingHoleDetailHoles: new Set(),
+    holeDetailSaveTimers: new Map(),
     channel: null,
     activeCell: null,
     identityName: null,
@@ -217,6 +223,9 @@
     dom.holeIntelligenceStrip.addEventListener("click", onHoleIntelligenceClick);
     dom.parRow.addEventListener("change", onParInputChanged);
     dom.parRow.addEventListener("blur", onParInputBlur, true);
+    dom.holeDetailDistanceInput.addEventListener("input", onHoleDetailDistanceInput);
+    dom.holeDetailDistanceInput.addEventListener("blur", onHoleDetailDistanceBlur);
+    dom.holeDetailDifficultySelect.addEventListener("change", onHoleDetailDifficultyChanged);
 
     [dom.potAmount, dom.payoutFirst, dom.payoutSecond, dom.payoutThird].forEach((input) => {
       input.addEventListener("input", onPayoutInputChanged);
@@ -584,13 +593,16 @@
     state.players = players;
     state.scoreMap = buildScoreMap(scores);
     state.parMap = buildParMap(pars, round.holes);
-    state.holeDetails = buildHoleDetails(round.holes, state.holeDetails);
+    state.holeDetails = buildHoleDetails(pars, round.holes);
     state.selectedHole = clampHoleSelection(state.selectedHole, round.holes);
     if (state.selectedHole == null && round.holes >= 1) state.selectedHole = 1;
     state.pendingScoreKeys.clear();
     state.pendingParHoles.clear();
+    state.pendingHoleDetailHoles.clear();
     state.parSaveTimers.forEach((timerId) => clearTimeout(timerId));
     state.parSaveTimers.clear();
+    state.holeDetailSaveTimers.forEach((timerId) => clearTimeout(timerId));
+    state.holeDetailSaveTimers.clear();
     state.activeCell = null;
 
     applyStoredIdentityOrPrompt();
@@ -629,16 +641,32 @@
     return map;
   }
 
-  function buildHoleDetails(holes, previous) {
-    const prev = previous || {};
+  function buildHoleDetails(holeRows, holes) {
     const next = {};
     for (let hole = 1; hole <= holes; hole += 1) {
-      const existing = prev[hole];
-      const distance = existing && Number.isFinite(Number(existing.distance)) ? Number(existing.distance) : null;
-      const difficulty = existing && isValidDifficulty(existing.difficulty) ? existing.difficulty : null;
-      next[hole] = { distance: distance, difficulty: difficulty };
+      next[hole] = { distance: null, difficulty: null };
     }
+    (holeRows || []).forEach((row) => {
+      const hole = Number(row.hole);
+      if (!Number.isInteger(hole) || hole < 1 || hole > holes) return;
+      const distance = parseDistanceYards(row.distance_yards);
+      const difficulty = isValidDifficulty(row.difficulty) ? row.difficulty : null;
+      next[hole] = { distance: distance, difficulty: difficulty };
+    });
     return next;
+  }
+
+  function normalizeHoleDetails(holes, currentMap) {
+    const normalized = {};
+    const source = currentMap || {};
+    for (let hole = 1; hole <= holes; hole += 1) {
+      const current = source[hole] || {};
+      normalized[hole] = {
+        distance: parseDistanceYards(current.distance),
+        difficulty: isValidDifficulty(current.difficulty) ? current.difficulty : null
+      };
+    }
+    return normalized;
   }
 
   function clampHoleSelection(hole, holes) {
@@ -699,6 +727,7 @@
     state.selectedHole = clampHoleSelection(hole, state.round.holes);
     renderHoleIntelligenceStrip();
     renderShotIntelligencePanel();
+    renderHoleDetailEditor();
     renderScoreTable();
     scrollScoreTableToHole(hole);
     scrollHoleTileIntoView(hole);
@@ -764,6 +793,105 @@
       ? (needsAdjustment ? "Tip: Slight wind adjustment" : "Tip: Standard shot")
       : "Tip: Hole detail unavailable";
     dom.shotIntelTip.classList.toggle("wind-adjust", hasDistance && needsAdjustment);
+  }
+
+  function renderHoleDetailEditor() {
+    if (!state.round || !dom.holeDetailEditorHole || !dom.holeDetailDistanceInput || !dom.holeDetailDifficultySelect || !dom.holeDetailSaveStatus) return;
+    const hole = clampHoleSelection(state.selectedHole, state.round.holes) || 1;
+    const detail = getHoleDetail(hole);
+    const pending = state.pendingHoleDetailHoles.has(hole);
+    const distanceValue = detail.distance == null ? "" : String(detail.distance);
+    const difficultyValue = detail.difficulty == null ? "" : detail.difficulty;
+
+    dom.holeDetailEditorHole.textContent = `Hole ${hole}`;
+    dom.holeDetailDistanceInput.value = distanceValue;
+    dom.holeDetailDifficultySelect.value = difficultyValue;
+    dom.holeDetailDistanceInput.disabled = pending;
+    dom.holeDetailDifficultySelect.disabled = pending;
+    if (pending) {
+      dom.holeDetailSaveStatus.classList.remove("hidden");
+      dom.holeDetailSaveStatus.textContent = "Saving hole details...";
+    } else if (dom.holeDetailSaveStatus.textContent === "Saving hole details...") {
+      dom.holeDetailSaveStatus.classList.add("hidden");
+    }
+  }
+
+  function onHoleDetailDistanceInput(event) {
+    if (!state.round) return;
+    const hole = clampHoleSelection(state.selectedHole, state.round.holes);
+    if (!hole || state.pendingHoleDetailHoles.has(hole)) return;
+    const parsedDistance = parseDistanceYards(event.target.value);
+    const existing = getHoleDetail(hole);
+    const nextDetail = {
+      distance: parsedDistance,
+      difficulty: existing.difficulty
+    };
+    state.holeDetails[hole] = nextDetail;
+    renderHoleIntelligenceStrip();
+    renderShotIntelligencePanel();
+    queueHoleDetailSave(hole);
+  }
+
+  function onHoleDetailDistanceBlur() {
+    if (!state.round) return;
+    const hole = clampHoleSelection(state.selectedHole, state.round.holes);
+    if (!hole) return;
+    const detail = getHoleDetail(hole);
+    dom.holeDetailDistanceInput.value = detail.distance == null ? "" : String(detail.distance);
+  }
+
+  function onHoleDetailDifficultyChanged(event) {
+    if (!state.round) return;
+    const hole = clampHoleSelection(state.selectedHole, state.round.holes);
+    if (!hole || state.pendingHoleDetailHoles.has(hole)) return;
+    const selected = isValidDifficulty(event.target.value) ? event.target.value : null;
+    const existing = getHoleDetail(hole);
+    const nextDetail = {
+      distance: existing.distance,
+      difficulty: selected
+    };
+    state.holeDetails[hole] = nextDetail;
+    renderHoleIntelligenceStrip();
+    renderShotIntelligencePanel();
+    queueHoleDetailSave(hole);
+  }
+
+  function queueHoleDetailSave(hole) {
+    if (!state.round || !Number.isInteger(hole)) return;
+    const pendingTimer = state.holeDetailSaveTimers.get(hole);
+    if (pendingTimer) clearTimeout(pendingTimer);
+    dom.holeDetailSaveStatus.classList.remove("hidden");
+    dom.holeDetailSaveStatus.textContent = "Saving hole details...";
+
+    const timerId = setTimeout(async () => {
+      state.pendingHoleDetailHoles.add(hole);
+      renderHoleDetailEditor();
+      try {
+        const detail = getHoleDetail(hole);
+        const saved = await window.SupabaseAPI.upsertRoundHoleDetails({
+          roundId: state.round.id,
+          hole: hole,
+          par: getPar(hole) || 4,
+          distanceYards: detail.distance,
+          difficulty: detail.difficulty
+        });
+        if (!saved) throw new Error("Hole detail columns unavailable");
+        dom.holeDetailSaveStatus.textContent = "Hole details saved";
+        setTimeout(() => {
+          dom.holeDetailSaveStatus.classList.add("hidden");
+        }, 900);
+      } catch (err) {
+        dom.holeDetailSaveStatus.classList.remove("hidden");
+        dom.holeDetailSaveStatus.textContent = "Hole detail save failed. Try again.";
+        showFeedback("Could not save hole details.", true);
+        console.error(err);
+      } finally {
+        state.pendingHoleDetailHoles.delete(hole);
+        state.holeDetailSaveTimers.delete(hole);
+        renderHoleDetailEditor();
+      }
+    }, 320);
+    state.holeDetailSaveTimers.set(hole, timerId);
   }
 
   function scoreKey(playerId, hole) {
@@ -852,6 +980,7 @@
     renderCourseIntelligence();
     renderHoleIntelligenceStrip();
     renderShotIntelligencePanel();
+    renderHoleDetailEditor();
 
     renderScoreUxMeta();
     renderParRow();
@@ -1355,6 +1484,7 @@
     if (state.round) state.selectedHole = clampHoleSelection(hole, state.round.holes);
     renderHoleIntelligenceStrip();
     renderShotIntelligencePanel();
+    renderHoleDetailEditor();
     renderScoreTable();
     scrollHoleTileIntoView(hole);
     openPicker(playerId, hole);
@@ -1479,6 +1609,15 @@
     return r;
   }
 
+  function parseDistanceYards(value) {
+    if (value == null || value === "") return null;
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+    const r = Math.round(n);
+    if (r < 1) return null;
+    return r;
+  }
+
   function getPar(hole) {
     const v = state.parMap[hole];
     return Number.isInteger(v) ? v : null;
@@ -1557,7 +1696,10 @@
     if (!state.round) return;
     const rows = await window.SupabaseAPI.getRoundHoles(state.round.id);
     state.parMap = buildParMap(rows, state.round.holes);
+    state.holeDetails = buildHoleDetails(rows, state.round.holes);
     renderHoleIntelligenceStrip();
+    renderShotIntelligencePanel();
+    renderHoleDetailEditor();
     renderParRow();
     renderLeaderboard();
     renderScoreTable();
@@ -1589,7 +1731,7 @@
     if (state.round.payout_first == null) state.round.payout_first = 60;
     if (state.round.payout_second == null) state.round.payout_second = 30;
     if (state.round.payout_third == null) state.round.payout_third = 10;
-    state.holeDetails = buildHoleDetails(state.round.holes, state.holeDetails);
+    state.holeDetails = normalizeHoleDetails(state.round.holes, state.holeDetails);
     state.selectedHole = clampHoleSelection(state.selectedHole, state.round.holes);
     if (state.selectedHole == null && state.round.holes >= 1) state.selectedHole = 1;
     state.parMap = buildParMap(Object.keys(state.parMap).map((hole) => ({ hole: Number(hole), par: state.parMap[hole] })), state.round.holes);
@@ -1639,8 +1781,11 @@
     state.selectedHole = null;
     state.pendingScoreKeys.clear();
     state.pendingParHoles.clear();
+    state.pendingHoleDetailHoles.clear();
     state.parSaveTimers.forEach((timerId) => clearTimeout(timerId));
     state.parSaveTimers.clear();
+    state.holeDetailSaveTimers.forEach((timerId) => clearTimeout(timerId));
+    state.holeDetailSaveTimers.clear();
     state.activeCell = null;
     state.identityName = null;
     state.identityPlayerId = null;
