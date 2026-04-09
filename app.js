@@ -69,6 +69,7 @@
     payoutSaveStatus: document.getElementById("payout-save-status"),
     payoutPositionBody: document.getElementById("payout-position-body"),
     payoutPlayerBody: document.getElementById("payout-player-body"),
+    holeIntelligenceStrip: document.getElementById("hole-intelligence-strip"),
     scoreHint: document.querySelector("#score-view .card.section .muted.tiny"),
     courseIntelCard: document.getElementById("course-intel-card"),
     courseIntelName: document.getElementById("course-intel-name"),
@@ -117,6 +118,8 @@
     selectedCourseMetadata: null,
     courseContextRequestId: 0,
     potSettingsLocked: false,
+    holeDetails: {},
+    selectedHole: null,
     lastAutoScrollIdentityToken: null,
     recentScoreFlashKey: null,
     scoreFlashTimer: null,
@@ -206,6 +209,7 @@
     dom.pickerClear.addEventListener("click", clearActiveScore);
     dom.pickerDone.addEventListener("click", closePicker);
     dom.scoreTable.addEventListener("click", onScoreTableClick);
+    dom.holeIntelligenceStrip.addEventListener("click", onHoleIntelligenceClick);
     dom.parRow.addEventListener("change", onParInputChanged);
     dom.parRow.addEventListener("blur", onParInputBlur, true);
 
@@ -575,6 +579,9 @@
     state.players = players;
     state.scoreMap = buildScoreMap(scores);
     state.parMap = buildParMap(pars, round.holes);
+    state.holeDetails = buildMockHoleDetails(round.holes, state.holeDetails);
+    state.selectedHole = clampHoleSelection(state.selectedHole, round.holes);
+    if (state.selectedHole == null && round.holes >= 1) state.selectedHole = 1;
     state.pendingScoreKeys.clear();
     state.pendingParHoles.clear();
     state.parSaveTimers.forEach((timerId) => clearTimeout(timerId));
@@ -615,6 +622,126 @@
       }
     });
     return map;
+  }
+
+  function buildMockHoleDetails(holes, previous) {
+    const prev = previous || {};
+    const next = {};
+    const presets = [
+      { distance: 410, difficulty: "medium" },
+      { distance: 180, difficulty: "easy" },
+      { distance: 455, difficulty: "hard" },
+      { distance: 365, difficulty: "medium" },
+      { distance: 520, difficulty: "hard" },
+      { distance: 160, difficulty: "easy" },
+      { distance: 430, difficulty: "medium" },
+      { distance: 205, difficulty: "hard" },
+      { distance: 395, difficulty: "medium" },
+      { distance: 415, difficulty: "medium" },
+      { distance: 175, difficulty: "easy" },
+      { distance: 470, difficulty: "hard" },
+      { distance: 350, difficulty: "easy" },
+      { distance: 540, difficulty: "hard" },
+      { distance: 190, difficulty: "medium" },
+      { distance: 445, difficulty: "hard" },
+      { distance: 325, difficulty: "easy" },
+      { distance: 485, difficulty: "hard" }
+    ];
+    for (let hole = 1; hole <= holes; hole += 1) {
+      const existing = prev[hole];
+      if (existing && Number.isFinite(Number(existing.distance)) && isValidDifficulty(existing.difficulty)) {
+        next[hole] = { distance: Number(existing.distance), difficulty: existing.difficulty };
+        continue;
+      }
+      const preset = presets[(hole - 1) % presets.length];
+      next[hole] = { distance: preset.distance, difficulty: preset.difficulty };
+    }
+    return next;
+  }
+
+  function clampHoleSelection(hole, holes) {
+    const n = Number(hole);
+    if (!Number.isInteger(n) || n < 1 || n > holes) return null;
+    return n;
+  }
+
+  function isValidDifficulty(value) {
+    return value === "easy" || value === "medium" || value === "hard";
+  }
+
+  function getHoleDetail(hole) {
+    const detail = state.holeDetails[hole] || {};
+    const distance = Number.isFinite(Number(detail.distance)) ? Math.round(Number(detail.distance)) : null;
+    const difficulty = isValidDifficulty(detail.difficulty) ? detail.difficulty : "medium";
+    return { distance: distance, difficulty: difficulty };
+  }
+
+  function renderHoleIntelligenceStrip() {
+    if (!state.round || !dom.holeIntelligenceStrip) return;
+    const holes = state.round.holes;
+    let html = "";
+    for (let hole = 1; hole <= holes; hole += 1) {
+      const par = getPar(hole);
+      const detail = getHoleDetail(hole);
+      const selected = state.selectedHole === hole;
+      html += `
+        <button
+          class="hole-intelligence-tile ${selected ? "active" : ""}"
+          type="button"
+          data-hole="${hole}"
+          role="option"
+          aria-selected="${selected ? "true" : "false"}"
+          title="Jump to hole ${hole}">
+          <div class="hole-intelligence-top">
+            <span class="hole-intelligence-hole">H${hole}</span>
+            <span class="hole-intelligence-par">Par ${display(par)}</span>
+          </div>
+          <div class="hole-intelligence-distance">${detail.distance == null ? "-" : detail.distance} yds</div>
+          <div class="hole-intelligence-difficulty ${detail.difficulty}">${detail.difficulty}</div>
+        </button>
+      `;
+    }
+    dom.holeIntelligenceStrip.innerHTML = html;
+  }
+
+  function onHoleIntelligenceClick(event) {
+    const tile = event.target.closest(".hole-intelligence-tile");
+    if (!tile || !dom.holeIntelligenceStrip.contains(tile) || !state.round) return;
+    const hole = Number(tile.getAttribute("data-hole"));
+    if (!Number.isInteger(hole) || hole < 1 || hole > state.round.holes) return;
+    selectHoleForIntelligence(hole);
+  }
+
+  function selectHoleForIntelligence(hole) {
+    if (!state.round) return;
+    state.selectedHole = clampHoleSelection(hole, state.round.holes);
+    renderHoleIntelligenceStrip();
+    renderScoreTable();
+    scrollScoreTableToHole(hole);
+    scrollHoleTileIntoView(hole);
+  }
+
+  function scrollScoreTableToHole(hole) {
+    if (!dom.scoreScrollContainer || !dom.scoreTable) return;
+    const target = dom.scoreTable.querySelector(`th[data-hole="${hole}"]`);
+    if (!target) return;
+    const left = Math.max(0, target.offsetLeft - 76);
+    try {
+      dom.scoreScrollContainer.scrollTo({ left: left, behavior: "smooth" });
+    } catch (_err) {
+      dom.scoreScrollContainer.scrollLeft = left;
+    }
+  }
+
+  function scrollHoleTileIntoView(hole) {
+    if (!dom.holeIntelligenceStrip) return;
+    const tile = dom.holeIntelligenceStrip.querySelector(`.hole-intelligence-tile[data-hole="${hole}"]`);
+    if (!tile) return;
+    try {
+      tile.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" });
+    } catch (_err) {
+      tile.scrollIntoView();
+    }
   }
 
   function scoreKey(playerId, hole) {
@@ -701,6 +828,7 @@
     syncPotSettingsLockState();
     renderPayouts();
     renderCourseIntelligence();
+    renderHoleIntelligenceStrip();
 
     renderScoreUxMeta();
     renderParRow();
@@ -909,6 +1037,7 @@
       return;
     }
     state.parMap[hole] = nextPar;
+    renderHoleIntelligenceStrip();
     renderLeaderboard();
     renderScoreTable();
     queueParSave(hole, nextPar);
@@ -1121,7 +1250,8 @@
 
     let head = '<thead><tr><th class="sticky-player">Player</th>';
     for (let hole = 1; hole <= holes; hole += 1) {
-      head += `<th class="${hole <= 9 ? "front-head" : "back-head"}">H${hole}</th>`;
+      const selectedClass = state.selectedHole === hole ? "score-hole-selected" : "";
+      head += `<th data-hole="${hole}" class="${hole <= 9 ? "front-head" : "back-head"} ${selectedClass}">H${hole}</th>`;
     }
     head += '<th class="tot-head">Front</th>';
     if (showBack) head += '<th class="tot-head">Back</th>';
@@ -1131,7 +1261,8 @@
     body += '<tr class="par-display-row">';
     body += '<td class="sticky-player"><span class="player-name">Par</span><span class="player-note">By hole</span></td>';
     for (let hole = 1; hole <= holes; hole += 1) {
-      body += `<td class="${hole > 9 ? "back-cell" : ""}"><span class="par-chip">${display(getPar(hole))}</span></td>`;
+      const selectedClass = state.selectedHole === hole ? "score-hole-selected" : "";
+      body += `<td class="${hole > 9 ? "back-cell" : ""} ${selectedClass}"><span class="par-chip">${display(getPar(hole))}</span></td>`;
     }
     body += '<td class="tot-cell">-</td>';
     if (showBack) body += '<td class="tot-cell">-</td>';
@@ -1160,11 +1291,12 @@
         const saving = state.pendingScoreKeys.has(key);
         const flash = state.recentScoreFlashKey === key;
         const subLabel = val == null ? "" : (term || relative);
+        const selectedClass = state.selectedHole === hole ? "score-hole-selected" : "";
         const title = val == null
           ? `${player.name} hole ${hole}`
           : `${player.name} hole ${hole}: ${text} (${relative})${term ? ` ${term}` : ""}`;
         body += `
-          <td class="${hole > 9 ? "back-cell" : ""}">
+          <td class="${hole > 9 ? "back-cell" : ""} ${selectedClass}">
             <button
               class="score-btn ${val == null ? "empty" : ""} ${active ? "active" : ""} ${editableRow ? "" : "readonly"} ${saving ? "saving" : ""} ${termClass} ${flash ? "score-updated-flash" : ""}"
               type="button"
@@ -1195,6 +1327,10 @@
     const playerId = btn.getAttribute("data-player-id");
     const hole = Number(btn.getAttribute("data-hole"));
     if (!playerId || !Number.isInteger(hole) || hole < 1) return;
+    if (state.round) state.selectedHole = clampHoleSelection(hole, state.round.holes);
+    renderHoleIntelligenceStrip();
+    renderScoreTable();
+    scrollHoleTileIntoView(hole);
     openPicker(playerId, hole);
   }
 
@@ -1395,6 +1531,7 @@
     if (!state.round) return;
     const rows = await window.SupabaseAPI.getRoundHoles(state.round.id);
     state.parMap = buildParMap(rows, state.round.holes);
+    renderHoleIntelligenceStrip();
     renderParRow();
     renderLeaderboard();
     renderScoreTable();
@@ -1426,6 +1563,9 @@
     if (state.round.payout_first == null) state.round.payout_first = 60;
     if (state.round.payout_second == null) state.round.payout_second = 30;
     if (state.round.payout_third == null) state.round.payout_third = 10;
+    state.holeDetails = buildMockHoleDetails(state.round.holes, state.holeDetails);
+    state.selectedHole = clampHoleSelection(state.selectedHole, state.round.holes);
+    if (state.selectedHole == null && state.round.holes >= 1) state.selectedHole = 1;
     state.parMap = buildParMap(Object.keys(state.parMap).map((hole) => ({ hole: Number(hole), par: state.parMap[hole] })), state.round.holes);
     renderRound();
   }
@@ -1469,6 +1609,8 @@
     state.players = [];
     state.scoreMap = {};
     state.parMap = {};
+    state.holeDetails = {};
+    state.selectedHole = null;
     state.pendingScoreKeys.clear();
     state.pendingParHoles.clear();
     state.parSaveTimers.forEach((timerId) => clearTimeout(timerId));
