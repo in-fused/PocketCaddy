@@ -4161,6 +4161,15 @@ if (!dom.homeView.classList.contains("hidden")) {
     return out.length ? `${out}${ellipsis}` : ellipsis;
   }
 
+  function formatShareScoreContext(row) {
+    const total = row && Number.isFinite(Number(row.total)) ? Number(row.total) : null;
+    const relative = row && Number.isFinite(Number(row.relative)) ? Number(row.relative) : null;
+    if (relative != null && total != null) return `${formatRelativeToPar(relative)} (${total})`;
+    if (relative != null) return formatRelativeToPar(relative);
+    if (total != null) return `(${total})`;
+    return "-";
+  }
+
   function buildShareImageData(completion) {
     const safeCompletion = completion && completion.isComplete ? completion : state.roundCompletion;
     const winnerNames = Array.isArray(safeCompletion && safeCompletion.winnerNames)
@@ -4172,9 +4181,15 @@ if (!dom.homeView.classList.contains("hidden")) {
       ? safeCompletion.topThree.slice(0, 3).map((row, idx) => ({
           place: idx + 1,
           name: row && row.name ? String(row.name).trim() : "-",
-          score: row && Number.isFinite(Number(row.total)) ? `${Number(row.total)} strokes` : "-"
+          score: formatShareScoreContext(row)
         }))
       : [];
+    const leaders = Array.isArray(safeCompletion && safeCompletion.leaders)
+      ? safeCompletion.leaders.filter((row) => row && row.total != null)
+      : [];
+    const winnerContext = leaders.length
+      ? leaders.map((row) => formatShareScoreContext(row)).join(" • ")
+      : (standings[0] && standings[0].score && standings[0].score !== "-" ? String(standings[0].score) : "-");
     while (standings.length < 3) {
       standings.push({ place: standings.length + 1, name: "-", score: "-" });
     }
@@ -4185,6 +4200,7 @@ if (!dom.homeView.classList.contains("hidden")) {
       teeName: state.round && state.round.tee ? String(state.round.tee).trim() : "",
       winnerLabel: winnerLabel,
       winnerNamesText: joinNamesForShare(winnerNames),
+      winnerScoreContextText: winnerContext,
       standings: standings
     };
   }
@@ -4309,20 +4325,24 @@ if (!dom.homeView.classList.contains("hidden")) {
     ctx.fillStyle = "#D7DFEC";
     ctx.fillText(fitCanvasText(ctx, data.winnerLabel || "Winner", textMax), size / 2, 468);
 
-    const winnerSpotlight = ctx.createRadialGradient(size / 2, 544, 24, size / 2, 544, 260);
+    const winnerSpotlight = ctx.createRadialGradient(size / 2, 548, 24, size / 2, 548, 272);
     winnerSpotlight.addColorStop(0, accentRgba(0.24));
     winnerSpotlight.addColorStop(0.65, accentRgba(0.08));
     winnerSpotlight.addColorStop(1, accentRgba(0));
     ctx.fillStyle = winnerSpotlight;
-    ctx.fillRect(120, 472, size - 240, 164);
+    ctx.fillRect(120, 472, size - 240, 194);
 
     ctx.save();
     ctx.shadowColor = accentRgba(0.45);
     ctx.shadowBlur = 26;
-    ctx.font = "800 66px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.font = "800 64px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = "#FFFFFF";
     ctx.fillText(fitCanvasText(ctx, data.winnerNamesText || "-", textMax), size / 2, 544);
     ctx.restore();
+
+    ctx.font = "600 34px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.fillStyle = "#BFC8D8";
+    ctx.fillText(fitCanvasText(ctx, data.winnerScoreContextText || "-", textMax), size / 2, 590);
 
     const separation = ctx.createLinearGradient(198, 0, size - 198, 0);
     separation.addColorStop(0, "rgba(255,255,255,0)");
@@ -4330,25 +4350,55 @@ if (!dom.homeView.classList.contains("hidden")) {
     separation.addColorStop(0.8, accentRgba(0.15));
     separation.addColorStop(1, "rgba(255,255,255,0)");
     ctx.fillStyle = separation;
-    ctx.fillRect(198, 618, size - 396, 1.5);
+    ctx.fillRect(198, 638, size - 396, 1.5);
 
-    ctx.font = "600 38px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.font = "600 36px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = accent;
-    ctx.fillText("Top 3 Standings", size / 2, 686);
+    ctx.fillText("Top 3 Standings", size / 2, 702);
 
     const standings = Array.isArray(data.standings) ? data.standings.slice(0, 3) : [];
     while (standings.length < 3) standings.push({ place: standings.length + 1, name: "-", score: "-" });
-    const rows = standings.map((row) => `${Number(row.place) || 1}. ${row.name || "-"} — ${row.score || "-"}`);
-    ctx.font = "700 42px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-    ctx.fillStyle = accent;
-    ctx.fillText(fitCanvasText(ctx, rows[0], textMax), size / 2, 756);
-    ctx.fillStyle = accentRgba(0.2);
-    ctx.fillRect(186, 780, size - 372, 2);
-    ctx.font = "600 39px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-    ctx.fillStyle = "#E9EEF8";
-    ctx.fillText(fitCanvasText(ctx, rows[1], textMax), size / 2, 824);
-    ctx.fillStyle = "#DCE3EF";
-    ctx.fillText(fitCanvasText(ctx, rows[2], textMax), size / 2, 892);
+    const rowLeft = 164;
+    const rowWidth = size - (rowLeft * 2);
+    const rowHeight = 62;
+    const rowGap = 16;
+    const rowStartY = 742;
+    for (let i = 0; i < standings.length; i += 1) {
+      const row = standings[i] || {};
+      const y = rowStartY + (i * (rowHeight + rowGap));
+      const isTop = i === 0;
+
+      ctx.fillStyle = isTop ? "rgba(255,255,255,0.105)" : "rgba(255,255,255,0.075)";
+      ctx.beginPath();
+      ctx.roundRect(rowLeft, y, rowWidth, rowHeight, 14);
+      ctx.fill();
+
+      ctx.strokeStyle = isTop ? accentRgba(0.45) : "rgba(255,255,255,0.1)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(rowLeft, y, rowWidth, rowHeight, 14);
+      ctx.stroke();
+
+      ctx.textAlign = "left";
+      ctx.font = "700 28px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+      ctx.fillStyle = isTop ? accent : "#D6DEEC";
+      ctx.fillText(`${Number(row.place) || (i + 1)}.`, rowLeft + 24, y + (rowHeight / 2) + 1);
+
+      ctx.font = isTop
+        ? "700 33px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        : "600 31px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+      ctx.fillStyle = "#F2F6FF";
+      const nameMax = rowWidth - 312;
+      ctx.fillText(fitCanvasText(ctx, row.name || "-", nameMax), rowLeft + 82, y + (rowHeight / 2) + 1);
+
+      ctx.textAlign = "right";
+      ctx.font = isTop
+        ? "700 30px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        : "600 28px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+      ctx.fillStyle = isTop ? "#F4FAFF" : "#D2DBEA";
+      ctx.fillText(fitCanvasText(ctx, row.score || "-", 220), rowLeft + rowWidth - 24, y + (rowHeight / 2) + 1);
+    }
+    ctx.textAlign = "center";
 
     ctx.font = "500 30px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = "rgba(255,255,255,0.12)";
@@ -4384,9 +4434,17 @@ if (!dom.homeView.classList.contains("hidden")) {
       ? safeCompletion.winnerNames.map((name) => String(name || "").trim()).filter(Boolean)
       : [];
     const topThree = Array.isArray(safeCompletion && safeCompletion.topThree)
-      ? safeCompletion.topThree.slice(0, 3).map((row) => `${row && row.name ? String(row.name) : "-"}:${row && Number.isFinite(Number(row.total)) ? Number(row.total) : "-"}`)
+      ? safeCompletion.topThree.slice(0, 3).map((row) => {
+        const name = row && row.name ? String(row.name).trim() : "-";
+        const total = row && Number.isFinite(Number(row.total)) ? Number(row.total) : "-";
+        const relative = row && Number.isFinite(Number(row.relative)) ? Number(row.relative) : "-";
+        return `${name}:${total}:${relative}`;
+      })
       : [];
-    return `${roundId}|${winnerNames.join(",")}|${topThree.join(",")}`;
+    const winners = Array.isArray(safeCompletion && safeCompletion.leaders)
+      ? safeCompletion.leaders.map((row) => `${row && row.id != null ? String(row.id) : "-"}:${formatShareScoreContext(row)}`)
+      : [];
+    return `${roundId}|${winnerNames.join(",")}|${winners.join(",")}|${topThree.join(",")}`;
   }
 
   function canvasToPngBlob(canvas) {
