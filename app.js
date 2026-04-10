@@ -84,6 +84,7 @@
     courseIntelName: document.getElementById("course-intel-name"),
     courseIntelLocation: document.getElementById("course-intel-location"),
     courseIntelCoords: document.getElementById("course-intel-coords"),
+    courseIntelMapped: document.getElementById("course-intel-mapped"),
     courseIntelWeather: document.getElementById("course-intel-weather"),
     courseIntelWind: document.getElementById("course-intel-wind"),
     courseIntelPreview: document.getElementById("course-intel-preview"),
@@ -361,7 +362,7 @@
       state.courseSearchResults = Array.isArray(results) ? results : [];
       renderCourseSuggestions(state.courseSearchResults);
       if (state.courseSearchResults.length === 0) {
-        setCourseSearchStatus("Search unavailable. Enter Course Name manually.");
+        setCourseSearchStatus("No matching courses found");
       } else {
         setCourseSearchStatus("");
       }
@@ -441,10 +442,12 @@
     const latLng = Number.isFinite(selected.lat) && Number.isFinite(selected.lng)
       ? `${selected.lat.toFixed(4)}, ${selected.lng.toFixed(4)}`
       : "Unavailable";
+    const sourceText = selected.source ? `Search source: ${selected.source}` : "";
     dom.selectedCourseCard.innerHTML = `
       <h4>Selected: ${escapeHtml(selected.displayName || "-")}</h4>
       <p>${escapeHtml(selected.locationText || "Location unavailable")}</p>
       <p>Coordinates: ${escapeHtml(latLng)}</p>
+      ${sourceText ? `<p>${escapeHtml(sourceText)}</p>` : ""}
       <button class="btn btn-secondary" type="button" data-action="clear">Clear Selection</button>
     `;
     dom.selectedCourseCard.classList.remove("hidden");
@@ -1026,6 +1029,7 @@
         name: "-",
         locationText: "Location unavailable",
         coordsText: "Coordinates unavailable",
+        mappedDetailText: "Mapped detail unavailable",
         weatherText: "Weather unavailable",
         windText: "Weather unavailable",
         previewUrl: null
@@ -1045,21 +1049,46 @@
         name: name,
         locationText: locationText,
         coordsText: coordsText,
+        mappedDetailText: "Mapped detail unavailable",
         weatherText: "Weather unavailable",
         windText: "Weather unavailable",
         previewUrl: previewUrl
       };
     }
 
-    const weather = await fetchCourseWeather(lat, lng);
+    const [weather, enrichment] = await Promise.all([
+      fetchCourseWeather(lat, lng),
+      fetchCourseEnrichment(lat, lng)
+    ]);
     return {
       name: name,
       locationText: locationText,
       coordsText: coordsText,
+      mappedDetailText: summarizeMappedDetail(enrichment),
       weatherText: weather.temperatureText || "Weather unavailable",
       windText: weather.windText || "Weather unavailable",
       previewUrl: previewUrl
     };
+  }
+
+  async function fetchCourseEnrichment(lat, lng) {
+    try {
+      if (!window.SupabaseAPI || typeof window.SupabaseAPI.getCourseEnrichment !== "function") return null;
+      return await window.SupabaseAPI.getCourseEnrichment(lat, lng);
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  function summarizeMappedDetail(enrichment) {
+    if (!enrichment || !enrichment.hasMappedDetail) return "Mapped detail unavailable";
+    const hasGreens = Number(enrichment.greenCount || 0) > 0;
+    const hasHazards = Number(enrichment.bunkerCount || 0) > 0;
+    const hasTees = Number(enrichment.teeCount || 0) > 0;
+    const hasFairways = Number(enrichment.fairwayCount || 0) > 0;
+    if (hasGreens && hasHazards) return "Mapped detail: Greens and hazards available";
+    if (hasGreens || hasHazards || hasTees || hasFairways) return "Mapped detail: Limited course mapping";
+    return "Mapped detail unavailable";
   }
 
   function buildCoursePreviewUrl(lat, lng) {
@@ -1096,6 +1125,7 @@
     dom.courseIntelName.textContent = context.name || "-";
     dom.courseIntelLocation.textContent = context.locationText || "Location unavailable";
     dom.courseIntelCoords.textContent = context.coordsText || "Coordinates unavailable";
+    if (dom.courseIntelMapped) dom.courseIntelMapped.textContent = context.mappedDetailText || "Mapped detail unavailable";
     dom.courseIntelWeather.textContent = context.weatherText || "Weather unavailable";
     dom.courseIntelWind.textContent = context.windText || "Weather unavailable";
 
@@ -1128,6 +1158,7 @@
       coordsText: hasCoords
         ? `${Number(state.round.course_lat).toFixed(4)}, ${Number(state.round.course_lng).toFixed(4)}`
         : "Coordinates unavailable",
+      mappedDetailText: hasCoords ? "Mapped detail unavailable" : "Mapped detail unavailable",
       weatherText: hasCoords ? "Loading..." : "Weather unavailable",
       windText: hasCoords ? "Loading..." : "Weather unavailable",
       previewUrl: hasCoords

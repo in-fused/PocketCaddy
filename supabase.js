@@ -68,6 +68,8 @@ const SUPABASE_URL = "https://kvbdkduveaqapvrtwjha.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_hMwWJGMS9nrLf52SMb3B8w_Oh4CGNgs";
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const courseSearchCache = new Map();
+const courseEnrichmentCache = new Map();
 
 function isRoundHolesTableMissing(error) {
   if (!error) return false;
@@ -340,7 +342,132 @@ async function updateRoundSettings(payload) {
 async function searchCourses(query) {
   const needle = String(query || "").trim();
   if (!needle || needle.length < 2) return [];
-  return [];
+
+  const cacheKey = needle.toLowerCase();
+  if (courseSearchCache.has(cacheKey)) return courseSearchCache.get(cacheKey);
+
+  const url = new URL("https://nominatim.openstreetmap.org/search");
+  url.searchParams.set("q", needle);
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("limit", "10");
+  url.searchParams.set("addressdetails", "1");
+  url.searchParams.set("namedetails", "1");
+  url.searchParams.set("extratags", "1");
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: {
+      "Accept": "application/json",
+      "Accept-Language": "en"
+    }
+  });
+  if (!response.ok) throw new Error("Course search request failed");
+  const raw = await response.json();
+  const rows = Array.isArray(raw) ? raw : [];
+
+  const results = rows
+    .filter((item) => isLikelyGolfResult(item))
+    .slice(0, 8)
+    .map((item) => {
+      const name = getResultDisplayName(item);
+      const locationText = getResultLocationText(item);
+      const lat = Number.isFinite(Number(item.lat)) ? Number(item.lat) : null;
+      const lng = Number.isFinite(Number(item.lon)) ? Number(item.lon) : null;
+      const osmType = item.osm_type ? String(item.osm_type) : "osm";
+      const osmId = item.osm_id ? String(item.osm_id) : "";
+      return {
+        displayName: name || "Unnamed course",
+        locationText: locationText || "Location unavailable",
+        lat: lat,
+        lng: lng,
+        placeId: osmId ? `${osmType}:${osmId}` : null,
+        source: "OpenStreetMap"
+      };
+    });
+
+  courseSearchCache.set(cacheKey, results);
+  return results;
+}
+
+function isLikelyGolfResult(item) {
+  const display = String(item && item.display_name ? item.display_name : "").toLowerCase();
+  const named = String(item && item.name ? item.name : "").toLowerCase();
+  const type = String(item && item.type ? item.type : "").toLowerCase();
+  const clazz = String(item && item.class ? item.class : "").toLowerCase();
+  const leisure = String(item && item.extratags && item.extratags.leisure ? item.extratags.leisure : "").toLowerCase();
+  const sport = String(item && item.extratags && item.extratags.sport ? item.extratags.sport : "").toLowerCase();
+
+  if (clazz === "leisure" && (type === "golf_course" || type === "golf")) return true;
+  if (leisure === "golf_course") return true;
+  if (sport === "golf") return true;
+  if (display.includes("golf")) return true;
+  if (named.includes("golf")) return true;
+  return false;
+}
+
+function getResultDisplayName(item) {
+  if (item && item.namedetails && item.namedetails.name) return String(item.namedetails.name);
+  if (item && item.name) return String(item.name);
+  const display = String(item && item.display_name ? item.display_name : "");
+  const first = display.split(",")[0];
+  return first ? first.trim() : display.trim();
+}
+
+function getResultLocationText(item) {
+  const display = String(item && item.display_name ? item.display_name : "");
+  const parts = display.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length <= 1) return display || null;
+  return parts.slice(1).join(", ");
+}
+
+function buildEnrichmentCacheKey(lat, lng) {
+  const a = Number(lat);
+  const b = Number(lng);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  return `${a.toFixed(4)},${b.toFixed(4)}`;
+}
+
+async function getCourseEnrichment(lat, lng) {
+  const cacheKey = buildEnrichmentCacheKey(lat, lng);
+  if (!cacheKey) return null;
+  if (courseEnrichmentCache.has(cacheKey)) return courseEnrichmentCache.get(cacheKey);
+
+  const query = `
+[out:json][timeout:15];
+(
+  node(around:1200,${Number(lat)},${Number(lng)})["golf"];
+  way(around:1200,${Number(lat)},${Number(lng)})["golf"];
+  relation(around:1200,${Number(lat)},${Number(lng)})["golf"];
+);
+out tags qt;
+`.trim();
+
+  const response = await fetch("https://overpass-api.de/api/interpreter", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+    body: `data=${encodeURIComponent(query)}`
+  });
+  if (!response.ok) throw new Error("Course enrichment request failed");
+  const raw = await response.json();
+  const elements = Array.isArray(raw && raw.elements) ? raw.elements : [];
+  const counts = { greenCount: 0, bunkerCount: 0, fairwayCount: 0, teeCount: 0 };
+  elements.forEach((element) => {
+    const golf = String(element && element.tags && element.tags.golf ? element.tags.golf : "").toLowerCase();
+    if (golf === "green") counts.greenCount += 1;
+    if (golf === "bunker") counts.bunkerCount += 1;
+    if (golf === "fairway") counts.fairwayCount += 1;
+    if (golf === "tee") counts.teeCount += 1;
+  });
+
+  const enrichment = {
+    hasMappedDetail: elements.length > 0,
+    greenCount: counts.greenCount,
+    bunkerCount: counts.bunkerCount,
+    fairwayCount: counts.fairwayCount,
+    teeCount: counts.teeCount
+  };
+  courseEnrichmentCache.set(cacheKey, enrichment);
+  return enrichment;
 }
 
 function subscribeToRound(roundId, handlers) {
@@ -381,6 +508,7 @@ window.SupabaseAPI = {
   findRoundByCodeOrLink,
   extractRoundId,
   searchCourses,
+  getCourseEnrichment,
   getPlayers,
   getScores,
   getRoundHoles,
