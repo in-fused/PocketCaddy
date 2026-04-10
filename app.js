@@ -35,6 +35,7 @@
     quickCreateBtn: document.getElementById("quick-create-btn"),
     quickJoinBtn: document.getElementById("quick-join-btn"),
     quickResumeBtn: document.getElementById("quick-resume-btn"),
+    quickCancelSavedBtn: document.getElementById("quick-cancel-saved-btn"),
     createRoundSection: document.getElementById("create-round-section"),
     joinRoundSection: document.getElementById("join-round-section"),
 
@@ -199,6 +200,9 @@
     dom.quickCreateBtn.addEventListener("click", () => jumpToHomeSection("create"));
     dom.quickJoinBtn.addEventListener("click", () => jumpToHomeSection("join"));
     dom.quickResumeBtn.addEventListener("click", resumeSession);
+    if (dom.quickCancelSavedBtn) {
+      dom.quickCancelSavedBtn.addEventListener("click", cancelSavedRoundSession);
+    }
 
     dom.copyLinkBtn.addEventListener("click", copyShareLink);
     dom.switchPlayerBtn.addEventListener("click", () => openNameModal(true));
@@ -273,6 +277,30 @@
     const session = getSession();
     const hasSavedRound = Boolean(session && session.roundId);
     dom.quickResumeBtn.classList.toggle("hidden", !hasSavedRound);
+    if (dom.quickCancelSavedBtn) {
+      dom.quickCancelSavedBtn.classList.toggle("hidden", !hasSavedRound);
+      dom.quickCancelSavedBtn.disabled = !hasSavedRound;
+    }
+  }
+
+  function cancelSavedRoundSession() {
+    const session = getSession();
+    if (!session || !session.roundId) {
+      updateHomeQuickActions();
+      return;
+    }
+    const ok = window.confirm("Remove this saved round from this device? The shared round will still exist for anyone with the link.");
+    if (!ok) return;
+    clearSession();
+    try {
+      localStorage.removeItem(identityKey(session.roundId));
+    } catch (_err) {
+      // localStorage may be unavailable; session clear is still the primary action
+    }
+    updateHomeQuickActions();
+    if (!dom.homeView.classList.contains("hidden")) {
+      showError(dom.homeError, "");
+    }
   }
 
   function jumpToHomeSection(section) {
