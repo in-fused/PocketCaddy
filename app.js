@@ -143,6 +143,7 @@
     lastAutoScrollIdentityToken: null,
     recentScoreFlashKey: null,
     scoreFlashTimer: null,
+    pickerStatusTimer: null,
     lastLeaderSignature: null,
     leaderPulseOn: false,
     leaderPulseTimer: null
@@ -880,25 +881,43 @@ if (!dom.homeView.classList.contains("hidden")) {
   }
 
   function selectHoleForIntelligence(hole) {
+    syncSelectedHole(hole, { scrollTable: true, scrollTile: true, smooth: true });
+  }
+
+  function syncSelectedHole(hole, options) {
     if (!state.round) return;
-    state.selectedHole = clampHoleSelection(hole, state.round.holes);
+    const opts = options || {};
+    const nextHole = clampHoleSelection(hole, state.round.holes);
+    if (!nextHole) return;
+    state.selectedHole = nextHole;
     renderHoleIntelligenceStrip();
     renderShotIntelligencePanel();
     renderHoleDetailEditor();
     renderScoreTable();
-    scrollScoreTableToHole(hole);
-    scrollHoleTileIntoView(hole);
+    if (opts.scrollTable) scrollScoreTableToHole(nextHole, { smooth: opts.smooth, force: opts.forceScroll });
+    if (opts.scrollTile) scrollHoleTileIntoView(nextHole);
   }
 
-  function scrollScoreTableToHole(hole) {
+  function scrollScoreTableToHole(hole, options) {
     if (!dom.scoreScrollContainer || !dom.scoreTable) return;
+    const opts = options || {};
     const target = dom.scoreTable.querySelector(`th[data-hole="${hole}"]`);
     if (!target) return;
-    const left = Math.max(0, target.offsetLeft - 76);
+    const container = dom.scoreScrollContainer;
+    const currentLeft = container.scrollLeft;
+    const viewportLeft = currentLeft + 18;
+    const viewportRight = currentLeft + container.clientWidth - 18;
+    const targetLeft = target.offsetLeft;
+    const targetRight = targetLeft + target.offsetWidth;
+    if (!opts.force && targetLeft >= viewportLeft && targetRight <= viewportRight) return;
+
+    const centered = targetLeft - Math.max(0, (container.clientWidth - target.offsetWidth) / 2);
+    const left = Math.max(0, centered);
+    const behavior = opts.smooth === false ? "auto" : "smooth";
     try {
-      dom.scoreScrollContainer.scrollTo({ left: left, behavior: "smooth" });
+      container.scrollTo({ left: left, behavior: behavior });
     } catch (_err) {
-      dom.scoreScrollContainer.scrollLeft = left;
+      container.scrollLeft = left;
     }
   }
 
@@ -1236,6 +1255,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     state.identityPlayerId = found.id;
     localStorage.setItem(identityKey(state.round.id), found.name);
     closeNameModal();
+    showFeedback(`Scoring as ${found.name}.`);
     renderRound({ scrollToIdentity: true, forceScroll: true });
   }
 
@@ -1559,7 +1579,9 @@ if (!dom.homeView.classList.contains("hidden")) {
 
   function renderScoreUxMeta() {
     if (!dom.scoreHint) return;
-    dom.scoreHint.textContent = "Tap a hole to enter score";
+    const selectedHole = getSafeSelectedHole();
+    const selectedText = selectedHole ? ` (Hole ${selectedHole})` : "";
+    dom.scoreHint.textContent = `Tap a hole to enter score${selectedText}`;
     dom.scoreHint.classList.add("score-entry-hint");
     const scoreSection = dom.scoreScrollContainer && dom.scoreScrollContainer.closest("section");
     if (!scoreSection) return;
@@ -1929,12 +1951,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     const playerId = btn.getAttribute("data-player-id");
     const hole = Number(btn.getAttribute("data-hole"));
     if (!playerId || !Number.isInteger(hole) || hole < 1) return;
-    if (state.round) state.selectedHole = clampHoleSelection(hole, state.round.holes);
-    renderHoleIntelligenceStrip();
-    renderShotIntelligencePanel();
-    renderHoleDetailEditor();
-    renderScoreTable();
-    scrollHoleTileIntoView(hole);
+    syncSelectedHole(hole, { scrollTable: true, scrollTile: true, smooth: true });
     openPicker(playerId, hole);
   }
 
@@ -1947,15 +1964,24 @@ if (!dom.homeView.classList.contains("hidden")) {
     const rel = formatRelativeToPar(getScoreDelta(current, hole));
     const parText = Number.isInteger(par) ? `Par ${par}` : "Par -";
     const currentText = current == null ? "-" : `${current} (${rel}${term ? ` ${term}` : ""})`;
-    dom.pickerTitle.textContent = `${player ? player.name : "Player"} - Hole ${hole} (${parText}, Current: ${currentText})`;
-    dom.pickerStatus.classList.add("hidden");
+    const nextText = state.round && hole < state.round.holes ? `Next: H${hole + 1}` : "Final hole";
+    dom.pickerTitle.textContent = `${player ? player.name : "Player"} - Hole ${hole}/${state.round ? state.round.holes : hole} (${parText}) - Current: ${currentText} - ${nextText}`;
+    clearPickerStatus();
     dom.pickerGrid.innerHTML = Array.from({ length: 15 }, (_, i) => i + 1)
       .map((v) => `<button class="pick-btn" type="button" data-v="${v}">${v}</button>`)
       .join("");
 
     dom.pickerGrid.querySelectorAll(".pick-btn").forEach((btn) => {
+      const btnValue = Number(btn.getAttribute("data-v"));
+      if (current != null && btnValue === current) {
+        btn.setAttribute("aria-pressed", "true");
+        btn.style.borderColor = "#4f7f5f";
+        btn.style.background = "#e7f5eb";
+      } else {
+        btn.setAttribute("aria-pressed", "false");
+      }
       btn.addEventListener("click", async () => {
-        await setScore(Number(btn.getAttribute("data-v")));
+        await setScore(Number(btn.getAttribute("data-v")), { source: "grid" });
       });
     });
     dom.picker.classList.remove("hidden");
@@ -1965,12 +1991,16 @@ if (!dom.homeView.classList.contains("hidden")) {
 
   function closePicker() {
     state.activeCell = null;
+    clearPickerStatus();
+    dom.pickerGrid.innerHTML = "";
+    dom.pickerTitle.textContent = "Select score";
     dom.picker.classList.add("hidden");
     if (state.round) renderScoreTable();
   }
 
-  async function setScore(value) {
+  async function setScore(value, options) {
     if (!state.activeCell || !state.round) return;
+    const opts = options || {};
     const { playerId, hole } = state.activeCell;
     const key = scoreKey(playerId, hole);
     if (state.pendingScoreKeys.has(key)) return;
@@ -1987,6 +2017,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     syncPotSettingsLockState();
     renderLeaderboard();
     renderScoreTable();
+    syncSelectedHole(hole, { scrollTable: true, scrollTile: true, smooth: false });
     updatePickerBusyState();
 
     try {
@@ -1996,10 +2027,23 @@ if (!dom.homeView.classList.contains("hidden")) {
         await window.SupabaseAPI.upsertScore({ roundId: state.round.id, playerId: playerId, hole: hole, value: nextValue });
       }
       setRecentScoreFlash(key);
+      if (isActiveScoreCell(playerId, hole)) {
+        if (opts.source === "grid" && movePickerToAdjacentHole(playerId, hole, 1)) {
+          setPickerStatus("Saved. Next hole ready.", "success", 950);
+        } else if (opts.source === "grid") {
+          closePicker();
+          showFeedback("Score saved.");
+        } else {
+          setPickerStatus("Saved.", "success", 900);
+        }
+      } else {
+        showFeedback("Score saved.");
+      }
     } catch (_err) {
       if (hadPrev) state.scoreMap[key] = prevValue;
       else delete state.scoreMap[key];
-      showFeedback("Could not save score. Please try again.", true);
+      setPickerStatus("Score save failed.", "error", 1800);
+      showFeedback("Could not save score.", true);
     } finally {
       state.pendingScoreKeys.delete(key);
       syncPotSettingsLockState();
@@ -2020,23 +2064,28 @@ if (!dom.homeView.classList.contains("hidden")) {
       await clearActiveScore();
       return;
     }
-    await setScore(next);
+    await setScore(next, { source: "adjust" });
   }
 
   async function clearActiveScore() {
     if (!state.activeCell) return;
-    await setScore(null);
+    await setScore(null, { source: "clear" });
   }
 
   function updatePickerBusyState() {
     if (!state.activeCell) return;
     const key = scoreKey(state.activeCell.playerId, state.activeCell.hole);
     const busy = state.pendingScoreKeys.has(key);
-    dom.pickerStatus.classList.toggle("hidden", !busy);
+    if (busy) {
+      setPickerStatus("Saving score...", "saving");
+    } else if (dom.pickerStatus.dataset.state === "saving") {
+      clearPickerStatus();
+    }
     dom.pickerGrid.querySelectorAll(".pick-btn").forEach((btn) => { btn.disabled = busy; });
     dom.pickerMinus.disabled = busy;
     dom.pickerPlus.disabled = busy;
     dom.pickerClear.disabled = busy;
+    dom.pickerDone.disabled = busy;
   }
 
   function clampScore(value) {
@@ -2161,6 +2210,7 @@ if (!dom.homeView.classList.contains("hidden")) {
       state.identityName = null;
       state.identityPlayerId = null;
       openNameModal(false);
+      showFeedback("Select your player to continue scoring.", true);
     } else {
       state.identityPlayerId = found.id;
     }
@@ -2253,6 +2303,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     closePicker();
     closeNameModal();
     showView("home");
+    setCourseSearchStatus("Local round reset. Ready to start a new round.");
   }
 
   function clearCurrentRoundData() {
@@ -2265,11 +2316,57 @@ if (!dom.homeView.classList.contains("hidden")) {
       state.pendingScoreKeys.clear();
       closePicker();
       renderRound();
-      showFeedback("Round scores cleared.");
+      showFeedback("Scores cleared.");
     })().catch((err) => {
-      showFeedback("Could not clear scores. Please try again.", true);
+      showFeedback("Could not clear scores.", true);
       console.error(err);
     });
+  }
+
+  function isActiveScoreCell(playerId, hole) {
+    return Boolean(
+      state.activeCell &&
+      String(state.activeCell.playerId) === String(playerId) &&
+      Number(state.activeCell.hole) === Number(hole)
+    );
+  }
+
+  function movePickerToAdjacentHole(playerId, currentHole, delta) {
+    if (!state.round || !isEditablePlayerRow(playerId)) return false;
+    const nextHole = clampHoleSelection(Number(currentHole) + Number(delta), state.round.holes);
+    if (!nextHole) return false;
+    syncSelectedHole(nextHole, { scrollTable: true, scrollTile: true, smooth: true });
+    openPicker(playerId, nextHole);
+    return true;
+  }
+
+  function setPickerStatus(message, tone, autoHideMs) {
+    clearTimeout(state.pickerStatusTimer);
+    if (!message) {
+      clearPickerStatus();
+      return;
+    }
+    const mode = String(tone || "info");
+    dom.pickerStatus.classList.remove("hidden");
+    dom.pickerStatus.textContent = message;
+    dom.pickerStatus.dataset.state = mode;
+    if (mode === "error") dom.pickerStatus.style.color = "#7a2020";
+    else if (mode === "success") dom.pickerStatus.style.color = "#23452a";
+    else dom.pickerStatus.style.color = "#31563a";
+    if (Number(autoHideMs) > 0) {
+      state.pickerStatusTimer = setTimeout(() => {
+        clearPickerStatus();
+      }, Number(autoHideMs));
+    }
+  }
+
+  function clearPickerStatus() {
+    clearTimeout(state.pickerStatusTimer);
+    state.pickerStatusTimer = null;
+    dom.pickerStatus.classList.add("hidden");
+    dom.pickerStatus.textContent = "";
+    dom.pickerStatus.dataset.state = "";
+    dom.pickerStatus.style.color = "";
   }
 
   function parseMoney(value) {
