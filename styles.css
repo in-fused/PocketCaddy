@@ -299,9 +299,46 @@ h2, h3, h4, p { margin: 0; }
   background: #f6fbf8;
 }
 
+.round-history-replay-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .round-history-replay h4 {
   margin: 0;
   font-size: 0.94rem;
+}
+
+.round-history-context-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid #c6d9cd;
+  background: #f0f7f3;
+  color: #31503e;
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.round-history-context-pill.replay {
+  border-color: #d9c28b;
+  background: #fcf5e1;
+  color: #5a4618;
+}
+
+.round-history-context-pill.live {
+  border-color: #b9d2c0;
+  background: #edf6f1;
+  color: #2a593f;
+}
+
+.round-history-empty-state,
+.round-history-replay-empty {
+  margin: 0;
 }
 
 .round-history-replay .round-summary-panel {
@@ -1042,6 +1079,11 @@ input:focus, select:focus {
 
 .round-share-actions {
   margin-top: 9px;
+}
+
+.round-share-actions .round-share-btn {
+  width: 100%;
+  justify-content: center;
 }
 
 .round-rematch-btn {

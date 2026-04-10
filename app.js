@@ -177,6 +177,8 @@
     roundHistoryReplayRoundId: null,
     roundHistoryPersistFingerprint: null,
     shareImageLoaderPromise: null,
+    shareInFlight: false,
+    shareButtonResetTimer: null,
     eventsWired: false
   };
 
@@ -589,14 +591,17 @@
     const history = capRoundHistory(Array.isArray(state.roundHistory) ? state.roundHistory : []);
     state.roundHistory = history;
     if (!history.length) {
-      statsWrap.innerHTML = '<p class="muted tiny">No player progression yet.</p>';
-      historyList.innerHTML = '<p class="muted tiny">No rounds saved yet. Complete a round to populate history.</p>';
+      statsWrap.innerHTML = '<p class="muted tiny round-history-empty-state">No player progression yet. Complete a round to start tracking stats.</p>';
+      historyList.innerHTML = '<p class="muted tiny round-history-empty-state">No rounds saved yet. Complete a round to populate history.</p>';
       replayWrap.classList.add("hidden");
       replayWrap.innerHTML = "";
       return;
     }
     const stats = computePlayerProgressionStats(history);
-    statsWrap.innerHTML = stats.map((item) => {
+    if (!stats.length) {
+      statsWrap.innerHTML = '<p class="muted tiny round-history-empty-state">No player progression yet for saved rounds.</p>';
+    } else {
+      statsWrap.innerHTML = stats.map((item) => {
       const avgScore = item.scoredRounds > 0 ? (item.scoreSum / item.scoredRounds) : null;
       return `
         <div class="progression-chip">
@@ -607,7 +612,8 @@
           <p class="progression-metric">Best ${item.bestRound == null ? "-" : item.bestRound}</p>
         </div>
       `;
-    }).join("");
+      }).join("");
+    }
     historyList.innerHTML = history.map((entry) => {
       const roundId = String(entry.roundId);
       const isExpanded = String(state.roundHistoryExpandedRoundId) === roundId;
@@ -646,19 +652,23 @@
     }).join("");
     const replayEntry = history.find((entry) => String(entry.roundId) === String(state.roundHistoryReplayRoundId));
     if (!replayEntry) {
-      replayWrap.classList.add("hidden");
-      replayWrap.innerHTML = "";
+      replayWrap.classList.remove("hidden");
+      replayWrap.innerHTML = '<p class="muted tiny round-history-replay-empty">No replay selected. Choose "View Replay" on a saved round.</p>';
       return;
     }
     const replayCompletion = buildCompletionFromHistoryEntry(replayEntry);
     if (!replayCompletion) {
-      replayWrap.classList.add("hidden");
-      replayWrap.innerHTML = "";
+      replayWrap.classList.remove("hidden");
+      replayWrap.innerHTML = '<p class="muted tiny round-history-replay-empty">Replay unavailable for this round.</p>';
       return;
     }
     replayWrap.classList.remove("hidden");
     replayWrap.innerHTML = `
-      <h4>Round Replay</h4>
+      <div class="round-history-replay-header">
+        <h4>Historical Replay Snapshot</h4>
+        <span class="round-history-context-pill replay">Replayed Round</span>
+        <span class="round-history-context-pill live">Live Round Above</span>
+      </div>
       <p class="muted tiny">${escapeHtml(formatHistoryDate(replayEntry.date))} • ${escapeHtml(replayEntry.roundName || "Round")}</p>
       <div class="round-summary-panel complete round-summary-replay-panel">
         ${buildRoundSummaryPanelMarkup(replayCompletion, {
@@ -2551,11 +2561,17 @@ if (!dom.homeView.classList.contains("hidden")) {
     if (!note) return;
     if (completion && completion.isComplete) {
       note.classList.add("complete");
-      note.textContent = "Round complete. Final results are ready to share.";
+      if (typeof navigator.share === "function") {
+        note.textContent = "Round complete. Share Results opens your device share sheet.";
+      } else if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        note.textContent = "Round complete. Share Results downloads an image and copies a summary.";
+      } else {
+        note.textContent = "Round complete. Share Results downloads a results image.";
+      }
       return;
     }
     note.classList.remove("complete");
-    note.textContent = "Round in progress. Shared scores update live for everyone.";
+    note.textContent = "Round in progress. Finish all holes to enable final sharing.";
   }
 
   function ensureLeaderboardStateBadge() {
@@ -2796,6 +2812,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     const shareBtn = event.target.closest("[data-action='share-round']");
     if (shareBtn) {
       event.preventDefault();
+      if (state.shareInFlight || shareBtn.disabled) return;
       shareRound();
       return;
     }
@@ -3847,19 +3864,43 @@ if (!dom.homeView.classList.contains("hidden")) {
   function setShareButtonLoading(isLoading) {
     const button = document.querySelector(".round-share-btn[data-action='share-round']");
     if (!button) return;
+    if (state.shareButtonResetTimer) {
+      clearTimeout(state.shareButtonResetTimer);
+      state.shareButtonResetTimer = null;
+    }
     if (isLoading) {
       if (!button.dataset.originalText) {
         button.dataset.originalText = String(button.textContent || "Share Results");
       }
       button.disabled = true;
-      button.textContent = "Preparing share...";
+      button.setAttribute("aria-busy", "true");
+      button.textContent = "Sharing...";
       return;
     }
     button.disabled = false;
+    button.removeAttribute("aria-busy");
     if (button.dataset.originalText) {
       button.textContent = button.dataset.originalText;
       delete button.dataset.originalText;
+      return;
     }
+    button.textContent = "Share Results";
+  }
+
+  function setShareButtonPostShareState(text, options) {
+    const button = document.querySelector(".round-share-btn[data-action='share-round']");
+    if (!button) return;
+    if (!button.dataset.originalText) {
+      button.dataset.originalText = String(button.textContent || "Share Results");
+    }
+    button.disabled = true;
+    button.removeAttribute("aria-busy");
+    button.textContent = text || "Done";
+    const holdMs = options && Number.isFinite(options.holdMs) ? Math.max(450, Number(options.holdMs)) : 1400;
+    state.shareButtonResetTimer = setTimeout(() => {
+      state.shareButtonResetTimer = null;
+      setShareButtonLoading(false);
+    }, holdMs);
   }
 
   function ensureHtml2CanvasLoaded() {
@@ -3929,14 +3970,17 @@ if (!dom.homeView.classList.contains("hidden")) {
   }
 
   async function shareRound() {
+    if (state.shareInFlight) return;
     if (!state.roundCompletion || !state.roundCompletion.isComplete) {
       showFeedback("Round must be complete before sharing.", true);
       return;
     }
+    state.shareInFlight = true;
     const summaryText = buildRoundShareText(state.roundCompletion);
     setShareButtonLoading(true);
-    showFeedback("Preparing share...");
+    showFeedback("Preparing share options...");
     let imageBlob = null;
+    let shouldDelayButtonReset = false;
     try {
       try {
         imageBlob = await generateShareImage();
@@ -3956,7 +4000,13 @@ if (!dom.homeView.classList.contains("hidden")) {
           }
         }
         await navigator.share(shareData);
-        showFeedback("Round shared.");
+        if (Array.isArray(shareData.files) && shareData.files.length) {
+          showFeedback("Shared successfully with image and summary.");
+        } else {
+          showFeedback("Shared successfully from your device share sheet.");
+        }
+        setShareButtonPostShareState("Shared", { holdMs: 1500 });
+        shouldDelayButtonReset = true;
         return;
       }
       if (imageBlob) {
@@ -3964,29 +4014,49 @@ if (!dom.homeView.classList.contains("hidden")) {
       }
       const copied = await copyShareText(summaryText);
       if (imageBlob && copied) {
-        showFeedback("Image downloaded and summary copied.");
+        showFeedback("Image downloaded and summary copied to clipboard.");
+        setShareButtonPostShareState("Downloaded + Copied", { holdMs: 1550 });
+        shouldDelayButtonReset = true;
         return;
       }
       if (imageBlob) {
-        showFeedback("Image downloaded.");
+        showFeedback("Image downloaded to your device.");
+        setShareButtonPostShareState("Image Downloaded", { holdMs: 1500 });
+        shouldDelayButtonReset = true;
         return;
       }
       if (copied) {
-        showFeedback("Summary copied.");
+        showFeedback("Summary copied to clipboard.");
+        setShareButtonPostShareState("Copied", { holdMs: 1450 });
+        shouldDelayButtonReset = true;
         return;
       }
+      showFeedback("Share tools unavailable. Showing summary text.", true);
+      setShareButtonPostShareState("Share Failed", { holdMs: 1650 });
+      shouldDelayButtonReset = true;
       window.alert(summaryText);
     } catch (err) {
-      if (err && err.name === "AbortError") return;
+      if (err && err.name === "AbortError") {
+        showFeedback("Share canceled.");
+        setShareButtonPostShareState("Share Canceled", { holdMs: 1200 });
+        shouldDelayButtonReset = true;
+        return;
+      }
       console.error(err);
       const copied = await copyShareText(summaryText);
       if (copied) {
-        showFeedback("Image share failed. Summary copied instead.");
+        showFeedback("Share sheet failed. Summary copied to clipboard.");
+        setShareButtonPostShareState("Copied", { holdMs: 1500 });
+        shouldDelayButtonReset = true;
         return;
       }
+      showFeedback("Could not share results. Showing summary text fallback.", true);
+      setShareButtonPostShareState("Share Failed", { holdMs: 1650 });
+      shouldDelayButtonReset = true;
       window.alert(summaryText);
     } finally {
-      setShareButtonLoading(false);
+      state.shareInFlight = false;
+      if (!shouldDelayButtonReset) setShareButtonLoading(false);
     }
   }
 
