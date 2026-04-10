@@ -4032,17 +4032,55 @@ if (!dom.homeView.classList.contains("hidden")) {
     }
   }
 
+  function joinNamesForShare(names) {
+    const safeNames = Array.isArray(names)
+      ? names.map((name) => String(name || "").trim()).filter(Boolean)
+      : [];
+    if (safeNames.length <= 1) return safeNames[0] || "-";
+    if (safeNames.length === 2) return `${safeNames[0]} & ${safeNames[1]}`;
+    return `${safeNames.slice(0, -1).join(", ")} & ${safeNames[safeNames.length - 1]}`;
+  }
+
   function buildRoundShareText(completion) {
     const safeCompletion = completion && completion.isComplete ? completion : state.roundCompletion;
+    const roundName = state.round && state.round.name ? String(state.round.name).trim() : "";
+    const courseName = state.round && state.round.course ? String(state.round.course).trim() : "";
+    const tee = state.round && state.round.tee ? String(state.round.tee).trim() : "";
+    const holes = state.round && Number(state.round.holes) > 0 ? Number(state.round.holes) : Number(safeCompletion && safeCompletion.holes);
+    const contextParts = [];
+    if (Number.isFinite(holes) && holes > 0) contextParts.push(`${holes} holes`);
+    if (tee) contextParts.push(`${tee} tee`);
+    const contextLine = contextParts.length ? contextParts.join(" • ") : "";
     const winnerNames = Array.isArray(safeCompletion && safeCompletion.winnerNames)
       ? safeCompletion.winnerNames.filter(Boolean).map((name) => String(name).trim()).filter(Boolean)
       : [];
-    const winner = winnerNames.length ? winnerNames.join(", ") : "-";
-    const topThree = Array.isArray(safeCompletion && safeCompletion.topThree) ? safeCompletion.topThree.slice(0, 3) : [];
-    const first = topThree[0] && topThree[0].name ? String(topThree[0].name) : "-";
-    const second = topThree[1] && topThree[1].name ? String(topThree[1].name) : "-";
-    const third = topThree[2] && topThree[2].name ? String(topThree[2].name) : "-";
-    return `🏆 Winner: ${winner}\n🥇 ${first}\n🥈 ${second}\n🥉 ${third}`;
+    const hasTie = winnerNames.length > 1 || /tie/i.test(String(safeCompletion && safeCompletion.winnerLabel ? safeCompletion.winnerLabel : ""));
+    const winnerLabel = hasTie ? "Winners (Tie)" : "Winner";
+    const winnerText = joinNamesForShare(winnerNames);
+    const topThree = Array.isArray(safeCompletion && safeCompletion.topThree)
+      ? safeCompletion.topThree.slice(0, 3)
+      : [];
+    const standings = topThree.length
+      ? topThree.map((row, idx) => {
+        const place = idx + 1;
+        const name = row && row.name ? String(row.name).trim() : "-";
+        const total = row && Number.isFinite(Number(row.total)) ? `${Number(row.total)} strokes` : "-";
+        const relative = row && row.relative != null ? ` (${formatRelativeToPar(row.relative)})` : "";
+        return `${place}. ${name} — ${total}${relative}`;
+      })
+      : ["1. -", "2. -", "3. -"];
+    return [
+      "⛳ PocketCaddy Round Results",
+      `Round: ${roundName || "Round"}`,
+      `Course: ${courseName || "-"}`,
+      contextLine ? `Final: ${contextLine}` : "",
+      `🏆 ${winnerLabel}: ${winnerText}`,
+      "Standings:",
+      standings[0],
+      standings[1],
+      standings[2],
+      "Shared via PocketCaddy"
+    ].filter(Boolean).join("\n");
   }
 
   async function copyShareText(precomputedText) {
