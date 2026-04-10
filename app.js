@@ -848,8 +848,96 @@ if (!dom.homeView.classList.contains("hidden")) {
     return Number.isFinite(value) ? value : null;
   }
 
+  function ensureShotIntelExtraLines() {
+    let shotTypeNode = document.getElementById("shot-intel-shot-type");
+    let playStyleNode = document.getElementById("shot-intel-play-style");
+    const parent = dom.shotIntelTip ? dom.shotIntelTip.parentElement : null;
+    if (!parent) return { shotTypeNode: null, playStyleNode: null };
+
+    if (!shotTypeNode) {
+      shotTypeNode = document.createElement("div");
+      shotTypeNode.id = "shot-intel-shot-type";
+      shotTypeNode.className = "muted tiny";
+      parent.appendChild(shotTypeNode);
+    }
+    if (!playStyleNode) {
+      playStyleNode = document.createElement("div");
+      playStyleNode.id = "shot-intel-play-style";
+      playStyleNode.className = "muted tiny";
+      parent.appendChild(playStyleNode);
+    }
+    return { shotTypeNode: shotTypeNode, playStyleNode: playStyleNode };
+  }
+
+  function getDifficultyTone(difficulty) {
+    if (!isValidDifficulty(difficulty)) return "neutral";
+    if (difficulty === "hard") return "conservative";
+    if (difficulty === "easy") return "aggressive";
+    return "balanced";
+  }
+
+  function getWindAdjustedClub(baseClub, windMph) {
+    const base = displayUnavailableOrValue(baseClub, INTEL_UNAVAILABLE);
+    if (base === INTEL_UNAVAILABLE || windMph == null) return { club: base, adjusted: false };
+    if (windMph <= 5) return { club: base, adjusted: false };
+    if (windMph < 15) return { club: base, adjusted: false };
+
+    const ladder = ["Wedge", "PW / 9 Iron", "8 / 7 Iron", "6 / 5 Iron", "Hybrid", "Fairway / Driver"];
+    const idx = ladder.indexOf(base);
+    if (idx < 0 || idx >= ladder.length - 1) return { club: base, adjusted: false };
+    return { club: ladder[idx + 1], adjusted: true };
+  }
+
+  function getShotType(distance, par) {
+    if (!Number.isFinite(Number(distance)) || !Number.isInteger(par)) return INTEL_UNAVAILABLE;
+    const d = Number(distance);
+    if ((par === 3 && d >= 120) || (par >= 4 && d >= 170)) return "Tee Shot";
+    if (d <= 100) return "Short Game";
+    return "Approach";
+  }
+
+  function getPlayStyle(distance, difficulty, windMph) {
+    const hasDistance = Number.isFinite(Number(distance));
+    const tone = getDifficultyTone(difficulty);
+    const hasWind = Number.isFinite(Number(windMph));
+    if (!hasDistance && tone === "neutral" && !hasWind) return INTEL_UNAVAILABLE;
+    if (tone === "conservative") return "Conservative";
+    if (tone === "aggressive" && (!hasWind || windMph <= 10) && (!hasDistance || Number(distance) <= 165)) return "Aggressive";
+    if (hasWind && windMph >= 15) return "Conservative";
+    if (hasDistance && Number(distance) >= 210) return "Conservative";
+    if (tone === "aggressive") return "Aggressive";
+    return "Balanced";
+  }
+
+  function getStrategyNote(distance, par, difficulty, windMph) {
+    const hasDistance = Number.isFinite(Number(distance));
+    const hasPar = Number.isInteger(par);
+    const hasDifficulty = isValidDifficulty(difficulty);
+    if (!hasDistance && !hasPar && !hasDifficulty) return `Strategy Note: ${INTEL_UNAVAILABLE}`;
+
+    const tone = getDifficultyTone(difficulty);
+    let firstSentence = "Strategy Note: ";
+    if (tone === "conservative") firstSentence += "Favor safe placement.";
+    else if (tone === "aggressive") firstSentence += "Aggressive line possible.";
+    else firstSentence += "Risk/reward hole.";
+
+    let secondSentence = "";
+    if (hasDistance && Number(distance) <= 110) secondSentence = "Keep tempo for a scoring look.";
+    else if (hasDistance && Number(distance) >= 205) secondSentence = "Commit to your line and avoid trouble.";
+    else if (hasPar && par === 5) secondSentence = tone === "aggressive" ? "Consider attacking if lie is clean." : "Build position before attacking.";
+    else if (hasPar && par === 3) secondSentence = tone === "conservative" ? "Center-green target is preferred." : "Pin hunt only with the right wind.";
+
+    if (!secondSentence && Number.isFinite(Number(windMph)) && windMph >= 15) {
+      secondSentence = "Use controlled ball flight in the wind.";
+    }
+
+    if (!secondSentence) return firstSentence;
+    return `${firstSentence} ${secondSentence}`;
+  }
+
   function renderShotIntelligencePanel() {
     if (!state.round || !dom.shotIntelHole || !dom.shotIntelWind || !dom.shotIntelClub || !dom.shotIntelWindNote || !dom.shotIntelTip) return;
+    const extraLines = ensureShotIntelExtraLines();
     const selectedHole = getSafeSelectedHole();
     if (!selectedHole) {
       dom.shotIntelHole.textContent = "Hole: Unavailable";
@@ -857,6 +945,8 @@ if (!dom.homeView.classList.contains("hidden")) {
       dom.shotIntelClub.textContent = `Estimated Club: ${INTEL_UNAVAILABLE}`;
       dom.shotIntelWindNote.textContent = `Wind Note: ${INTEL_UNAVAILABLE}`;
       dom.shotIntelTip.textContent = `Strategy Note: ${INTEL_UNAVAILABLE}`;
+      if (extraLines.shotTypeNode) extraLines.shotTypeNode.textContent = `Shot Type: ${INTEL_UNAVAILABLE}`;
+      if (extraLines.playStyleNode) extraLines.playStyleNode.textContent = `Play Style: ${INTEL_UNAVAILABLE}`;
       dom.shotIntelWindNote.classList.remove("wind-adjust");
       return;
     }
@@ -872,7 +962,13 @@ if (!dom.homeView.classList.contains("hidden")) {
     const par = getPar(selectedHole);
     const hasPar = Number.isInteger(par);
     const hasDifficulty = isValidDifficulty(detail.difficulty);
-    const club = hasDistance ? getSuggestedClub(detail.distance) : "Unavailable";
+    const baseClub = hasDistance ? getSuggestedClub(detail.distance) : INTEL_UNAVAILABLE;
+    const windClub = getWindAdjustedClub(baseClub, windMph);
+    const difficultyTone = getDifficultyTone(detail.difficulty);
+    let clubText = windClub.club;
+    if (clubText !== INTEL_UNAVAILABLE && windClub.adjusted) clubText = `${clubText} (Adjusted for wind)`;
+    if (clubText !== INTEL_UNAVAILABLE && !windClub.adjusted && difficultyTone === "conservative") clubText = `${clubText} (Safer on hard hole)`;
+    if (clubText !== INTEL_UNAVAILABLE && !windClub.adjusted && difficultyTone === "aggressive") clubText = `${clubText} (Attack line available)`;
 
     let windNote = `Wind Note: ${INTEL_UNAVAILABLE}`;
     if (windMph != null) {
@@ -881,26 +977,17 @@ if (!dom.homeView.classList.contains("hidden")) {
       else windNote = "Wind Note: Strong wind. Verify direction and consider extra adjustment.";
     }
 
-    let strategyNote = `Strategy Note: ${INTEL_UNAVAILABLE}`;
-    const difficultyText = hasDifficulty ? capitalize(detail.difficulty) : null;
-    if (hasPar && hasDifficulty) {
-      strategyNote = `Strategy Note: ${difficultyText} difficulty, par ${par}.`;
-    } else if (hasPar) {
-      strategyNote = `Strategy Note: Par ${par}.`;
-    } else if (hasDifficulty) {
-      strategyNote = `Strategy Note: ${difficultyText} difficulty hole.`;
-    }
-
-    if (strategyNote !== `Strategy Note: ${INTEL_UNAVAILABLE}` && hasDistance) {
-      if (detail.distance >= 200) strategyNote += " Long approach likely.";
-      else if (detail.distance <= 130) strategyNote += " Short approach range.";
-    }
+    const strategyNote = getStrategyNote(detail.distance, par, detail.difficulty, windMph);
+    const shotType = hasDistance && hasPar ? getShotType(detail.distance, par) : INTEL_UNAVAILABLE;
+    const playStyle = getPlayStyle(detail.distance, detail.difficulty, windMph);
 
     dom.shotIntelHole.textContent = `Hole ${selectedHole} - Distance: ${distanceLabel}`;
     dom.shotIntelWind.textContent = `Wind: ${windText}`;
-    dom.shotIntelClub.textContent = `Estimated Club: ${club}`;
+    dom.shotIntelClub.textContent = `Estimated Club: ${clubText}`;
     dom.shotIntelWindNote.textContent = windNote;
     dom.shotIntelTip.textContent = strategyNote;
+    if (extraLines.shotTypeNode) extraLines.shotTypeNode.textContent = `Shot Type: ${shotType}`;
+    if (extraLines.playStyleNode) extraLines.playStyleNode.textContent = `Play Style: ${playStyle}`;
     dom.shotIntelWindNote.classList.toggle("wind-adjust", windMph != null && windMph >= 15);
   }
 
