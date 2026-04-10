@@ -709,6 +709,13 @@ input:focus, select:focus {
   margin-bottom: 8px;
 }
 
+.shot-intel-headline {
+  margin-top: 2px;
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #1f3f2f;
+}
+
 .shot-intel-line {
   margin-top: 4px;
   font-size: 0.93rem;
@@ -719,7 +726,7 @@ input:focus, select:focus {
 .shot-intel-tip {
   margin-top: 6px;
   font-size: 0.86rem;
-  font-weight: 700;
+  font-weight: 800;
   color: #3f5e4e;
   background: #f2f7f4;
   border: 1px solid #d3dfd7;

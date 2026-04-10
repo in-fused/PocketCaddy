@@ -73,6 +73,7 @@
     shotIntelHole: document.getElementById("shot-intel-hole"),
     shotIntelWind: document.getElementById("shot-intel-wind"),
     shotIntelClub: document.getElementById("shot-intel-club"),
+    shotIntelWindNote: document.getElementById("shot-intel-wind-note"),
     shotIntelTip: document.getElementById("shot-intel-tip"),
     holeDetailEditorHole: document.getElementById("hole-detail-editor-hole"),
     holeDetailDistanceInput: document.getElementById("hole-detail-distance-input"),
@@ -757,12 +758,13 @@
   }
 
   function getSuggestedClub(distance) {
-    if (!Number.isFinite(distance)) return "-";
-    if (distance < 150) return "Wedge";
-    if (distance <= 180) return "9/8 Iron";
-    if (distance <= 210) return "7/6 Iron";
-    if (distance <= 250) return "Hybrid";
-    return "Driver";
+    if (!Number.isFinite(distance)) return "Unavailable";
+    if (distance < 110) return "Wedge";
+    if (distance <= 140) return "PW / 9 Iron";
+    if (distance <= 170) return "8 / 7 Iron";
+    if (distance <= 200) return "6 / 5 Iron";
+    if (distance <= 230) return "Hybrid";
+    return "Fairway / Driver";
   }
 
   function parseWindMph(windText) {
@@ -774,25 +776,53 @@
   }
 
   function renderShotIntelligencePanel() {
-    if (!state.round || !dom.shotIntelHole || !dom.shotIntelWind || !dom.shotIntelClub || !dom.shotIntelTip) return;
+    if (!state.round || !dom.shotIntelHole || !dom.shotIntelWind || !dom.shotIntelClub || !dom.shotIntelWindNote || !dom.shotIntelTip) return;
     const selectedHole = clampHoleSelection(state.selectedHole, state.round.holes) || 1;
     const detail = getHoleDetail(selectedHole);
     const distanceLabel = detail.distance == null ? "Distance unavailable" : `${detail.distance} yds`;
     const windText = state.courseIntelContext && state.courseIntelContext.windText
       ? state.courseIntelContext.windText
-      : "Weather unavailable";
+      : "Unavailable";
     const windMph = parseWindMph(windText);
-    const hasDistance = Number.isFinite(detail.distance);
-    const suggestedClub = hasDistance ? getSuggestedClub(detail.distance) : "Unavailable";
-    const needsAdjustment = windMph != null && windMph > 10;
+    const hasDistance = detail.distance != null;
+    const par = getPar(selectedHole);
+    const hasPar = Number.isInteger(par);
+    const hasDifficulty = Boolean(detail.difficulty);
+    const club = hasDistance ? getSuggestedClub(detail.distance) : "Unavailable";
+
+    let windNote = "Wind Note: Wind unavailable";
+    if (windMph != null) {
+      if (windMph < 8) windNote = "Wind Note: Light wind";
+      else if (windMph <= 14) windNote = "Wind Note: Wind present. Verify direction before choosing club.";
+      else windNote = "Wind Note: Strong wind. Verify direction and consider extra adjustment.";
+    }
+
+    let strategyNote = "Strategy Note: Hole detail unavailable";
+    if (hasPar && hasDifficulty) {
+      strategyNote = `Strategy Note: ${capitalize(detail.difficulty)} difficulty par ${par}.`;
+    } else if (hasPar) {
+      strategyNote = `Strategy Note: Par ${par}.`;
+    } else if (hasDifficulty) {
+      strategyNote = `Strategy Note: ${capitalize(detail.difficulty)} difficulty hole.`;
+    }
+
+    if (strategyNote !== "Strategy Note: Hole detail unavailable" && hasDistance) {
+      if (detail.distance >= 200) strategyNote += " Long approach likely.";
+      else if (detail.distance <= 130) strategyNote += " Short approach range.";
+    }
 
     dom.shotIntelHole.textContent = `Hole ${selectedHole} - ${distanceLabel}`;
     dom.shotIntelWind.textContent = `Wind: ${windText}`;
-    dom.shotIntelClub.textContent = `Suggested: ${suggestedClub}`;
-    dom.shotIntelTip.textContent = hasDistance
-      ? (needsAdjustment ? "Tip: Slight wind adjustment" : "Tip: Standard shot")
-      : "Tip: Hole detail unavailable";
-    dom.shotIntelTip.classList.toggle("wind-adjust", hasDistance && needsAdjustment);
+    dom.shotIntelClub.textContent = `Estimated Club: ${club}`;
+    dom.shotIntelWindNote.textContent = windNote;
+    dom.shotIntelTip.textContent = strategyNote;
+    dom.shotIntelWindNote.classList.toggle("wind-adjust", windMph != null && windMph >= 15);
+  }
+
+  function capitalize(value) {
+    const text = String(value || "");
+    if (!text) return "";
+    return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
   }
 
   function renderHoleDetailEditor() {
