@@ -199,7 +199,7 @@ PHASE 9 COMPLETE
 * Course-specific intelligence
 * Wind direction modeling
 * Distance + club refinement
-
+- Repo refactor plan defined in POCKETCADDY_REFACTOR_PLAN.md (DO NOT EXECUTE until triggered)
 ---
 
 # UX PRINCIPLES
