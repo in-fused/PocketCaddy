@@ -5,6 +5,8 @@
   const MIN_SCORE = 1;
   const MAX_SCORE = 15;
   const SESSION_KEY = "pocketcaddy_live_session_v2";
+  const ROUND_HISTORY_KEY = "pocketCaddy_round_history";
+  const ROUND_HISTORY_LIMIT = 50;
   const IDENTITY_KEY_PREFIX = "pocketcaddy_identity_";
   const WEATHER_FETCH_TIMEOUT_MS = 4500;
   const INTEL_UNAVAILABLE = "Unavailable";
@@ -167,16 +169,24 @@
     roundCompleteTransitionTimer: null,
     roundCompletionCandidateAt: null,
     roundSummaryExpandedPlayerId: null,
+    roundSummaryReplayExpandedPlayerId: null,
     roundHistoryDraft: null,
-    roundHistoryPreparedAt: null
+    roundHistoryPreparedAt: null,
+    roundHistory: [],
+    roundHistoryExpandedRoundId: null,
+    roundHistoryReplayRoundId: null,
+    roundHistoryPersistFingerprint: null
   };
 
   function init() {
     console.log("PocketCaddy v1 live");
     wireEvents();
+    ensureRoundHistorySection();
+    loadRoundHistoryFromStorage();
     renderSetupPlayers();
     renderSelectedCourseCard();
     renderCourseSuggestions([]);
+    renderRoundHistorySection();
 
     const fromUrl = getRoundIdFromUrl();
     if (fromUrl) {
@@ -271,6 +281,382 @@
     if (leaderboardSection) leaderboardSection.addEventListener("click", onRoundSummaryPanelClick);
   }
 
+  function ensureRoundHistorySection() {
+    if (!dom.homeView) return null;
+    let section = document.getElementById("round-history-section");
+    if (!section) {
+      section = document.createElement("section");
+      section.id = "round-history-section";
+      section.className = "home-history card-sub";
+      section.innerHTML = `
+        <h3>Round History</h3>
+        <p class="muted tiny">Saved on this device only (last ${ROUND_HISTORY_LIMIT} rounds).</p>
+        <div id="round-history-player-stats" class="round-history-player-stats"></div>
+        <div id="round-history-list" class="round-history-list"></div>
+        <div id="round-history-replay" class="round-history-replay hidden"></div>
+      `;
+      const quickSection = dom.homeView.querySelector(".home-quick");
+      if (quickSection && quickSection.nextSibling) {
+        quickSection.insertAdjacentElement("afterend", section);
+      } else if (quickSection) {
+        dom.homeView.appendChild(section);
+      } else {
+        dom.homeView.insertBefore(section, dom.homeView.firstChild);
+      }
+    }
+    if (!section.dataset.wired) {
+      section.addEventListener("click", onRoundHistorySectionClick);
+      section.dataset.wired = "true";
+    }
+    return section;
+  }
+
+  function onRoundHistorySectionClick(event) {
+    const rowBtn = event.target.closest("[data-action='toggle-history-row']");
+    if (rowBtn) {
+      const roundId = rowBtn.getAttribute("data-round-id");
+      if (!roundId) return;
+      state.roundHistoryExpandedRoundId = String(state.roundHistoryExpandedRoundId) === String(roundId) ? null : roundId;
+      renderRoundHistorySection();
+      return;
+    }
+    const replayBtn = event.target.closest("[data-action='replay-history-round']");
+    if (replayBtn) {
+      const roundId = replayBtn.getAttribute("data-round-id");
+      if (!roundId) return;
+      state.roundHistoryReplayRoundId = String(state.roundHistoryReplayRoundId) === String(roundId) ? null : roundId;
+      state.roundSummaryReplayExpandedPlayerId = null;
+      renderRoundHistorySection();
+      return;
+    }
+    const replayPlayerBtn = event.target.closest(".round-history-replay .round-summary-row[data-player-id]");
+    if (replayPlayerBtn) {
+      const playerId = replayPlayerBtn.getAttribute("data-player-id");
+      if (!playerId) return;
+      state.roundSummaryReplayExpandedPlayerId = String(state.roundSummaryReplayExpandedPlayerId) === String(playerId) ? null : playerId;
+      renderRoundHistorySection();
+    }
+  }
+
+  function readRoundHistoryFromStorage() {
+    let raw = null;
+    try {
+      raw = localStorage.getItem(ROUND_HISTORY_KEY);
+    } catch (_err) {
+      return [];
+    }
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map(normalizeRoundHistoryEntry).filter(Boolean);
+    } catch (_err) {
+      return [];
+    }
+  }
+
+  function writeRoundHistoryToStorage(history) {
+    try {
+      localStorage.setItem(ROUND_HISTORY_KEY, JSON.stringify(history));
+    } catch (_err) {
+      // localStorage can be unavailable; rendering still uses in-memory history
+    }
+  }
+
+  function getHistoryDateSortValue(entry) {
+    if (!entry) return 0;
+    const raw = entry.date || entry.completedAt || entry.savedAt;
+    const time = Date.parse(raw || "");
+    return Number.isFinite(time) ? time : 0;
+  }
+
+  function capRoundHistory(history) {
+    return (Array.isArray(history) ? history : [])
+      .slice()
+      .sort((a, b) => getHistoryDateSortValue(b) - getHistoryDateSortValue(a))
+      .slice(0, ROUND_HISTORY_LIMIT);
+  }
+
+  function loadRoundHistoryFromStorage() {
+    state.roundHistory = capRoundHistory(readRoundHistoryFromStorage());
+  }
+
+  function normalizeRoundHistoryEntry(entry) {
+    if (!entry || typeof entry !== "object") return null;
+    const roundId = entry.roundId == null ? null : String(entry.roundId);
+    if (!roundId) return null;
+    const date = entry.date || entry.completedAt || entry.savedAt || new Date(0).toISOString();
+    const standingsSource = Array.isArray(entry.standings) ? entry.standings : [];
+    const standings = standingsSource.map((row) => ({
+      id: row && row.id != null ? String(row.id) : "",
+      name: row && row.name != null ? String(row.name) : "Player",
+      rank: row && row.rank != null ? String(row.rank) : "-",
+      total: Number.isFinite(Number(row && row.total)) ? Number(row.total) : null,
+      front: Number.isFinite(Number(row && row.front)) ? Number(row.front) : null,
+      back: Number.isFinite(Number(row && row.back)) ? Number(row.back) : null,
+      relative: Number.isFinite(Number(row && row.relative)) ? Number(row.relative) : null,
+      holeScores: Array.isArray(row && row.holeScores)
+        ? row.holeScores.map((value) => (Number.isInteger(value) ? value : null))
+        : []
+    }));
+    const winnerNames = Array.isArray(entry.winnerNames)
+      ? entry.winnerNames.map((name) => String(name)).filter((name) => name.trim().length > 0)
+      : [];
+    return {
+      roundId: roundId,
+      roundName: String(entry.roundName || ""),
+      courseName: String(entry.courseName || ""),
+      tee: String(entry.tee || ""),
+      holes: Number(entry.holes) === 9 ? 9 : 18,
+      date: date,
+      players: Array.isArray(entry.players)
+        ? entry.players.map((player) => ({
+            id: player && player.id != null ? String(player.id) : "",
+            name: player && player.name != null ? String(player.name) : "Player"
+          }))
+        : standings.map((row) => ({ id: row.id, name: row.name })),
+      scores: Array.isArray(entry.scores)
+        ? entry.scores.map((score) => ({
+            playerId: score && score.playerId != null ? String(score.playerId) : "",
+            playerName: score && score.playerName != null ? String(score.playerName) : "Player",
+            holeScores: Array.isArray(score && score.holeScores)
+              ? score.holeScores.map((value) => (Number.isInteger(value) ? value : null))
+              : [],
+            total: Number.isFinite(Number(score && score.total)) ? Number(score.total) : null
+          }))
+        : standings.map((row) => ({
+            playerId: row.id,
+            playerName: row.name,
+            holeScores: Array.isArray(row.holeScores) ? row.holeScores.slice() : [],
+            total: row.total
+          })),
+      standings: standings,
+      winnerLabel: String(entry.winnerLabel || "Winner"),
+      winnerNames: winnerNames,
+      winnerIds: Array.isArray(entry.winnerIds) ? entry.winnerIds.map((id) => String(id)) : [],
+      highlights: entry.highlights && typeof entry.highlights === "object" ? entry.highlights : {},
+      insights: entry.insights && typeof entry.insights === "object" ? entry.insights : {},
+      competitiveTags: Array.isArray(entry.competitiveTags)
+        ? entry.competitiveTags.map((tag) => ({
+            key: String((tag && tag.key) || ""),
+            label: String((tag && tag.label) || ""),
+            detail: String((tag && tag.detail) || "")
+          }))
+        : []
+    };
+  }
+
+  function formatHistoryDate(isoDate) {
+    const date = new Date(isoDate);
+    if (Number.isNaN(date.getTime())) return "-";
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      }).format(date);
+    } catch (_err) {
+      return date.toISOString().slice(0, 10);
+    }
+  }
+
+  function getWinnerNamesFromHistory(entry) {
+    const winners = Array.isArray(entry && entry.winnerNames) ? entry.winnerNames.filter(Boolean) : [];
+    if (winners.length) return winners;
+    const winnerIds = new Set(Array.isArray(entry && entry.winnerIds) ? entry.winnerIds.map((id) => String(id)) : []);
+    if (!winnerIds.size) return [];
+    const standings = Array.isArray(entry && entry.standings) ? entry.standings : [];
+    return standings.filter((row) => winnerIds.has(String(row.id))).map((row) => row.name);
+  }
+
+  function buildCompletionFromHistoryEntry(entry) {
+    if (!entry) return null;
+    const standings = Array.isArray(entry.standings) ? entry.standings : [];
+    const winners = getWinnerNamesFromHistory(entry);
+    const winnerLabel = entry.winnerLabel || (winners.length > 1 ? "Winners (Tie)" : "Winner");
+    return {
+      isComplete: true,
+      holes: Number(entry.holes) || 0,
+      playersCount: Array.isArray(entry.players) ? entry.players.length : standings.length,
+      totalRequiredScores: 0,
+      enteredScores: 0,
+      missingScores: 0,
+      pendingScoreCount: 0,
+      standings: standings,
+      leaders: standings.filter((row) => winners.includes(row.name)),
+      winnerLabel: winnerLabel,
+      winnerNames: winners,
+      topThree: standings.slice(0, 3).map((row) => ({
+        id: row.id,
+        name: row.name,
+        rank: row.rank,
+        total: row.total,
+        relative: row.relative
+      })),
+      competitiveTags: Array.isArray(entry.competitiveTags) ? entry.competitiveTags : [],
+      playerInsightsById: entry.insights && typeof entry.insights === "object" ? entry.insights : {},
+      highlights: entry.highlights && typeof entry.highlights === "object" ? entry.highlights : {}
+    };
+  }
+
+  function buildRoundHistoryFingerprint(entry) {
+    if (!entry) return null;
+    const players = Array.isArray(entry.standings) ? entry.standings : [];
+    const totals = players.map((row) => `${row.id}:${row.total == null ? "-" : row.total}`).join("|");
+    return [String(entry.roundId || ""), String(entry.date || ""), totals].join("::");
+  }
+
+  function persistRoundHistoryFromCompletion(completion) {
+    if (!completion || !completion.isComplete) {
+      state.roundHistoryPersistFingerprint = null;
+      return;
+    }
+    const draft = buildRoundHistoryDraft(completion);
+    if (!draft) return;
+    const fingerprint = buildRoundHistoryFingerprint(draft);
+    if (fingerprint && state.roundHistoryPersistFingerprint === fingerprint) return;
+    const current = capRoundHistory(readRoundHistoryFromStorage());
+    const existingIdx = current.findIndex((entry) => String(entry.roundId) === String(draft.roundId));
+    if (existingIdx >= 0) current.splice(existingIdx, 1);
+    current.unshift(draft);
+    state.roundHistory = capRoundHistory(current);
+    state.roundHistoryPersistFingerprint = fingerprint;
+    writeRoundHistoryToStorage(state.roundHistory);
+    renderRoundHistorySection();
+  }
+
+  function computePlayerProgressionStats(history) {
+    const map = new Map();
+    const rounds = Array.isArray(history) ? history : [];
+    for (const entry of rounds) {
+      const standings = Array.isArray(entry && entry.standings) ? entry.standings : [];
+      const winnerIds = new Set(Array.isArray(entry && entry.winnerIds) ? entry.winnerIds.map((id) => String(id)) : []);
+      for (const row of standings) {
+        const name = String(row && row.name ? row.name : "").trim();
+        if (!name) continue;
+        const key = name.toLowerCase();
+        if (!map.has(key)) {
+          map.set(key, {
+            key: key,
+            name: name,
+            roundsPlayed: 0,
+            wins: 0,
+            scoreSum: 0,
+            scoredRounds: 0,
+            bestRound: null
+          });
+        }
+        const stat = map.get(key);
+        stat.name = name;
+        stat.roundsPlayed += 1;
+        if (winnerIds.has(String(row.id))) stat.wins += 1;
+        if (Number.isFinite(Number(row.total))) {
+          const total = Number(row.total);
+          stat.scoreSum += total;
+          stat.scoredRounds += 1;
+          if (stat.bestRound == null || total < stat.bestRound) stat.bestRound = total;
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => {
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      if (a.bestRound == null && b.bestRound != null) return 1;
+      if (b.bestRound == null && a.bestRound != null) return -1;
+      if (a.bestRound != null && b.bestRound != null && a.bestRound !== b.bestRound) return a.bestRound - b.bestRound;
+      return a.name.localeCompare(b.name);
+    });
+  }
+
+  function renderRoundHistorySection() {
+    const section = ensureRoundHistorySection();
+    if (!section) return;
+    const historyList = document.getElementById("round-history-list");
+    const statsWrap = document.getElementById("round-history-player-stats");
+    const replayWrap = document.getElementById("round-history-replay");
+    if (!historyList || !statsWrap || !replayWrap) return;
+    const history = capRoundHistory(Array.isArray(state.roundHistory) ? state.roundHistory : []);
+    state.roundHistory = history;
+    if (!history.length) {
+      statsWrap.innerHTML = '<p class="muted tiny">No player progression yet.</p>';
+      historyList.innerHTML = '<p class="muted tiny">No rounds saved yet. Complete a round to populate history.</p>';
+      replayWrap.classList.add("hidden");
+      replayWrap.innerHTML = "";
+      return;
+    }
+    const stats = computePlayerProgressionStats(history);
+    statsWrap.innerHTML = stats.map((item) => {
+      const avgScore = item.scoredRounds > 0 ? (item.scoreSum / item.scoredRounds) : null;
+      return `
+        <div class="progression-chip">
+          <p class="progression-name">${escapeHtml(item.name)}</p>
+          <p class="progression-metric">Rounds ${item.roundsPlayed}</p>
+          <p class="progression-metric">Wins ${item.wins}</p>
+          <p class="progression-metric">Avg ${avgScore == null ? "-" : formatDecimal(avgScore, 1)}</p>
+          <p class="progression-metric">Best ${item.bestRound == null ? "-" : item.bestRound}</p>
+        </div>
+      `;
+    }).join("");
+    historyList.innerHTML = history.map((entry) => {
+      const roundId = String(entry.roundId);
+      const isExpanded = String(state.roundHistoryExpandedRoundId) === roundId;
+      const isReplay = String(state.roundHistoryReplayRoundId) === roundId;
+      const winnerNames = getWinnerNamesFromHistory(entry);
+      const winnerText = winnerNames.length ? winnerNames.map((name) => escapeHtml(name)).join(", ") : "-";
+      const summaryMeta = [
+        entry.roundName ? escapeHtml(entry.roundName) : null,
+        entry.courseName ? escapeHtml(entry.courseName) : null,
+        entry.tee ? `Tee ${escapeHtml(entry.tee)}` : null,
+        entry.holes ? `${entry.holes} holes` : null
+      ].filter(Boolean).join(" • ");
+      return `
+        <article class="round-history-row ${isExpanded ? "expanded" : ""}">
+          <button
+            type="button"
+            class="round-history-toggle"
+            data-action="toggle-history-row"
+            data-round-id="${escapeHtml(roundId)}"
+            aria-expanded="${isExpanded ? "true" : "false"}">
+            <span class="round-history-date">${escapeHtml(formatHistoryDate(entry.date))}</span>
+            <span class="round-history-winner">${escapeHtml(entry.winnerLabel || "Winner")}: ${winnerText}</span>
+          </button>
+          <div class="round-history-detail ${isExpanded ? "" : "hidden"}">
+            <p class="round-history-meta">${summaryMeta || "Round summary unavailable"}</p>
+            <div class="actions round-history-actions">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                data-action="replay-history-round"
+                data-round-id="${escapeHtml(roundId)}">${isReplay ? "Hide Replay" : "View Replay"}</button>
+            </div>
+          </div>
+        </article>
+      `;
+    }).join("");
+    const replayEntry = history.find((entry) => String(entry.roundId) === String(state.roundHistoryReplayRoundId));
+    if (!replayEntry) {
+      replayWrap.classList.add("hidden");
+      replayWrap.innerHTML = "";
+      return;
+    }
+    const replayCompletion = buildCompletionFromHistoryEntry(replayEntry);
+    if (!replayCompletion) {
+      replayWrap.classList.add("hidden");
+      replayWrap.innerHTML = "";
+      return;
+    }
+    replayWrap.classList.remove("hidden");
+    replayWrap.innerHTML = `
+      <h4>Round Replay</h4>
+      <p class="muted tiny">${escapeHtml(formatHistoryDate(replayEntry.date))} • ${escapeHtml(replayEntry.roundName || "Round")}</p>
+      <div class="round-summary-panel complete round-summary-replay-panel">
+        ${buildRoundSummaryPanelMarkup(replayCompletion, {
+          expandedPlayerId: state.roundSummaryReplayExpandedPlayerId,
+          interactive: true
+        })}
+      </div>
+    `;
+  }
+
   function showView(name) {
     dom.startChoiceView.classList.add("hidden");
     dom.homeView.classList.add("hidden");
@@ -279,6 +665,7 @@
     if (name === "home") {
       dom.homeView.classList.remove("hidden");
       updateHomeQuickActions();
+      renderRoundHistorySection();
       setTimeout(() => dom.joinInput.focus(), 0);
     }
     if (name === "score") dom.scoreView.classList.remove("hidden");
@@ -755,6 +1142,9 @@ if (!dom.homeView.classList.contains("hidden")) {
     state.roundCompletionCandidateAt = null;
     state.roundHistoryDraft = null;
     state.roundHistoryPreparedAt = null;
+    state.roundHistoryPersistFingerprint = null;
+    state.roundSummaryReplayExpandedPlayerId = null;
+    state.roundSummaryExpandedPlayerId = null;
     clearTimeout(state.roundCompleteTransitionTimer);
     dom.scoreView.classList.remove("round-complete-enter");
 
@@ -2262,23 +2652,18 @@ if (!dom.homeView.classList.contains("hidden")) {
     `;
   }
 
-  function renderRoundSummaryPanel(completion) {
-    const panel = ensureRoundSummaryPanel();
-    if (!panel || !completion) return;
-    if (!completion.isComplete) {
-      state.roundSummaryExpandedPlayerId = null;
-      panel.classList.remove("complete");
-      panel.classList.add("pending");
-      panel.innerHTML = `
+  function buildRoundSummaryPanelMarkup(completion, options) {
+    const opts = options || {};
+    if (!completion || !completion.isComplete) {
+      return `
         <div class="round-summary-head">
           <p class="round-summary-kicker">Round Status</p>
           <p class="round-summary-title">Round in progress</p>
-          <p class="round-summary-meta">${completion.enteredScores}/${completion.totalRequiredScores} scores entered</p>
+          <p class="round-summary-meta">${completion ? `${completion.enteredScores}/${completion.totalRequiredScores} scores entered` : "-"}</p>
         </div>
       `;
-      return;
     }
-    const leaders = completion.leaders || [];
+    const leaders = Array.isArray(completion.leaders) ? completion.leaders : [];
     const tie = leaders.length > 1;
     const winnerLabel = completion.winnerLabel || (tie ? "Winners (Tie)" : "Winner");
     const winnerNames = (completion.winnerNames || leaders.map((row) => row.name))
@@ -2288,7 +2673,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     const competitiveTagMarkup = competitiveTags.map((tag) => {
       return `<span class="competitive-tag" title="${escapeHtml(tag.detail || "")}">${escapeHtml(tag.label)}</span>`;
     }).join("");
-    const expandedPlayerId = state.roundSummaryExpandedPlayerId == null ? null : String(state.roundSummaryExpandedPlayerId);
+    const expandedPlayerId = opts.expandedPlayerId == null ? null : String(opts.expandedPlayerId);
     const insightsById = completion.playerInsightsById || {};
     const highlights = completion.highlights || {};
     const bestMoment = highlights.bestRoundMoment;
@@ -2299,7 +2684,8 @@ if (!dom.homeView.classList.contains("hidden")) {
     const toughestHoleText = toughestHole
       ? `H${toughestHole.hole} • Avg ${formatDecimal(toughestHole.averageScore, 1)}${toughestHole.averageDelta == null ? "" : ` (${formatSignedDecimal(toughestHole.averageDelta, 1)})`}`
       : "-";
-    const standingsMarkup = completion.standings.map((row) => {
+    const standings = Array.isArray(completion.standings) ? completion.standings : [];
+    const standingsMarkup = standings.map((row) => {
       const isWinner = leaders.some((leader) => String(leader.id) === String(row.id));
       const insight = insightsById[String(row.id)] || {};
       const bestHoleText = insight.bestHole ? `H${insight.bestHole.hole} ${formatRelativeToPar(insight.bestHole.delta)}` : "-";
@@ -2317,14 +2703,15 @@ if (!dom.homeView.classList.contains("hidden")) {
         : null;
       const splitText = splitDelta == null ? "-" : formatSignedDecimal(splitDelta, 1);
       const consistencyText = insight.consistency == null ? "-" : formatDecimal(insight.consistency, 2);
+      const interactiveAttrs = opts.interactive === false
+        ? ""
+        : ` data-player-id="${escapeHtml(row.id)}" aria-expanded="${isExpanded ? "true" : "false"}" aria-label="Toggle details for ${escapeHtml(row.name)}"`;
       return `
         <li class="round-summary-row-wrap ${isWinner ? "winner" : ""} ${isExpanded ? "expanded" : ""}">
           <button
             type="button"
             class="round-summary-row ${isWinner ? "winner" : ""}"
-            data-player-id="${escapeHtml(row.id)}"
-            aria-expanded="${isExpanded ? "true" : "false"}"
-            aria-label="Toggle details for ${escapeHtml(row.name)}">
+            ${interactiveAttrs}>
             <span class="round-summary-rank">${escapeHtml(row.rank)}</span>
             <span class="round-summary-name">${escapeHtml(row.name)}</span>
             <span class="round-summary-total">${display(row.total)} <span class="round-summary-total-label">strokes</span></span>
@@ -2346,9 +2733,7 @@ if (!dom.homeView.classList.contains("hidden")) {
         </li>
       `;
     }).join("");
-    panel.classList.remove("pending");
-    panel.classList.add("complete");
-    panel.innerHTML = `
+    return `
       <div class="round-summary-head">
         <p class="round-summary-kicker">Round Complete</p>
         <p class="round-summary-title">Final Leaderboard</p>
@@ -2371,6 +2756,27 @@ if (!dom.homeView.classList.contains("hidden")) {
       </div>
       <ul class="round-summary-standings">${standingsMarkup}</ul>
     `;
+  }
+
+  function renderRoundSummaryPanel(completion) {
+    const panel = ensureRoundSummaryPanel();
+    if (!panel || !completion) return;
+    if (!completion.isComplete) {
+      state.roundSummaryExpandedPlayerId = null;
+      panel.classList.remove("complete");
+      panel.classList.add("pending");
+      panel.innerHTML = buildRoundSummaryPanelMarkup(completion, {
+        expandedPlayerId: null,
+        interactive: false
+      });
+      return;
+    }
+    panel.classList.remove("pending");
+    panel.classList.add("complete");
+    panel.innerHTML = buildRoundSummaryPanelMarkup(completion, {
+      expandedPlayerId: state.roundSummaryExpandedPlayerId,
+      interactive: true
+    });
   }
 
   function onRoundSummaryPanelClick(event) {
@@ -2439,23 +2845,67 @@ if (!dom.homeView.classList.contains("hidden")) {
 
   function buildRoundHistoryDraft(completion) {
     if (!state.round || !completion || !completion.isComplete) return null;
-    const topThree = Array.isArray(completion.topThree) ? completion.topThree : [];
+    const standings = Array.isArray(completion.standings) ? completion.standings : [];
+    const players = Array.isArray(state.players) ? state.players : [];
+    const holes = Number(state.round.holes) || 0;
+    const winnerIds = (Array.isArray(completion.leaders) ? completion.leaders : []).map((row) => String(row.id));
+    const completedAt = new Date().toISOString();
     return {
       roundId: state.round.id,
       roundName: state.round.name || "",
       courseName: state.round.course || "",
       tee: state.round.tee || "",
-      holes: Number(state.round.holes) || 0,
-      completedAt: new Date().toISOString(),
-      winnerNames: Array.isArray(completion.winnerNames) ? completion.winnerNames.slice() : [],
-      winnerLabel: completion.winnerLabel || "Winner",
-      topThree: topThree.map((row) => ({
-        id: row.id,
+      holes: holes,
+      date: completedAt,
+      completedAt: completedAt,
+      players: players.map((player) => ({
+        id: String(player.id),
+        name: player.name
+      })),
+      scores: players.map((player) => {
+        const playerStandings = standings.find((row) => String(row.id) === String(player.id)) || null;
+        const holeScores = [];
+        for (let hole = 1; hole <= holes; hole += 1) {
+          const value = getScore(player.id, hole);
+          holeScores.push(Number.isInteger(value) ? value : null);
+        }
+        return {
+          playerId: String(player.id),
+          playerName: player.name,
+          holeScores: holeScores,
+          front: playerStandings ? playerStandings.front : null,
+          back: playerStandings ? playerStandings.back : null,
+          total: playerStandings ? playerStandings.total : null,
+          relative: playerStandings ? playerStandings.relative : null,
+          rank: playerStandings ? playerStandings.rank : "-"
+        };
+      }),
+      standings: standings.map((row) => ({
+        id: String(row.id),
         name: row.name,
         rank: row.rank,
+        front: row.front,
+        back: row.back,
         total: row.total,
-        relative: row.relative
+        relative: row.relative,
+        holeScores: (() => {
+          const values = [];
+          for (let hole = 1; hole <= holes; hole += 1) {
+            const score = getScore(row.id, hole);
+            values.push(Number.isInteger(score) ? score : null);
+          }
+          return values;
+        })()
       })),
+      winnerNames: Array.isArray(completion.winnerNames) ? completion.winnerNames.slice() : [],
+      winnerIds: winnerIds,
+      winnerLabel: completion.winnerLabel || "Winner",
+      highlights: completion.highlights && typeof completion.highlights === "object"
+        ? JSON.parse(JSON.stringify(completion.highlights))
+        : {},
+      insights: completion.playerInsightsById && typeof completion.playerInsightsById === "object"
+        ? JSON.parse(JSON.stringify(completion.playerInsightsById))
+        : {},
       competitiveTags: Array.isArray(completion.competitiveTags)
         ? completion.competitiveTags.map((tag) => ({ key: tag.key, label: tag.label, detail: tag.detail || "" }))
         : []
@@ -2490,6 +2940,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     renderRoundSummaryPanel(next);
     renderRoundShareCard(next);
     prepareRoundHistoryHook(next);
+    persistRoundHistoryFromCompletion(next);
     const transitionedToComplete = previous && !previous.isComplete && next.isComplete;
     if (transitionedToComplete) {
       clearTimeout(state.roundCompleteTransitionTimer);
