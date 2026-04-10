@@ -17,8 +17,15 @@
 
   const dom = {
     homeView: document.getElementById("home-view"),
+    homeTitle: document.getElementById("home-title"),
+    homeTagline: document.getElementById("home-tagline"),
+    homeNextActionNote: document.getElementById("home-next-action-note"),
     homeSavedSessionCard: document.getElementById("home-saved-session-card"),
     homeSavedSessionCopy: document.getElementById("home-saved-session-copy"),
+    homeSavedSessionProgress: document.getElementById("home-saved-session-progress"),
+    homeSavedRoundName: document.getElementById("home-saved-round-name"),
+    homeSavedPlayerCount: document.getElementById("home-saved-player-count"),
+    homeSavedHoleProgress: document.getElementById("home-saved-hole-progress"),
     roundName: document.getElementById("round-name"),
     courseSearchInput: document.getElementById("course-search"),
     courseSearchList: document.getElementById("course-search-list"),
@@ -590,15 +597,15 @@
     const history = capRoundHistory(Array.isArray(state.roundHistory) ? state.roundHistory : []);
     state.roundHistory = history;
     if (!history.length) {
-      statsWrap.innerHTML = '<p class="muted tiny round-history-empty-state">No player progression yet. Complete a round to start tracking stats.</p>';
-      historyList.innerHTML = '<p class="muted tiny round-history-empty-state">No rounds saved yet. Complete a round to populate history.</p>';
+      statsWrap.innerHTML = '<p class="muted tiny round-history-empty-state">No player trends yet. Finish a round to start tracking wins and averages.</p>';
+      historyList.innerHTML = '<p class="muted tiny round-history-empty-state">No saved rounds yet. Create a round above, then complete it to populate history.</p>';
       replayWrap.classList.add("hidden");
       replayWrap.innerHTML = "";
       return;
     }
     const stats = computePlayerProgressionStats(history);
     if (!stats.length) {
-      statsWrap.innerHTML = '<p class="muted tiny round-history-empty-state">No player progression yet for saved rounds.</p>';
+      statsWrap.innerHTML = '<p class="muted tiny round-history-empty-state">No player trends available for these saved rounds yet.</p>';
     } else {
       statsWrap.innerHTML = stats.map((item) => {
       const avgScore = item.scoredRounds > 0 ? (item.scoreSum / item.scoredRounds) : null;
@@ -733,13 +740,35 @@
     const roundId = session && session.roundId ? String(session.roundId).trim() : "";
     const hasSavedRound = roundId.length > 0;
     const shortRoundId = hasSavedRound ? `${roundId.slice(0, 8)}...` : "";
+    const roundName = session && session.roundName != null ? String(session.roundName).trim() : "";
+    const playersCount = session && Number.isFinite(Number(session.playersCount)) ? Math.max(0, Number(session.playersCount)) : null;
+    const holesTotal = session && Number.isFinite(Number(session.holesTotal)) ? Math.max(0, Number(session.holesTotal)) : null;
+    const holesCompleteRaw = session && Number.isFinite(Number(session.holesComplete)) ? Math.max(0, Number(session.holesComplete)) : 0;
+    const holesComplete = holesTotal != null && holesTotal > 0 ? Math.min(holesCompleteRaw, holesTotal) : holesCompleteRaw;
+    const hasProgressSnapshot = Boolean(roundName) || playersCount != null || (holesTotal != null && holesTotal > 0);
     if (dom.homeSavedSessionCard) {
       dom.homeSavedSessionCard.classList.toggle("hidden", !hasSavedRound);
     }
     if (dom.homeSavedSessionCopy) {
       dom.homeSavedSessionCopy.textContent = hasSavedRound
-        ? `Continue your saved round (${shortRoundId}) from this device.`
+        ? `Resume your saved round${roundName ? ` "${roundName}"` : ` (${shortRoundId})`} from this device.`
         : "Resume where you left off, or remove this local saved session.";
+    }
+    if (dom.homeSavedSessionProgress) {
+      dom.homeSavedSessionProgress.classList.toggle("hidden", !hasSavedRound || !hasProgressSnapshot);
+    }
+    if (dom.homeSavedRoundName) {
+      dom.homeSavedRoundName.textContent = roundName || `ID ${shortRoundId}`;
+    }
+    if (dom.homeSavedPlayerCount) {
+      dom.homeSavedPlayerCount.textContent = playersCount == null
+        ? "Unavailable"
+        : `${playersCount} ${playersCount === 1 ? "player" : "players"}`;
+    }
+    if (dom.homeSavedHoleProgress) {
+      dom.homeSavedHoleProgress.textContent = holesTotal != null && holesTotal > 0
+        ? `Through ${holesComplete} of ${holesTotal} holes`
+        : "Progress unavailable";
     }
     if (dom.quickResumeBtn) {
       dom.quickResumeBtn.classList.toggle("hidden", !hasSavedRound);
@@ -748,6 +777,23 @@
     if (dom.quickCancelSavedBtn) {
       dom.quickCancelSavedBtn.classList.toggle("hidden", !hasSavedRound);
       dom.quickCancelSavedBtn.disabled = !hasSavedRound;
+    }
+    if (dom.homeView) {
+      dom.homeView.classList.toggle("home-has-saved", hasSavedRound);
+      dom.homeView.classList.toggle("home-no-saved", !hasSavedRound);
+    }
+    if (dom.homeTitle) {
+      dom.homeTitle.textContent = hasSavedRound ? "Resume Your Round" : "Start a New Round";
+    }
+    if (dom.homeTagline) {
+      dom.homeTagline.textContent = hasSavedRound
+        ? "Jump back into saved progress, or start a different round when you're ready."
+        : "Create a new round, add players, and start scoring in under a minute.";
+    }
+    if (dom.homeNextActionNote) {
+      dom.homeNextActionNote.textContent = hasSavedRound
+        ? "Next best action: Resume Saved Round to continue where you left off."
+        : "Next best action: Create Round to launch a new scorecard.";
     }
   }
 
@@ -1782,6 +1828,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     renderScoreTable(completion.standings);
     maybeShowScoreTooltipOnce();
     if (opts.scrollToIdentity) scheduleScrollToIdentityRow(Boolean(opts.forceScroll));
+    persistSessionSnapshot(state.round.id);
   }
 
   function getCourseIntelRoundKey(round) {
@@ -4617,6 +4664,57 @@ if (!dom.homeView.classList.contains("hidden")) {
         syncRoundShareButtonState();
       }
     }
+  }
+
+  function getThroughHoleCount(holesTotal) {
+    const holes = Number(holesTotal);
+    if (!Number.isInteger(holes) || holes < 1) return 0;
+    const players = Array.isArray(state.players) ? state.players : [];
+    if (!players.length) return 0;
+    let through = 0;
+    for (let hole = 1; hole <= holes; hole += 1) {
+      const completeForAll = players.every((player) => Number.isInteger(getScore(player.id, hole)));
+      if (!completeForAll) break;
+      through = hole;
+    }
+    return through;
+  }
+
+  function buildSessionSnapshot(roundId) {
+    if (!state.round || !roundId) return null;
+    const holesTotal = Number(state.round.holes) === 9 ? 9 : 18;
+    const playersCount = Array.isArray(state.players) ? state.players.length : 0;
+    return {
+      roundId: String(roundId),
+      roundName: String(state.round.name || "").trim(),
+      playersCount: playersCount,
+      holesTotal: holesTotal,
+      holesComplete: getThroughHoleCount(holesTotal),
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  function shouldUpdateSessionSnapshot(existing, next) {
+    if (!next || !next.roundId) return false;
+    if (!existing || typeof existing !== "object") return true;
+    return String(existing.roundId || "") !== String(next.roundId || "")
+      || String(existing.roundName || "") !== String(next.roundName || "")
+      || Number(existing.playersCount) !== Number(next.playersCount)
+      || Number(existing.holesTotal) !== Number(next.holesTotal)
+      || Number(existing.holesComplete) !== Number(next.holesComplete);
+  }
+
+  function persistSessionSnapshot(roundId) {
+    if (!roundId) return;
+    const next = buildSessionSnapshot(roundId);
+    if (!next) return;
+    const existing = getSession();
+    if (!shouldUpdateSessionSnapshot(existing, next)) return;
+    const merged = {
+      ...(existing && typeof existing === "object" ? existing : {}),
+      ...next
+    };
+    saveSession(merged);
   }
 
   function saveSession(session) {

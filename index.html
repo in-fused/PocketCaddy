@@ -17,8 +17,9 @@
       <section id="home-view" class="card section hidden">
         <section class="home-hero card-sub">
           <p class="home-kicker">Home</p>
-          <h2 class="home-title">Start or Rejoin a Round</h2>
-          <p class="home-tagline">Create a new round, join an existing one, or continue saved progress from this device.</p>
+          <h2 id="home-title" class="home-title">Start or Rejoin a Round</h2>
+          <p id="home-tagline" class="home-tagline">Create a new round, join an existing one, or continue saved progress from this device.</p>
+          <p id="home-next-action-note" class="home-next-action-note muted tiny">Next best action: Create a round to start scoring.</p>
           <div class="actions home-hero-actions">
             <button id="hub-create-btn" class="btn btn-primary" type="button">Create Round</button>
             <button id="hub-join-btn" class="btn btn-secondary" type="button">Join Round</button>
@@ -28,6 +29,11 @@
         <section id="home-saved-session-card" class="home-saved-session card-sub hidden">
           <h3>Saved Session on This Device</h3>
           <p id="home-saved-session-copy" class="muted tiny">Resume where you left off, or remove this local saved session.</p>
+          <div id="home-saved-session-progress" class="home-saved-session-progress hidden">
+            <p class="home-saved-session-progress-row"><span class="saved-session-label">Round</span><span id="home-saved-round-name" class="saved-session-value">-</span></p>
+            <p class="home-saved-session-progress-row"><span class="saved-session-label">Players</span><span id="home-saved-player-count" class="saved-session-value">-</span></p>
+            <p class="home-saved-session-progress-row"><span class="saved-session-label">Progress</span><span id="home-saved-hole-progress" class="saved-session-value">-</span></p>
+          </div>
           <div class="home-saved-session-actions actions">
             <button id="quick-resume-btn" class="btn btn-primary" type="button">Resume Saved Round</button>
             <button id="quick-cancel-saved-btn" class="btn btn-danger" type="button">Remove Saved Session</button>
@@ -49,6 +55,7 @@
             <h2>Create Round</h2>
             <p class="muted tiny">Set round details, add players, then launch scoring.</p>
           </div>
+          <p class="muted tiny home-flow-tip">Tip: Name the round, add at least one player, then create to launch live scoring.</p>
           <div class="form-grid">
             <label><span>Round Name</span><input id="round-name" type="text" placeholder="Saturday Match"></label>
             <label class="course-search-field">
@@ -90,6 +97,7 @@
             <h2>Join Round</h2>
             <p class="muted tiny">Paste a round link or full ID to join instantly.</p>
           </div>
+          <p class="muted tiny home-flow-tip">Use the shared link from another player or paste the full round ID.</p>
           <label><span>Round Link or Full Round ID</span><input id="join-input" type="text" placeholder="Round Link or Full Round ID"></label>
           <div id="join-error" class="error hidden"></div>
           <div class="actions">
@@ -103,6 +111,7 @@
             <h2>Round History</h2>
             <p class="muted tiny">Replay completed rounds and review player progression from local history.</p>
           </div>
+          <p class="muted tiny home-history-tip">Complete rounds to build history snapshots and player trends.</p>
           <div id="round-history-player-stats" class="round-history-player-stats"></div>
           <div id="round-history-list" class="round-history-list"></div>
           <div id="round-history-replay" class="round-history-replay hidden"></div>
