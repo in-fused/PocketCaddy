@@ -6,6 +6,7 @@
   const MAX_SCORE = 15;
   const SESSION_KEY = "pocketcaddy_live_session_v2";
   const IDENTITY_KEY_PREFIX = "pocketcaddy_identity_";
+  const WEATHER_FETCH_TIMEOUT_MS = 4500;
 
   const dom = {
     startChoiceView: document.getElementById("start-choice-view"),
@@ -1056,8 +1057,8 @@ if (!dom.homeView.classList.contains("hidden")) {
         locationText: "Location unavailable",
         coordsText: "Coordinates unavailable",
         mappedDetailText: "Mapped detail unavailable",
-        weatherText: "Weather unavailable",
-        windText: "Weather unavailable",
+        weatherText: "Unavailable",
+        windText: "Unavailable",
         previewUrl: null
       };
     }
@@ -1076,8 +1077,8 @@ if (!dom.homeView.classList.contains("hidden")) {
         locationText: locationText,
         coordsText: coordsText,
         mappedDetailText: "Mapped detail unavailable",
-        weatherText: "Weather unavailable",
-        windText: "Weather unavailable",
+        weatherText: "Unavailable",
+        windText: "Unavailable",
         previewUrl: previewUrl
       };
     }
@@ -1091,8 +1092,8 @@ if (!dom.homeView.classList.contains("hidden")) {
       locationText: locationText,
       coordsText: coordsText,
       mappedDetailText: summarizeMappedDetail(enrichment),
-      weatherText: weather.temperatureText || "Weather unavailable",
-      windText: weather.windText || "Weather unavailable",
+      weatherText: weather.temperatureText || "Unavailable",
+      windText: weather.windText || "Unavailable",
       previewUrl: previewUrl
     };
   }
@@ -1121,7 +1122,28 @@ if (!dom.homeView.classList.contains("hidden")) {
     return `https://staticmap.openstreetmap.de/staticmap.php?center=${encodeURIComponent(`${lat},${lng}`)}&zoom=12&size=640x240&markers=${encodeURIComponent(`${lat},${lng},red-pushpin`)}`;
   }
 
+  function unavailableWeatherContext() {
+    return {
+      temperatureText: "Unavailable",
+      windText: "Unavailable"
+    };
+  }
+
+  function parseValidatedWeather(currentWeather) {
+    if (!currentWeather || typeof currentWeather !== "object") return null;
+    const temperature = Number(currentWeather.temperature);
+    const windspeed = Number(currentWeather.windspeed);
+    if (!Number.isFinite(temperature) || !Number.isFinite(windspeed)) return null;
+    return {
+      temperature: temperature,
+      windspeed: windspeed
+    };
+  }
+
   async function fetchCourseWeather(lat, lng) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return unavailableWeatherContext();
+    let timeoutId = null;
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
     try {
       const url = new URL("https://api.open-meteo.com/v1/forecast");
       url.searchParams.set("latitude", String(lat));
@@ -1129,18 +1151,26 @@ if (!dom.homeView.classList.contains("hidden")) {
       url.searchParams.set("current_weather", "true");
       url.searchParams.set("temperature_unit", "fahrenheit");
       url.searchParams.set("windspeed_unit", "mph");
-      const response = await fetch(url.toString(), { method: "GET" });
+      timeoutId = setTimeout(() => {
+        if (controller) controller.abort();
+      }, WEATHER_FETCH_TIMEOUT_MS);
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        signal: controller ? controller.signal : undefined
+      });
       if (!response.ok) throw new Error("Weather request failed");
       const data = await response.json();
       const current = data && data.current_weather ? data.current_weather : null;
-      const temp = current && Number.isFinite(Number(current.temperature)) ? Number(current.temperature) : null;
-      const wind = current && Number.isFinite(Number(current.windspeed)) ? Number(current.windspeed) : null;
+      const parsed = parseValidatedWeather(current);
+      if (!parsed) return unavailableWeatherContext();
       return {
-        temperatureText: temp == null ? null : `${Math.round(temp)}F`,
-        windText: wind == null ? null : `${Math.round(wind)} mph`
+        temperatureText: `${Math.round(parsed.temperature)}F`,
+        windText: `${Math.round(parsed.windspeed)} mph`
       };
     } catch (_err) {
-      return { temperatureText: null, windText: null };
+      return unavailableWeatherContext();
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
     }
   }
 
@@ -1152,8 +1182,8 @@ if (!dom.homeView.classList.contains("hidden")) {
     dom.courseIntelLocation.textContent = context.locationText || "Location unavailable";
     dom.courseIntelCoords.textContent = context.coordsText || "Coordinates unavailable";
     if (dom.courseIntelMapped) dom.courseIntelMapped.textContent = context.mappedDetailText || "Mapped detail unavailable";
-    dom.courseIntelWeather.textContent = context.weatherText || "Weather unavailable";
-    dom.courseIntelWind.textContent = context.windText || "Weather unavailable";
+    dom.courseIntelWeather.textContent = context.weatherText || "Unavailable";
+    dom.courseIntelWind.textContent = context.windText || "Unavailable";
 
     if (context.previewUrl) {
       dom.courseIntelPreview.classList.remove("hidden");
@@ -1185,8 +1215,8 @@ if (!dom.homeView.classList.contains("hidden")) {
         ? `${Number(state.round.course_lat).toFixed(4)}, ${Number(state.round.course_lng).toFixed(4)}`
         : "Coordinates unavailable",
       mappedDetailText: hasCoords ? "Mapped detail unavailable" : "Mapped detail unavailable",
-      weatherText: hasCoords ? "Loading..." : "Weather unavailable",
-      windText: hasCoords ? "Loading..." : "Weather unavailable",
+      weatherText: hasCoords ? "Loading..." : "Unavailable",
+      windText: hasCoords ? "Loading..." : "Unavailable",
       previewUrl: hasCoords
         ? buildCoursePreviewUrl(Number(state.round.course_lat), Number(state.round.course_lng))
         : null
