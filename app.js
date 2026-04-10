@@ -167,7 +167,7 @@
   function wireEvents() {
     dom.resumeSessionBtn.addEventListener("click", resumeSession);
     dom.startFreshBtn.addEventListener("click", () => {
-      clearSession();
+      clearLocalSavedSessionState();
       showView("home");
     });
 
@@ -291,16 +291,14 @@
     }
     const ok = window.confirm("Remove this saved round from this device? The shared round will still exist for anyone with the link.");
     if (!ok) return;
-    clearSession();
-    try {
-      localStorage.removeItem(identityKey(session.roundId));
-    } catch (_err) {
-      // localStorage may be unavailable; session clear is still the primary action
-    }
-    updateHomeQuickActions();
-    if (!dom.homeView.classList.contains("hidden")) {
-      showError(dom.homeError, "");
-    }
+    clearLocalSavedSessionState(session.roundId);
+updateHomeQuickActions();
+
+showFeedback("Saved round removed from this device.");
+
+if (!dom.homeView.classList.contains("hidden")) {
+  showError(dom.homeError, "");
+}
   }
 
   function jumpToHomeSection(section) {
@@ -1851,7 +1849,7 @@
     try {
       await joinRoundById(session.roundId);
     } catch (err) {
-      clearSession();
+      clearLocalSavedSessionState(session.roundId);
       showView("home");
       showError(dom.homeError, "Could not resume saved session.");
       console.error(err);
@@ -1861,6 +1859,7 @@
   function startNewRound() {
     const ok = window.confirm("Start a new round locally? This leaves the current round.");
     if (!ok) return;
+    const previousRoundId = state.round ? state.round.id : null;
     stopRealtime();
     state.round = null;
     state.players = [];
@@ -1885,7 +1884,7 @@
     state.leaderPulseOn = false;
     clearTimeout(state.scoreFlashTimer);
     clearTimeout(state.leaderPulseTimer);
-    clearSession();
+    clearLocalSavedSessionState(previousRoundId);
     clearUrlRoundParam();
     closePicker();
     closeNameModal();
@@ -2155,6 +2154,18 @@
 
   function clearSession() {
     localStorage.removeItem(SESSION_KEY);
+  }
+
+  function clearLocalSavedSessionState(roundId) {
+    const session = getSession();
+    const resolvedRoundId = roundId || (session && session.roundId) || null;
+    clearSession();
+    if (!resolvedRoundId) return;
+    try {
+      localStorage.removeItem(identityKey(resolvedRoundId));
+    } catch (_err) {
+      // localStorage may be unavailable; session clear is still the primary action
+    }
   }
 
   function identityKey(roundId) {
