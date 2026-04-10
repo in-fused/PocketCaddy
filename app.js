@@ -710,14 +710,17 @@
     const normalizedType = typeof type === "string"
       ? String(type).trim().toLowerCase()
       : (type ? "error" : "success");
-    const isError = normalizedType === "error";
+    const tone = normalizedType === "error"
+      ? "error"
+      : (normalizedType === "neutral" ? "neutral" : "success");
+    const isError = tone === "error";
     clearTimeout(state.feedbackTimer);
     clearTimeout(state.feedbackHideTimer);
     dom.scoreFeedback.textContent = message;
     dom.scoreFeedback.classList.remove("hidden", "is-exit");
     dom.scoreFeedback.classList.add("is-showing");
     dom.scoreFeedback.classList.toggle("error", Boolean(isError));
-    dom.scoreFeedback.dataset.tone = isError ? "error" : "success";
+    dom.scoreFeedback.dataset.tone = tone;
     requestAnimationFrame(() => {
       dom.scoreFeedback.classList.add("is-visible");
     });
@@ -1748,6 +1751,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     dom.shareLink.value = link;
     renderQr(link);
     ensureShareActionButtons();
+    syncCopyShareButtons();
     updateNativeShareButtonAvailability();
 
     const showBack = state.round.holes === 18;
@@ -1765,6 +1769,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     renderHoleDetailEditor();
 
     const completion = renderRoundCompletionExperience();
+    syncRoundShareButtonState();
     renderScoreUxMeta();
     renderParRow();
     renderLeaderboard(completion.standings);
@@ -3848,6 +3853,49 @@ if (!dom.homeView.classList.contains("hidden")) {
     }
   }
 
+  function getCopyButtonDefaultText(button) {
+    if (!button) return "Copy Link";
+    return button.id === "copy-share-btn" ? "Copy Share URL" : "Copy Link";
+  }
+
+  function syncCopyShareButtons() {
+    const targets = [dom.copyLinkBtn, dom.copyShareBtn].filter(Boolean);
+    targets.forEach((btn) => {
+      if (btn._copyFlashTimer) return;
+      btn.textContent = getCopyButtonDefaultText(btn);
+      btn.disabled = false;
+    });
+  }
+
+  function getRoundShareButton() {
+    return document.querySelector(".round-share-btn[data-action='share-round']");
+  }
+
+  function setRoundShareButtonLabel(label) {
+    const button = getRoundShareButton();
+    if (!button) return;
+    if (!button.dataset.originalText) {
+      button.dataset.originalText = String(button.textContent || "Share Results");
+    }
+    button.textContent = label || "Share Results";
+  }
+
+  function syncRoundShareButtonState() {
+    const button = getRoundShareButton();
+    if (!button) return;
+    if (state.shareInFlight) {
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      if (!button.dataset.originalText) button.dataset.originalText = "Share Results";
+      if (!button.textContent || button.textContent === "Share Results") button.textContent = "Sharing...";
+      return;
+    }
+    button.disabled = false;
+    button.removeAttribute("aria-busy");
+    button.textContent = "Share Results";
+    delete button.dataset.originalText;
+  }
+
   function lockShareActionButtonBriefly(button, delayMs) {
     if (!button) return;
     const holdMs = Math.max(300, Math.min(600, Number(delayMs) || 450));
@@ -3905,6 +3953,7 @@ if (!dom.homeView.classList.contains("hidden")) {
 
     dom.copyShareBtn = copyShareBtn;
     dom.nativeShareBtn = nativeShareBtn;
+    syncCopyShareButtons();
 
     if (!copyShareBtn.dataset.wired) {
       copyShareBtn.addEventListener("click", () => {
@@ -3930,23 +3979,27 @@ if (!dom.homeView.classList.contains("hidden")) {
     if (button) lockShareActionButtonBriefly(button, 450);
     const text = getCurrentShareUrl();
     if (!text) {
-      showFeedback("Copy failed", "error");
+      showFeedback("Share link unavailable.", "error");
       return;
     }
     try {
       await navigator.clipboard.writeText(text);
-      showFeedback("Link copied", "success");
+      showFeedback("Link copied.", "success");
       const flashTargets = [dom.copyLinkBtn, dom.copyShareBtn].filter(Boolean);
       flashTargets.forEach((btn) => {
-        const prev = btn.textContent;
+        const resetLabel = getCopyButtonDefaultText(btn);
+        btn.disabled = true;
         clearTimeout(btn._copyFlashTimer);
         btn.textContent = "Copied";
         btn._copyFlashTimer = setTimeout(() => {
-          btn.textContent = prev;
+          btn._copyFlashTimer = null;
+          btn.textContent = resetLabel;
+          btn.disabled = false;
         }, 1000);
       });
     } catch (_err) {
-      showFeedback("Copy failed", "error");
+      showFeedback("Copy failed.", "error");
+      syncCopyShareButtons();
     }
   }
 
@@ -3956,12 +4009,11 @@ if (!dom.homeView.classList.contains("hidden")) {
     lockShareActionButtonBriefly(button, 500);
     if (typeof navigator.share !== "function") {
       updateNativeShareButtonAvailability();
-      showFeedback("Share failed", "error");
       return;
     }
     const shareUrl = getCurrentShareUrl();
     if (!shareUrl) {
-      showFeedback("Share failed", "error");
+      showFeedback("Share link unavailable.", "error");
       return;
     }
     try {
@@ -3970,14 +4022,13 @@ if (!dom.homeView.classList.contains("hidden")) {
         text: "Check out our round results",
         url: shareUrl
       });
-      showFeedback("Link shared", "success");
+      showFeedback("Link shared.", "success");
     } catch (err) {
       if (err && err.name === "AbortError") {
-        showFeedback("Share canceled", "success");
+        showFeedback("Share canceled.", "neutral");
         return;
       }
-      showFeedback("Share failed", "error");
-      console.error(err);
+      showFeedback("Share failed.", "error");
     }
   }
 
@@ -4006,7 +4057,7 @@ if (!dom.homeView.classList.contains("hidden")) {
   }
 
   function setShareButtonLoading(isLoading) {
-    const button = document.querySelector(".round-share-btn[data-action='share-round']");
+    const button = getRoundShareButton();
     if (!button) return;
     if (state.shareButtonResetTimer) {
       clearTimeout(state.shareButtonResetTimer);
@@ -4018,21 +4069,17 @@ if (!dom.homeView.classList.contains("hidden")) {
       }
       button.disabled = true;
       button.setAttribute("aria-busy", "true");
-      button.textContent = "Sharing...";
+      button.textContent = "Preparing...";
       return;
     }
     button.disabled = false;
     button.removeAttribute("aria-busy");
-    if (button.dataset.originalText) {
-      button.textContent = button.dataset.originalText;
-      delete button.dataset.originalText;
-      return;
-    }
     button.textContent = "Share Results";
+    delete button.dataset.originalText;
   }
 
   function setShareButtonPostShareState(text, options) {
-    const button = document.querySelector(".round-share-btn[data-action='share-round']");
+    const button = getRoundShareButton();
     if (!button) return;
     if (!button.dataset.originalText) {
       button.dataset.originalText = String(button.textContent || "Share Results");
@@ -4116,22 +4163,24 @@ if (!dom.homeView.classList.contains("hidden")) {
   async function shareRound() {
     if (state.shareInFlight) return;
     if (!state.roundCompletion || !state.roundCompletion.isComplete) {
-      showFeedback("Round must be complete before sharing.", true);
+      showFeedback("Round incomplete. Finish all holes to share.", "error");
       return;
     }
     state.shareInFlight = true;
     const summaryText = buildRoundShareText(state.roundCompletion);
     setShareButtonLoading(true);
-    showFeedback("Preparing share options...");
+    showFeedback("Preparing share options...", "neutral");
     let imageBlob = null;
+    let imageError = null;
     let shouldDelayButtonReset = false;
     try {
       try {
         imageBlob = await generateShareImage();
       } catch (err) {
-        console.error(err);
+        imageError = err || new Error("Image generation unavailable.");
       }
       if (typeof navigator.share === "function") {
+        setRoundShareButtonLabel("Opening Share...");
         const shareData = {
           title: "Golf Round Results",
           text: summaryText
@@ -4145,62 +4194,65 @@ if (!dom.homeView.classList.contains("hidden")) {
         }
         await navigator.share(shareData);
         if (Array.isArray(shareData.files) && shareData.files.length) {
-          showFeedback("Shared successfully with image and summary.");
+          showFeedback("Round results shared with image.", "success");
         } else {
-          showFeedback("Shared successfully from your device share sheet.");
+          showFeedback("Round results shared.", imageError ? "neutral" : "success");
         }
         setShareButtonPostShareState("Shared", { holdMs: 1500 });
         shouldDelayButtonReset = true;
         return;
       }
+      setRoundShareButtonLabel("Saving...");
       if (imageBlob) {
         downloadShareImage(imageBlob);
       }
       const copied = await copyShareText(summaryText);
       if (imageBlob && copied) {
-        showFeedback("Image downloaded and summary copied to clipboard.");
+        showFeedback("Image downloaded. Summary copied.", "success");
         setShareButtonPostShareState("Downloaded + Copied", { holdMs: 1550 });
         shouldDelayButtonReset = true;
         return;
       }
       if (imageBlob) {
-        showFeedback("Image downloaded to your device.");
+        showFeedback("Image downloaded.", "success");
         setShareButtonPostShareState("Image Downloaded", { holdMs: 1500 });
         shouldDelayButtonReset = true;
         return;
       }
       if (copied) {
-        showFeedback("Summary copied to clipboard.");
+        showFeedback(imageError ? "Summary copied. Image unavailable." : "Summary copied.", imageError ? "neutral" : "success");
         setShareButtonPostShareState("Copied", { holdMs: 1450 });
         shouldDelayButtonReset = true;
         return;
       }
-      showFeedback("Share tools unavailable. Showing summary text.", true);
+      showFeedback("Share failed.", "error");
       setShareButtonPostShareState("Share Failed", { holdMs: 1650 });
       shouldDelayButtonReset = true;
       window.alert(summaryText);
     } catch (err) {
       if (err && err.name === "AbortError") {
-        showFeedback("Share canceled.");
+        showFeedback("Share canceled.", "neutral");
         setShareButtonPostShareState("Share Canceled", { holdMs: 1200 });
         shouldDelayButtonReset = true;
         return;
       }
-      console.error(err);
       const copied = await copyShareText(summaryText);
       if (copied) {
-        showFeedback("Share sheet failed. Summary copied to clipboard.");
+        showFeedback("Summary copied.", "neutral");
         setShareButtonPostShareState("Copied", { holdMs: 1500 });
         shouldDelayButtonReset = true;
         return;
       }
-      showFeedback("Could not share results. Showing summary text fallback.", true);
+      showFeedback("Share failed.", "error");
       setShareButtonPostShareState("Share Failed", { holdMs: 1650 });
       shouldDelayButtonReset = true;
       window.alert(summaryText);
     } finally {
       state.shareInFlight = false;
-      if (!shouldDelayButtonReset) setShareButtonLoading(false);
+      if (!shouldDelayButtonReset) {
+        setShareButtonLoading(false);
+        syncRoundShareButtonState();
+      }
     }
   }
 
