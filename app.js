@@ -16,11 +16,9 @@
   const BACK_NINE_COMEBACK_SWING = 2;
 
   const dom = {
-    startChoiceView: document.getElementById("start-choice-view"),
-    resumeSessionBtn: document.getElementById("resume-session-btn"),
-    startFreshBtn: document.getElementById("start-fresh-btn"),
-
     homeView: document.getElementById("home-view"),
+    homeSavedSessionCard: document.getElementById("home-saved-session-card"),
+    homeSavedSessionCopy: document.getElementById("home-saved-session-copy"),
     roundName: document.getElementById("round-name"),
     courseSearchInput: document.getElementById("course-search"),
     courseSearchList: document.getElementById("course-search-list"),
@@ -219,19 +217,12 @@
       return;
     }
 
-    const session = getSession();
     showView("home");
   }
 
   function wireEvents() {
     if (state.eventsWired) return;
     state.eventsWired = true;
-    dom.resumeSessionBtn.addEventListener("click", resumeSession);
-    dom.startFreshBtn.addEventListener("click", () => {
-      clearLocalSavedSessionState();
-      showView("home");
-    });
-
     dom.addPlayerBtn.addEventListener("click", addSetupPlayer);
     if (dom.courseSearchInput) {
       dom.courseSearchInput.addEventListener("input", onCourseSearchInput);
@@ -260,7 +251,9 @@
     dom.hubJoinBtn.addEventListener("click", () => jumpToHomeSection("join"));
     dom.quickCreateBtn.addEventListener("click", () => jumpToHomeSection("create"));
     dom.quickJoinBtn.addEventListener("click", () => jumpToHomeSection("join"));
-    dom.quickResumeBtn.addEventListener("click", resumeSession);
+    if (dom.quickResumeBtn) {
+      dom.quickResumeBtn.addEventListener("click", resumeSession);
+    }
     if (dom.quickCancelSavedBtn) {
       dom.quickCancelSavedBtn.addEventListener("click", cancelSavedRoundSession);
     }
@@ -317,13 +310,11 @@
         <div id="round-history-list" class="round-history-list"></div>
         <div id="round-history-replay" class="round-history-replay hidden"></div>
       `;
-      const quickSection = dom.homeView.querySelector(".home-quick");
-      if (quickSection && quickSection.nextSibling) {
-        quickSection.insertAdjacentElement("afterend", section);
-      } else if (quickSection) {
-        dom.homeView.appendChild(section);
+      const joinSection = dom.homeView.querySelector("#join-round-section");
+      if (joinSection) {
+        joinSection.insertAdjacentElement("afterend", section);
       } else {
-        dom.homeView.insertBefore(section, dom.homeView.firstChild);
+        dom.homeView.appendChild(section);
       }
     }
     if (!section.dataset.wired) {
@@ -688,15 +679,12 @@
   }
 
   function showView(name) {
-    dom.startChoiceView.classList.add("hidden");
     dom.homeView.classList.add("hidden");
     dom.scoreView.classList.add("hidden");
-    if (name === "start-choice") dom.startChoiceView.classList.remove("hidden");
     if (name === "home") {
       dom.homeView.classList.remove("hidden");
       updateHomeQuickActions();
       renderRoundHistorySection();
-      setTimeout(() => dom.joinInput.focus(), 0);
     }
     if (name === "score") dom.scoreView.classList.remove("hidden");
   }
@@ -742,8 +730,21 @@
 
   function updateHomeQuickActions() {
     const session = getSession();
-    const hasSavedRound = Boolean(session && session.roundId);
-    dom.quickResumeBtn.classList.toggle("hidden", !hasSavedRound);
+    const roundId = session && session.roundId ? String(session.roundId).trim() : "";
+    const hasSavedRound = roundId.length > 0;
+    const shortRoundId = hasSavedRound ? `${roundId.slice(0, 8)}...` : "";
+    if (dom.homeSavedSessionCard) {
+      dom.homeSavedSessionCard.classList.toggle("hidden", !hasSavedRound);
+    }
+    if (dom.homeSavedSessionCopy) {
+      dom.homeSavedSessionCopy.textContent = hasSavedRound
+        ? `Continue your saved round (${shortRoundId}) from this device.`
+        : "Resume where you left off, or remove this local saved session.";
+    }
+    if (dom.quickResumeBtn) {
+      dom.quickResumeBtn.classList.toggle("hidden", !hasSavedRound);
+      dom.quickResumeBtn.disabled = !hasSavedRound;
+    }
     if (dom.quickCancelSavedBtn) {
       dom.quickCancelSavedBtn.classList.toggle("hidden", !hasSavedRound);
       dom.quickCancelSavedBtn.disabled = !hasSavedRound;

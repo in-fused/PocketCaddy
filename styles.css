@@ -139,10 +139,22 @@ h2, h3, h4, p { margin: 0; }
   margin-top: 12px;
 }
 
-.home-quick h3,
-.home-media h3,
-.home-featured h3 {
+.home-saved-session h3,
+.home-quick h3 {
   margin-bottom: 8px;
+}
+
+.home-saved-session {
+  border-color: #bfd3c5;
+  background: linear-gradient(180deg, #f9fdf9 0%, #edf6f0 100%);
+}
+
+.home-saved-session-actions {
+  margin-top: 10px;
+}
+
+.home-saved-session-note {
+  margin-top: 10px;
 }
 
 .home-quick-grid {
@@ -153,48 +165,6 @@ h2, h3, h4, p { margin: 0; }
 
 .home-quick-grid .btn {
   width: 100%;
-}
-
-.home-quick-note {
-  margin-top: 10px;
-}
-
-.home-link-grid {
-  margin-top: 10px;
-  display: grid;
-  gap: 8px;
-}
-
-.golf-link-card {
-  border: 1px solid #d8e4db;
-  border-radius: 10px;
-  background: #fff;
-  padding: 10px;
-}
-
-.golf-link-card h4 {
-  font-size: 1rem;
-}
-
-.golf-link-card p {
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.link-btn {
-  margin-top: 8px;
-  width: auto;
-  min-height: 40px;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.home-featured-list {
-  display: grid;
-  gap: 8px;
 }
 
 .home-history h3 {
@@ -344,22 +314,6 @@ h2, h3, h4, p { margin: 0; }
 .round-history-replay .round-summary-panel {
   margin-top: 8px;
   margin-bottom: 0;
-}
-
-.home-featured-item {
-  display: block;
-  padding: 9px 10px;
-  border: 1px solid #d7e3da;
-  border-radius: 10px;
-  background: #fff;
-  color: #224634;
-  text-decoration: none;
-  font-weight: 700;
-}
-
-.home-featured-item:hover {
-  background: #f6fbf7;
-  border-color: #bfd2c5;
 }
 
 .form-grid {
@@ -2564,9 +2518,6 @@ input:focus, select:focus {
     padding: 8px;
     margin-top: 8px;
   }
-  .golf-link-card {
-    padding: 9px;
-  }
   .course-search-list {
     max-height: 260px;
   }
@@ -2593,12 +2544,6 @@ input:focus, select:focus {
   }
   .home-quick-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .home-link-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .home-featured-list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .hole-detail-editor-grid {
     grid-template-columns: 1fr 1fr;

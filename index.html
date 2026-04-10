@@ -10,47 +10,44 @@
   <div class="app">
     <header class="card section app-header">
       <h1>PocketCaddy</h1>
-      <p>Realtime shared golf scoring.</p>
+      <p>Create, join, and score rounds in real time.</p>
     </header>
 
     <main>
-      <section id="start-choice-view" class="card section hidden">
-        <h2>Saved Session Found</h2>
-        <p class="muted">Resume your last round session or start fresh.</p>
-        <div class="actions">
-          <button id="resume-session-btn" class="btn btn-primary" type="button">Resume Saved Round</button>
-          <button id="start-fresh-btn" class="btn btn-secondary" type="button">Start Fresh</button>
-        </div>
-      </section>
-
       <section id="home-view" class="card section hidden">
         <section class="home-hero card-sub">
-          <p class="home-kicker">PocketCaddy Home</p>
-          <h2 class="home-title">Start Your Next Round Fast</h2>
-          <p class="home-tagline">Create a round, join from a link, or resume saved progress on this device in seconds.</p>
+          <p class="home-kicker">Home</p>
+          <h2 class="home-title">Start or Rejoin a Round</h2>
+          <p class="home-tagline">Create a new round, join an existing one, or continue saved progress from this device.</p>
           <div class="actions home-hero-actions">
             <button id="hub-create-btn" class="btn btn-primary" type="button">Create Round</button>
             <button id="hub-join-btn" class="btn btn-secondary" type="button">Join Round</button>
           </div>
         </section>
 
+        <section id="home-saved-session-card" class="home-saved-session card-sub hidden">
+          <h3>Saved Session on This Device</h3>
+          <p id="home-saved-session-copy" class="muted tiny">Resume where you left off, or remove this local saved session.</p>
+          <div class="home-saved-session-actions actions">
+            <button id="quick-resume-btn" class="btn btn-primary" type="button">Resume Saved Round</button>
+            <button id="quick-cancel-saved-btn" class="btn btn-danger" type="button">Remove Saved Session</button>
+          </div>
+          <p class="muted tiny home-saved-session-note">Removing this only clears saved progress on this device. Shared round data stays available.</p>
+        </section>
+
         <section class="home-quick card-sub">
           <h3>Quick Actions</h3>
-          <p class="muted tiny home-quick-helper">Primary entry points for starting or returning to play. Saved progress actions appear here.</p>
+          <p class="muted tiny home-quick-helper">Use these to start a new round or join one in progress.</p>
           <div class="home-quick-grid">
             <button id="quick-create-btn" class="btn btn-primary" type="button">Start New Round</button>
             <button id="quick-join-btn" class="btn btn-secondary" type="button">Join Existing Round</button>
-            <button id="quick-resume-btn" class="btn btn-secondary hidden" type="button">Resume Saved Round</button>
-            <button id="quick-cancel-saved-btn" class="btn btn-danger hidden" type="button">Remove Saved Session</button>
           </div>
-          <p class="muted tiny">Resume and remove options appear when a saved session exists on this device.</p>
-          <p class="muted tiny home-quick-note">Cancel Saved Round removes only this device's saved session. It does not delete the shared round.</p>
         </section>
 
         <section id="create-round-section" class="home-flow-section card-sub">
           <div class="home-section-head">
             <h2>Create Round</h2>
-            <p class="muted tiny">Set up your round, add players, and launch scoring.</p>
+            <p class="muted tiny">Set round details, add players, then launch scoring.</p>
           </div>
           <div class="form-grid">
             <label><span>Round Name</span><input id="round-name" type="text" placeholder="Saturday Match"></label>
@@ -91,7 +88,7 @@
         <section id="join-round-section" class="home-flow-section card-sub">
           <div class="home-section-head">
             <h2>Join Round</h2>
-            <p class="muted tiny">Paste a round link or full round ID to join instantly.</p>
+            <p class="muted tiny">Paste a round link or full ID to join instantly.</p>
           </div>
           <label><span>Round Link or Full Round ID</span><input id="join-input" type="text" placeholder="Round Link or Full Round ID"></label>
           <div id="join-error" class="error hidden"></div>
@@ -102,9 +99,9 @@
 
         <section id="round-history-section" class="home-history card-sub">
           <div class="home-section-head home-history-head">
-            <p class="home-history-kicker">Review Saved Rounds</p>
+            <p class="home-history-kicker">Saved On This Device</p>
             <h2>Round History</h2>
-            <p class="muted tiny">Replay completed rounds and track player progression saved on this device.</p>
+            <p class="muted tiny">Replay completed rounds and review player progression from local history.</p>
           </div>
           <div id="round-history-player-stats" class="round-history-player-stats"></div>
           <div id="round-history-list" class="round-history-list"></div>
