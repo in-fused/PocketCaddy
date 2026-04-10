@@ -9,6 +9,9 @@
   const WEATHER_FETCH_TIMEOUT_MS = 4500;
   const INTEL_UNAVAILABLE = "Unavailable";
   const INTEL_LOADING = "Loading...";
+  const CLOSE_FINISH_MARGIN = 2;
+  const BLOWOUT_MARGIN = 8;
+  const BACK_NINE_COMEBACK_SWING = 2;
 
   const dom = {
     startChoiceView: document.getElementById("start-choice-view"),
@@ -163,7 +166,9 @@
     roundCompletion: null,
     roundCompleteTransitionTimer: null,
     roundCompletionCandidateAt: null,
-    roundSummaryExpandedPlayerId: null
+    roundSummaryExpandedPlayerId: null,
+    roundHistoryDraft: null,
+    roundHistoryPreparedAt: null
   };
 
   function init() {
@@ -748,6 +753,8 @@ if (!dom.homeView.classList.contains("hidden")) {
     state.activeCell = null;
     state.roundCompletion = null;
     state.roundCompletionCandidateAt = null;
+    state.roundHistoryDraft = null;
+    state.roundHistoryPreparedAt = null;
     clearTimeout(state.roundCompleteTransitionTimer);
     dom.scoreView.classList.remove("round-complete-enter");
 
@@ -1894,6 +1901,72 @@ if (!dom.homeView.classList.contains("hidden")) {
     return rows;
   }
 
+  function parseRankPosition(rankValue) {
+    if (rankValue == null) return null;
+    const text = String(rankValue).trim();
+    if (!text || text === "-") return null;
+    const normalized = text.startsWith("T") ? text.slice(1) : text;
+    const parsed = Number(normalized);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  function parseRankLabel(rankValue) {
+    const pos = parseRankPosition(rankValue);
+    if (!pos) return "-";
+    if (pos === 1) return "1st";
+    if (pos === 2) return "2nd";
+    if (pos === 3) return "3rd";
+    return `${pos}th`;
+  }
+
+  function buildCompetitiveTags(standings, playerInsightsById) {
+    const tags = [];
+    const played = (Array.isArray(standings) ? standings : []).filter((row) => row.total != null);
+    if (played.length < 2) return tags;
+
+    const first = played[0];
+    const second = played[1];
+    const margin = Math.max(0, Number(second.total) - Number(first.total));
+
+    if (margin <= CLOSE_FINISH_MARGIN) {
+      tags.push({
+        key: "closest-finish",
+        label: "Closest Finish",
+        detail: margin === 0 ? "Tie at the top." : `${margin} stroke${margin === 1 ? "" : "s"} between 1st and 2nd.`
+      });
+    } else if (margin >= BLOWOUT_MARGIN) {
+      tags.push({
+        key: "blowout",
+        label: "Blowout",
+        detail: `${margin} stroke lead over 2nd place.`
+      });
+    }
+
+    let comebackCandidate = null;
+    for (const row of played) {
+      if (row.front == null || row.back == null) continue;
+      const insight = playerInsightsById ? playerInsightsById[String(row.id)] : null;
+      if (!insight || !insight.front || !insight.back) continue;
+      if (insight.front.relativeToPar == null || insight.back.relativeToPar == null) continue;
+      const swing = Number(insight.front.relativeToPar) - Number(insight.back.relativeToPar);
+      if (!Number.isFinite(swing) || swing < BACK_NINE_COMEBACK_SWING) continue;
+      const rankPos = parseRankPosition(row.rank);
+      if (rankPos == null || rankPos > 3) continue;
+      if (!comebackCandidate || swing > comebackCandidate.swing) {
+        comebackCandidate = { name: row.name, swing: swing };
+      }
+    }
+    if (comebackCandidate) {
+      tags.push({
+        key: "back-nine-comeback",
+        label: "Back Nine Comeback",
+        detail: `${comebackCandidate.name} gained ${formatDecimal(comebackCandidate.swing, 1)} vs par on the back nine.`
+      });
+    }
+
+    return tags;
+  }
+
   function buildRoundCompletionState(standings) {
     if (!state.round) {
       return {
@@ -2018,6 +2091,16 @@ if (!dom.homeView.classList.contains("hidden")) {
     }
     const safeStandings = Array.isArray(standings) ? standings : buildStandings();
     const leaders = safeStandings.filter((row) => row.isLeader && row.total != null);
+    const topThree = safeStandings.filter((row) => row.total != null).slice(0, 3).map((row) => ({
+      id: row.id,
+      name: row.name,
+      rank: row.rank,
+      total: row.total,
+      relative: row.relative
+    }));
+    const winnerNames = leaders.map((row) => row.name);
+    const winnerLabel = leaders.length > 1 ? "Winners (Tie)" : "Winner";
+    const competitiveTags = buildCompetitiveTags(safeStandings, playerInsightsById);
     const isComplete = holes > 0 && players.length > 0 && missingScores === 0 && state.pendingScoreKeys.size === 0;
     return {
       isComplete: isComplete,
@@ -2029,6 +2112,10 @@ if (!dom.homeView.classList.contains("hidden")) {
       pendingScoreCount: state.pendingScoreKeys.size,
       standings: safeStandings,
       leaders: leaders,
+      winnerLabel: winnerLabel,
+      winnerNames: winnerNames,
+      topThree: topThree,
+      competitiveTags: competitiveTags,
       playerInsightsById: playerInsightsById,
       highlights: {
         bestRoundMoment: bestRoundMoment,
@@ -2105,6 +2192,76 @@ if (!dom.homeView.classList.contains("hidden")) {
     return panel;
   }
 
+  function ensureRoundShareCardPanel() {
+    const section = dom.leaderboardBody && dom.leaderboardBody.closest("section");
+    if (!section) return null;
+    const summaryPanel = ensureRoundSummaryPanel();
+    let shareCard = section.querySelector("#round-share-card");
+    if (!shareCard) {
+      shareCard = document.createElement("div");
+      shareCard.id = "round-share-card";
+      shareCard.className = "round-share-card hidden";
+    }
+    if (summaryPanel && summaryPanel.nextSibling !== shareCard) {
+      summaryPanel.insertAdjacentElement("afterend", shareCard);
+    } else if (!summaryPanel && !section.contains(shareCard)) {
+      section.appendChild(shareCard);
+    }
+    return shareCard;
+  }
+
+  function getRoundCourseSubtitle() {
+    if (!state.round) return "-";
+    const parts = [];
+    const roundName = String(state.round.name || "").trim();
+    const courseName = String(state.round.course || "").trim();
+    if (roundName) parts.push(roundName);
+    if (courseName) parts.push(courseName);
+    if (!parts.length) return "-";
+    return parts.join(" • ");
+  }
+
+  function renderRoundShareCard(completion) {
+    const shareCard = ensureRoundShareCardPanel();
+    if (!shareCard) return;
+    if (!completion || !completion.isComplete) {
+      shareCard.classList.add("hidden");
+      shareCard.innerHTML = "";
+      return;
+    }
+    const winnerText = (completion.winnerNames || []).length
+      ? completion.winnerNames.map((name) => escapeHtml(name)).join(", ")
+      : "-";
+    const topThree = Array.isArray(completion.topThree) ? completion.topThree.slice(0, 3) : [];
+    const topThreeMarkup = topThree.map((row) => {
+      return `
+        <li class="round-share-standings-row">
+          <span class="round-share-rank">${escapeHtml(parseRankLabel(row.rank))}</span>
+          <span class="round-share-name">${escapeHtml(row.name)}</span>
+          <span class="round-share-total">${display(row.total)}</span>
+        </li>
+      `;
+    }).join("");
+    shareCard.classList.remove("hidden");
+    shareCard.innerHTML = `
+      <div class="round-share-card-head">
+        <p class="round-share-kicker">Shareable Round Card</p>
+        <p class="round-share-title">${escapeHtml(getRoundCourseSubtitle())}</p>
+      </div>
+      <div class="round-share-winner">
+        <span class="round-share-winner-label">${escapeHtml(completion.winnerLabel || "Winner")}</span>
+        <strong class="round-share-winner-name">🏆 ${winnerText}</strong>
+      </div>
+      <div class="round-share-top3">
+        <p class="round-share-top3-label">Top 3 Standings</p>
+        <ol class="round-share-standings">${topThreeMarkup || "<li class=\"round-share-standings-row\"><span class=\"round-share-name\">No final standings</span></li>"}</ol>
+      </div>
+      <div class="round-share-actions">
+        <button type="button" class="btn btn-primary round-rematch-btn" data-action="start-rematch">Start Rematch</button>
+      </div>
+    `;
+  }
+
   function renderRoundSummaryPanel(completion) {
     const panel = ensureRoundSummaryPanel();
     if (!panel || !completion) return;
@@ -2123,8 +2280,14 @@ if (!dom.homeView.classList.contains("hidden")) {
     }
     const leaders = completion.leaders || [];
     const tie = leaders.length > 1;
-    const winnerLabel = tie ? "Winners (Tie)" : "Winner";
-    const winnerNames = leaders.map((row) => escapeHtml(row.name)).join(", ");
+    const winnerLabel = completion.winnerLabel || (tie ? "Winners (Tie)" : "Winner");
+    const winnerNames = (completion.winnerNames || leaders.map((row) => row.name))
+      .map((name) => escapeHtml(name))
+      .join(", ");
+    const competitiveTags = Array.isArray(completion.competitiveTags) ? completion.competitiveTags : [];
+    const competitiveTagMarkup = competitiveTags.map((tag) => {
+      return `<span class="competitive-tag" title="${escapeHtml(tag.detail || "")}">${escapeHtml(tag.label)}</span>`;
+    }).join("");
     const expandedPlayerId = state.roundSummaryExpandedPlayerId == null ? null : String(state.roundSummaryExpandedPlayerId);
     const insightsById = completion.playerInsightsById || {};
     const highlights = completion.highlights || {};
@@ -2191,10 +2354,11 @@ if (!dom.homeView.classList.contains("hidden")) {
         <p class="round-summary-title">Final Leaderboard</p>
         <p class="round-summary-meta">${completion.playersCount} players • ${completion.holes} holes completed</p>
       </div>
-      <div class="round-summary-winner">
+      <div class="round-summary-winner winner-celebrate">
         <span class="round-summary-winner-label">${winnerLabel}</span>
-        <span class="round-summary-winner-name">${winnerNames}</span>
+        <span class="round-summary-winner-name"><span aria-hidden="true">🏆</span> ${winnerNames}</span>
       </div>
+      ${competitiveTagMarkup ? `<div class="competitive-tags">${competitiveTagMarkup}</div>` : ""}
       <div class="round-highlights">
         <div class="round-highlights-item">
           <span class="round-highlights-label">Best Round Moment</span>
@@ -2210,12 +2374,102 @@ if (!dom.homeView.classList.contains("hidden")) {
   }
 
   function onRoundSummaryPanelClick(event) {
+    const actionBtn = event.target.closest("[data-action='start-rematch']");
+    if (actionBtn) {
+      event.preventDefault();
+      startRematch();
+      return;
+    }
     const trigger = event.target.closest(".round-summary-row[data-player-id]");
     if (!trigger) return;
     const playerId = trigger.getAttribute("data-player-id");
     if (!playerId || !state.roundCompletion || !state.roundCompletion.isComplete) return;
     state.roundSummaryExpandedPlayerId = String(state.roundSummaryExpandedPlayerId) === String(playerId) ? null : playerId;
     renderRoundSummaryPanel(state.roundCompletion);
+  }
+
+  function buildRematchCreateInput() {
+    if (!state.round) return null;
+    const players = (state.players || [])
+      .map((player) => String(player && player.name ? player.name : "").trim())
+      .filter((name) => name.length > 0);
+    if (!players.length) return null;
+    const safeRoundName = String(state.round.name || "Round").trim() || "Round";
+    return {
+      roundName: `${safeRoundName} Rematch`,
+      courseName: String(state.round.course || "").trim(),
+      courseMetadata: {
+        displayName: state.round.course || null,
+        locationText: state.round.course_location_text || null,
+        lat: Number.isFinite(Number(state.round.course_lat)) ? Number(state.round.course_lat) : null,
+        lng: Number.isFinite(Number(state.round.course_lng)) ? Number(state.round.course_lng) : null,
+        placeId: state.round.course_place_id || null,
+        source: state.round.course_source || null
+      },
+      tee: String(state.round.tee || "").trim(),
+      holes: Number(state.round.holes) === 9 ? 9 : 18,
+      players: players
+    };
+  }
+
+  async function startRematch() {
+    if (!state.round) return;
+    const input = buildRematchCreateInput();
+    if (!input || !input.courseName || !input.players.length) {
+      showFeedback("Rematch setup is incomplete.", true);
+      return;
+    }
+    const button = document.querySelector(".round-rematch-btn[data-action='start-rematch']");
+    if (button) button.disabled = true;
+    try {
+      const created = await window.SupabaseAPI.createRoundWithPlayers(input);
+      await loadRound(created.round.id);
+      saveSession({ roundId: created.round.id });
+      updateUrlRoundParam(created.round.id);
+      showView("score");
+      showFeedback("Rematch started.");
+    } catch (err) {
+      showFeedback("Could not start rematch.", true);
+      console.error(err);
+    } finally {
+      const refreshedButton = document.querySelector(".round-rematch-btn[data-action='start-rematch']");
+      if (refreshedButton) refreshedButton.disabled = false;
+    }
+  }
+
+  function buildRoundHistoryDraft(completion) {
+    if (!state.round || !completion || !completion.isComplete) return null;
+    const topThree = Array.isArray(completion.topThree) ? completion.topThree : [];
+    return {
+      roundId: state.round.id,
+      roundName: state.round.name || "",
+      courseName: state.round.course || "",
+      tee: state.round.tee || "",
+      holes: Number(state.round.holes) || 0,
+      completedAt: new Date().toISOString(),
+      winnerNames: Array.isArray(completion.winnerNames) ? completion.winnerNames.slice() : [],
+      winnerLabel: completion.winnerLabel || "Winner",
+      topThree: topThree.map((row) => ({
+        id: row.id,
+        name: row.name,
+        rank: row.rank,
+        total: row.total,
+        relative: row.relative
+      })),
+      competitiveTags: Array.isArray(completion.competitiveTags)
+        ? completion.competitiveTags.map((tag) => ({ key: tag.key, label: tag.label, detail: tag.detail || "" }))
+        : []
+    };
+  }
+
+  function prepareRoundHistoryHook(completion) {
+    if (!completion || !completion.isComplete) {
+      state.roundHistoryDraft = null;
+      state.roundHistoryPreparedAt = null;
+      return;
+    }
+    state.roundHistoryDraft = buildRoundHistoryDraft(completion);
+    state.roundHistoryPreparedAt = Date.now();
   }
 
   function renderRoundCompletionExperience() {
@@ -2234,6 +2488,8 @@ if (!dom.homeView.classList.contains("hidden")) {
     renderShareReadyState(next);
     renderLeaderboardStateBadge(next);
     renderRoundSummaryPanel(next);
+    renderRoundShareCard(next);
+    prepareRoundHistoryHook(next);
     const transitionedToComplete = previous && !previous.isComplete && next.isComplete;
     if (transitionedToComplete) {
       clearTimeout(state.roundCompleteTransitionTimer);
@@ -2783,6 +3039,8 @@ if (!dom.homeView.classList.contains("hidden")) {
     state.leaderboardShiftMap = {};
     state.roundCompletion = null;
     state.roundCompletionCandidateAt = null;
+    state.roundHistoryDraft = null;
+    state.roundHistoryPreparedAt = null;
     clearTimeout(state.scoreFlashTimer);
     clearTimeout(state.scoreTapTimer);
     clearTimeout(state.activeCellPulseTimer);
