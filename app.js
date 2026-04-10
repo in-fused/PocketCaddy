@@ -4298,51 +4298,51 @@ if (!dom.homeView.classList.contains("hidden")) {
 
     ctx.font = "800 78px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = "#F8FBFF";
-    ctx.fillText(fitCanvasText(ctx, data.roundName || "Round Results", textMax), size / 2, 154);
+    ctx.fillText(fitCanvasText(ctx, data.roundName || "Round Results", textMax), size / 2, 150);
 
     ctx.fillStyle = accent;
-    ctx.fillRect(262, 326, size - 524, 6);
+    ctx.fillRect(262, 318, size - 524, 6);
 
     ctx.font = "500 42px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = "#C8D1DF";
-    ctx.fillText(fitCanvasText(ctx, data.courseName || "-", textMax), size / 2, 224);
+    ctx.fillText(fitCanvasText(ctx, data.courseName || "-", textMax), size / 2, 220);
 
     if (headerMetaText) {
       ctx.font = "500 31px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
       ctx.fillStyle = "#AEB8C7";
-      ctx.fillText(fitCanvasText(ctx, headerMetaText, textMax), size / 2, 282);
+      ctx.fillText(fitCanvasText(ctx, headerMetaText, textMax), size / 2, 276);
     }
 
     ctx.font = "600 46px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = accent;
-    ctx.fillText("🏆", size / 2, 394);
+    ctx.fillText("🏆", size / 2, 388);
 
     ctx.font = "600 24px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = "#AEB8C7";
-    ctx.fillText("Round Winner", size / 2, 432);
+    ctx.fillText("Round Winner", size / 2, 426);
 
     ctx.font = "600 42px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = "#D7DFEC";
-    ctx.fillText(fitCanvasText(ctx, data.winnerLabel || "Winner", textMax), size / 2, 468);
+    ctx.fillText(fitCanvasText(ctx, data.winnerLabel || "Winner", textMax), size / 2, 462);
 
-    const winnerSpotlight = ctx.createRadialGradient(size / 2, 548, 24, size / 2, 548, 272);
-    winnerSpotlight.addColorStop(0, accentRgba(0.24));
-    winnerSpotlight.addColorStop(0.65, accentRgba(0.08));
+    const winnerSpotlight = ctx.createRadialGradient(size / 2, 544, 30, size / 2, 544, 286);
+    winnerSpotlight.addColorStop(0, accentRgba(0.17));
+    winnerSpotlight.addColorStop(0.62, accentRgba(0.055));
     winnerSpotlight.addColorStop(1, accentRgba(0));
     ctx.fillStyle = winnerSpotlight;
-    ctx.fillRect(120, 472, size - 240, 194);
+    ctx.fillRect(124, 470, size - 248, 190);
 
     ctx.save();
-    ctx.shadowColor = accentRgba(0.45);
-    ctx.shadowBlur = 26;
+    ctx.shadowColor = accentRgba(0.34);
+    ctx.shadowBlur = 20;
     ctx.font = "800 64px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = "#FFFFFF";
-    ctx.fillText(fitCanvasText(ctx, data.winnerNamesText || "-", textMax), size / 2, 544);
+    ctx.fillText(fitCanvasText(ctx, data.winnerNamesText || "-", textMax), size / 2, 538);
     ctx.restore();
 
     ctx.font = "600 34px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = "#BFC8D8";
-    ctx.fillText(fitCanvasText(ctx, data.winnerScoreContextText || "-", textMax), size / 2, 590);
+    ctx.fillText(fitCanvasText(ctx, data.winnerScoreContextText || "-", textMax), size / 2, 582);
 
     const separation = ctx.createLinearGradient(198, 0, size - 198, 0);
     separation.addColorStop(0, "rgba(255,255,255,0)");
@@ -4350,61 +4350,61 @@ if (!dom.homeView.classList.contains("hidden")) {
     separation.addColorStop(0.8, accentRgba(0.15));
     separation.addColorStop(1, "rgba(255,255,255,0)");
     ctx.fillStyle = separation;
-    ctx.fillRect(198, 638, size - 396, 1.5);
+    ctx.fillRect(198, 626, size - 396, 1.5);
 
     ctx.font = "600 36px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = accent;
-    ctx.fillText("Top 3 Standings", size / 2, 702);
+    ctx.fillText("Top 3 Standings", size / 2, 688);
 
     const standings = Array.isArray(data.standings) ? data.standings.slice(0, 3) : [];
     while (standings.length < 3) standings.push({ place: standings.length + 1, name: "-", score: "-" });
     const rowLeft = 164;
     const rowWidth = size - (rowLeft * 2);
-    const rowHeight = 62;
-    const rowGap = 16;
-    const rowStartY = 742;
+    const rowHeight = 58;
+    const rowGap = 14;
+    const rowStartY = 726;
     for (let i = 0; i < standings.length; i += 1) {
       const row = standings[i] || {};
       const y = rowStartY + (i * (rowHeight + rowGap));
       const isTop = i === 0;
 
-      ctx.fillStyle = isTop ? "rgba(255,255,255,0.105)" : "rgba(255,255,255,0.075)";
+      ctx.fillStyle = isTop ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.072)";
       ctx.beginPath();
-      ctx.roundRect(rowLeft, y, rowWidth, rowHeight, 14);
+      ctx.roundRect(rowLeft, y, rowWidth, rowHeight, 13);
       ctx.fill();
 
-      ctx.strokeStyle = isTop ? accentRgba(0.45) : "rgba(255,255,255,0.1)";
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = isTop ? accentRgba(0.34) : "rgba(255,255,255,0.09)";
+      ctx.lineWidth = 1.35;
       ctx.beginPath();
-      ctx.roundRect(rowLeft, y, rowWidth, rowHeight, 14);
+      ctx.roundRect(rowLeft, y, rowWidth, rowHeight, 13);
       ctx.stroke();
 
       ctx.textAlign = "left";
-      ctx.font = "700 28px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+      ctx.font = "700 27px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
       ctx.fillStyle = isTop ? accent : "#D6DEEC";
-      ctx.fillText(`${Number(row.place) || (i + 1)}.`, rowLeft + 24, y + (rowHeight / 2) + 1);
+      ctx.fillText(`${Number(row.place) || (i + 1)}.`, rowLeft + 24, y + (rowHeight / 2));
 
       ctx.font = isTop
-        ? "700 33px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
-        : "600 31px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+        ? "700 32px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        : "600 30px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
       ctx.fillStyle = "#F2F6FF";
-      const nameMax = rowWidth - 312;
-      ctx.fillText(fitCanvasText(ctx, row.name || "-", nameMax), rowLeft + 82, y + (rowHeight / 2) + 1);
+      const nameMax = rowWidth - 316;
+      ctx.fillText(fitCanvasText(ctx, row.name || "-", nameMax), rowLeft + 82, y + (rowHeight / 2));
 
       ctx.textAlign = "right";
       ctx.font = isTop
-        ? "700 30px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
-        : "600 28px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-      ctx.fillStyle = isTop ? "#F4FAFF" : "#D2DBEA";
-      ctx.fillText(fitCanvasText(ctx, row.score || "-", 220), rowLeft + rowWidth - 24, y + (rowHeight / 2) + 1);
+        ? "700 29px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        : "600 27px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+      ctx.fillStyle = isTop ? "#ECF5FF" : "#D2DBEA";
+      ctx.fillText(fitCanvasText(ctx, row.score || "-", 220), rowLeft + rowWidth - 24, y + (rowHeight / 2));
     }
     ctx.textAlign = "center";
 
-    ctx.font = "500 30px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.12)";
-    ctx.fillRect(348, 938, size - 696, 1.5);
-    ctx.fillStyle = "#A9B1BD";
-    ctx.fillText("Shared via PocketCaddy", size / 2, 982);
+    ctx.font = "500 29px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.14)";
+    ctx.fillRect(334, 952, size - 668, 1.4);
+    ctx.fillStyle = "#ADB7C5";
+    ctx.fillText("Shared via PocketCaddy", size / 2, 989);
 
     state.shareImageCanvas = canvas;
     return canvas.toDataURL("image/png");
