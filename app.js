@@ -4181,6 +4181,8 @@ if (!dom.homeView.classList.contains("hidden")) {
     return {
       roundName: state.round && state.round.name ? String(state.round.name).trim() : "Round Results",
       courseName: state.round && state.round.course ? String(state.round.course).trim() : "-",
+      holesCount: state.round && Number.isFinite(Number(state.round.holes)) ? Number(state.round.holes) : null,
+      teeName: state.round && state.round.tee ? String(state.round.tee).trim() : "",
       winnerLabel: winnerLabel,
       winnerNamesText: joinNamesForShare(winnerNames),
       standings: standings
@@ -4268,19 +4270,32 @@ if (!dom.homeView.classList.contains("hidden")) {
     ctx.stroke();
 
     const textMax = size - 170;
+    const metaParts = [];
+    const holes = Number.isFinite(Number(data.holesCount)) ? Number(data.holesCount) : null;
+    const teeName = String(data.teeName || "").trim();
+    if (holes && holes > 0) metaParts.push(`${holes} holes`);
+    if (teeName) metaParts.push(`${teeName} tee`);
+    const headerMetaText = metaParts.join(" • ");
+
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
     ctx.font = "800 78px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = "#F8FBFF";
-    ctx.fillText(fitCanvasText(ctx, data.roundName || "Round Results", textMax), size / 2, 170);
+    ctx.fillText(fitCanvasText(ctx, data.roundName || "Round Results", textMax), size / 2, 154);
 
     ctx.fillStyle = accent;
-    ctx.fillRect(262, 286, size - 524, 6);
+    ctx.fillRect(262, 326, size - 524, 6);
 
     ctx.font = "500 42px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = "#C8D1DF";
-    ctx.fillText(fitCanvasText(ctx, data.courseName || "-", textMax), size / 2, 238);
+    ctx.fillText(fitCanvasText(ctx, data.courseName || "-", textMax), size / 2, 224);
+
+    if (headerMetaText) {
+      ctx.font = "500 31px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+      ctx.fillStyle = "#AEB8C7";
+      ctx.fillText(fitCanvasText(ctx, headerMetaText, textMax), size / 2, 282);
+    }
 
     ctx.font = "600 46px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = accent;
@@ -4305,19 +4320,22 @@ if (!dom.homeView.classList.contains("hidden")) {
     const standings = Array.isArray(data.standings) ? data.standings.slice(0, 3) : [];
     while (standings.length < 3) standings.push({ place: standings.length + 1, name: "-", score: "-" });
     const rows = standings.map((row) => `${Number(row.place) || 1}. ${row.name || "-"} — ${row.score || "-"}`);
-    ctx.font = "600 40px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-    ctx.fillStyle = "#F3F7FF";
-    ctx.fillText(fitCanvasText(ctx, rows[0], textMax), size / 2, 752);
-    ctx.fillStyle = accentRgba(0.16);
-    ctx.fillRect(186, 774, size - 372, 2);
+    ctx.font = "700 42px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.fillStyle = accent;
+    ctx.fillText(fitCanvasText(ctx, rows[0], textMax), size / 2, 748);
+    ctx.fillStyle = accentRgba(0.2);
+    ctx.fillRect(186, 772, size - 372, 2);
+    ctx.font = "600 39px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = "#E9EEF8";
-    ctx.fillText(fitCanvasText(ctx, rows[1], textMax), size / 2, 810);
+    ctx.fillText(fitCanvasText(ctx, rows[1], textMax), size / 2, 816);
     ctx.fillStyle = "#DCE3EF";
-    ctx.fillText(fitCanvasText(ctx, rows[2], textMax), size / 2, 868);
+    ctx.fillText(fitCanvasText(ctx, rows[2], textMax), size / 2, 884);
 
     ctx.font = "500 30px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-    ctx.fillStyle = "#A5ADBA";
-    ctx.fillText("Shared via PocketCaddy", size / 2, 978);
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.fillRect(348, 938, size - 696, 1.5);
+    ctx.fillStyle = "#A9B1BD";
+    ctx.fillText("Shared via PocketCaddy", size / 2, 982);
 
     state.shareImageCanvas = canvas;
     return canvas.toDataURL("image/png");
