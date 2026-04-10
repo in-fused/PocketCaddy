@@ -639,6 +639,10 @@ input:focus, select:focus {
   gap: 6px;
 }
 
+.round-summary-row-wrap {
+  list-style: none;
+}
+
 .round-summary-row {
   display: grid;
   grid-template-columns: 44px 1fr auto auto;
@@ -648,6 +652,21 @@ input:focus, select:focus {
   border-radius: 9px;
   padding: 7px 8px;
   background: linear-gradient(180deg, #ffffff 0%, #f4f9f6 100%);
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.round-summary-row:active {
+  transform: translateY(1px);
+}
+
+.round-summary-row:hover {
+  border-color: #bcd2c2;
+  box-shadow: 0 2px 8px rgba(34, 63, 46, 0.08);
 }
 
 .round-summary-row.winner {
@@ -679,6 +698,107 @@ input:focus, select:focus {
   font-size: 0.72rem;
   font-weight: 700;
   color: #4f6559;
+}
+
+.round-highlights {
+  margin-top: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.round-highlights-item {
+  display: grid;
+  gap: 2px;
+  border: 1px solid #d8c692;
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: linear-gradient(180deg, #fffaea 0%, #f8edc7 100%);
+}
+
+.round-highlights-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 800;
+  color: #6a5423;
+}
+
+.round-highlights-value {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #3f3113;
+}
+
+.round-summary-insights {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 1px;
+}
+
+.insight-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #d2ddd5;
+  border-radius: 999px;
+  padding: 2px 7px;
+  background: #f7fbf8;
+  color: #335242;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.insight-chip.insight-badge {
+  min-width: 38px;
+  justify-content: center;
+}
+
+.insight-chip.insight-badge.birdie {
+  border-color: #97d0a9;
+  background: #edf9f1;
+  color: #1f6a39;
+}
+
+.insight-chip.insight-badge.eagle {
+  border-color: #8dbccf;
+  background: #edf6fb;
+  color: #1f5568;
+}
+
+.insight-chip.insight-badge.par {
+  border-color: #bed4c5;
+  background: #f2f8f4;
+  color: #355645;
+}
+
+.insight-chip.insight-badge.bogey {
+  border-color: #dfb1a7;
+  background: #fff3f1;
+  color: #8d3f34;
+}
+
+.round-summary-detail {
+  display: grid;
+  gap: 2px;
+  margin: 5px 6px 0;
+  border: 1px solid #d4dfd7;
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: linear-gradient(180deg, #ffffff 0%, #f5faf7 100%);
+}
+
+.round-summary-row-wrap.winner .round-summary-detail {
+  border-color: #dec98f;
+  background: linear-gradient(180deg, #fffdf4 0%, #fcf2d5 100%);
+}
+
+.round-summary-detail-line {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #425b4c;
 }
 
 .table-scroll {
@@ -1814,11 +1934,15 @@ input:focus, select:focus {
     padding: 8px;
     margin-bottom: 8px;
   }
+  .round-highlights-value {
+    font-size: 0.76rem;
+  }
   .round-summary-row {
     grid-template-columns: 36px 1fr auto;
     grid-template-areas:
       "rank name total"
-      "rank relative relative";
+      "rank relative relative"
+      "insights insights insights";
     gap: 4px 7px;
     padding: 6px 7px;
   }
@@ -1840,6 +1964,25 @@ input:focus, select:focus {
     grid-area: relative;
     width: fit-content;
     margin-left: 0;
+  }
+  .round-summary-insights {
+    grid-area: insights;
+    margin-top: 0;
+    gap: 3px;
+  }
+  .insight-chip {
+    font-size: 0.64rem;
+    padding: 2px 6px;
+  }
+  .insight-chip.insight-badge {
+    min-width: 34px;
+  }
+  .round-summary-detail {
+    margin: 4px 0 0;
+    padding: 5px 7px;
+  }
+  .round-summary-detail-line {
+    font-size: 0.7rem;
   }
   .round-locked-visual::before {
     right: 8px;

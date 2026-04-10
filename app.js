@@ -162,7 +162,8 @@
     leaderboardShiftTimer: null,
     roundCompletion: null,
     roundCompleteTransitionTimer: null,
-    roundCompletionCandidateAt: null
+    roundCompletionCandidateAt: null,
+    roundSummaryExpandedPlayerId: null
   };
 
   function init() {
@@ -260,6 +261,9 @@
       input.addEventListener("input", onPayoutInputChanged);
       input.addEventListener("blur", normalizePayoutInputValues);
     });
+
+    const leaderboardSection = dom.leaderboardBody && dom.leaderboardBody.closest("section");
+    if (leaderboardSection) leaderboardSection.addEventListener("click", onRoundSummaryPanelClick);
   }
 
   function showView(name) {
@@ -1901,7 +1905,9 @@ if (!dom.homeView.classList.contains("hidden")) {
         missingScores: 0,
         pendingScoreCount: state.pendingScoreKeys.size,
         standings: [],
-        leaders: []
+        leaders: [],
+        playerInsightsById: {},
+        highlights: null
       };
     }
     const holes = Number(state.round.holes) || 0;
@@ -1909,10 +1915,105 @@ if (!dom.homeView.classList.contains("hidden")) {
     const totalRequiredScores = players.length * holes;
     let enteredScores = 0;
     let missingScores = 0;
+    const playerInsightsById = {};
+    const holeAverages = {};
+    let bestRoundMoment = null;
+    for (let hole = 1; hole <= holes; hole += 1) {
+      holeAverages[hole] = { sum: 0, count: 0, deltaSum: 0, deltaCount: 0 };
+    }
     for (const player of players) {
+      const insight = {
+        bestHole: null,
+        worstHole: null,
+        averageRelativeToPar: null,
+        birdies: 0,
+        eagles: 0,
+        pars: 0,
+        bogeysPlus: 0,
+        front: { relativeToPar: null, count: 0 },
+        back: { relativeToPar: null, count: 0 },
+        consistency: null
+      };
+      let deltaSum = 0;
+      let deltaCount = 0;
+      let bestDelta = null;
+      let worstDelta = null;
+      let frontDeltaSum = 0;
+      let frontDeltaCount = 0;
+      let backDeltaSum = 0;
+      let backDeltaCount = 0;
+      let consistencyDeltaAbsSum = 0;
+      let consistencyCount = 0;
       for (let hole = 1; hole <= holes; hole += 1) {
-        if (Number.isInteger(getScore(player.id, hole))) enteredScores += 1;
-        else missingScores += 1;
+        const score = getScore(player.id, hole);
+        if (!Number.isInteger(score)) {
+          missingScores += 1;
+          continue;
+        }
+        enteredScores += 1;
+        const holeAgg = holeAverages[hole];
+        holeAgg.sum += score;
+        holeAgg.count += 1;
+        const par = getPar(hole);
+        const delta = getScoreDelta(score, hole);
+        if (delta != null) {
+          deltaSum += delta;
+          deltaCount += 1;
+          consistencyDeltaAbsSum += Math.abs(delta);
+          consistencyCount += 1;
+          holeAgg.deltaSum += delta;
+          holeAgg.deltaCount += 1;
+          if (bestDelta == null || delta < bestDelta) {
+            bestDelta = delta;
+            insight.bestHole = { hole: hole, delta: delta, score: score };
+          }
+          if (worstDelta == null || delta > worstDelta) {
+            worstDelta = delta;
+            insight.worstHole = { hole: hole, delta: delta, score: score };
+          }
+          if (hole <= 9) {
+            frontDeltaSum += delta;
+            frontDeltaCount += 1;
+          } else {
+            backDeltaSum += delta;
+            backDeltaCount += 1;
+          }
+        }
+        const term = getGolfTerm(score, par);
+        if (term === "Birdie") insight.birdies += 1;
+        if (term === "Par") insight.pars += 1;
+        if (term === "Ace" || term === "Albatross" || term === "Eagle") insight.eagles += 1;
+        if (delta != null && delta >= 1) insight.bogeysPlus += 1;
+        if (!bestRoundMoment || score < bestRoundMoment.score) {
+          bestRoundMoment = {
+            playerId: player.id,
+            playerName: player.name,
+            hole: hole,
+            score: score,
+            delta: delta
+          };
+        }
+      }
+      insight.averageRelativeToPar = deltaCount > 0 ? (deltaSum / deltaCount) : null;
+      insight.front.relativeToPar = frontDeltaCount > 0 ? (frontDeltaSum / frontDeltaCount) : null;
+      insight.front.count = frontDeltaCount;
+      insight.back.relativeToPar = backDeltaCount > 0 ? (backDeltaSum / backDeltaCount) : null;
+      insight.back.count = backDeltaCount;
+      insight.consistency = consistencyCount > 0 ? (consistencyDeltaAbsSum / consistencyCount) : null;
+      playerInsightsById[String(player.id)] = insight;
+    }
+    let toughestHole = null;
+    for (let hole = 1; hole <= holes; hole += 1) {
+      const agg = holeAverages[hole];
+      if (!agg || agg.count === 0) continue;
+      const avgScore = agg.sum / agg.count;
+      if (!toughestHole || avgScore > toughestHole.averageScore) {
+        toughestHole = {
+          hole: hole,
+          averageScore: avgScore,
+          averageDelta: agg.deltaCount > 0 ? (agg.deltaSum / agg.deltaCount) : null,
+          sampleSize: agg.count
+        };
       }
     }
     const safeStandings = Array.isArray(standings) ? standings : buildStandings();
@@ -1927,7 +2028,12 @@ if (!dom.homeView.classList.contains("hidden")) {
       missingScores: missingScores,
       pendingScoreCount: state.pendingScoreKeys.size,
       standings: safeStandings,
-      leaders: leaders
+      leaders: leaders,
+      playerInsightsById: playerInsightsById,
+      highlights: {
+        bestRoundMoment: bestRoundMoment,
+        toughestHole: toughestHole
+      }
     };
   }
 
@@ -2003,6 +2109,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     const panel = ensureRoundSummaryPanel();
     if (!panel || !completion) return;
     if (!completion.isComplete) {
+      state.roundSummaryExpandedPlayerId = null;
       panel.classList.remove("complete");
       panel.classList.add("pending");
       panel.innerHTML = `
@@ -2018,14 +2125,61 @@ if (!dom.homeView.classList.contains("hidden")) {
     const tie = leaders.length > 1;
     const winnerLabel = tie ? "Winners (Tie)" : "Winner";
     const winnerNames = leaders.map((row) => escapeHtml(row.name)).join(", ");
+    const expandedPlayerId = state.roundSummaryExpandedPlayerId == null ? null : String(state.roundSummaryExpandedPlayerId);
+    const insightsById = completion.playerInsightsById || {};
+    const highlights = completion.highlights || {};
+    const bestMoment = highlights.bestRoundMoment;
+    const bestMomentText = bestMoment
+      ? `${escapeHtml(bestMoment.playerName)} • H${bestMoment.hole} • ${bestMoment.score}${bestMoment.delta == null ? "" : ` (${formatRelativeToPar(bestMoment.delta)})`}`
+      : "-";
+    const toughestHole = highlights.toughestHole;
+    const toughestHoleText = toughestHole
+      ? `H${toughestHole.hole} • Avg ${formatDecimal(toughestHole.averageScore, 1)}${toughestHole.averageDelta == null ? "" : ` (${formatSignedDecimal(toughestHole.averageDelta, 1)})`}`
+      : "-";
     const standingsMarkup = completion.standings.map((row) => {
       const isWinner = leaders.some((leader) => String(leader.id) === String(row.id));
+      const insight = insightsById[String(row.id)] || {};
+      const bestHoleText = insight.bestHole ? `H${insight.bestHole.hole} ${formatRelativeToPar(insight.bestHole.delta)}` : "-";
+      const worstHoleText = insight.worstHole ? `H${insight.worstHole.hole} ${formatRelativeToPar(insight.worstHole.delta)}` : "-";
+      const avgRelText = formatSignedDecimal(insight.averageRelativeToPar, 1);
+      const birdies = Number.isInteger(insight.birdies) ? insight.birdies : 0;
+      const eagles = Number.isInteger(insight.eagles) ? insight.eagles : 0;
+      const pars = Number.isInteger(insight.pars) ? insight.pars : 0;
+      const bogeysPlus = Number.isInteger(insight.bogeysPlus) ? insight.bogeysPlus : 0;
+      const isExpanded = expandedPlayerId != null && expandedPlayerId === String(row.id);
+      const frontRel = insight.front && insight.front.relativeToPar != null ? formatSignedDecimal(insight.front.relativeToPar, 1) : "-";
+      const backRel = insight.back && insight.back.relativeToPar != null ? formatSignedDecimal(insight.back.relativeToPar, 1) : "-";
+      const splitDelta = insight.front && insight.back && insight.front.relativeToPar != null && insight.back.relativeToPar != null
+        ? (insight.back.relativeToPar - insight.front.relativeToPar)
+        : null;
+      const splitText = splitDelta == null ? "-" : formatSignedDecimal(splitDelta, 1);
+      const consistencyText = insight.consistency == null ? "-" : formatDecimal(insight.consistency, 2);
       return `
-        <li class="round-summary-row ${isWinner ? "winner" : ""}">
-          <span class="round-summary-rank">${escapeHtml(row.rank)}</span>
-          <span class="round-summary-name">${escapeHtml(row.name)}</span>
-          <span class="round-summary-total">${display(row.total)} <span class="round-summary-total-label">strokes</span></span>
-          <span class="leader-relative">${formatRelativeToPar(row.relative)}</span>
+        <li class="round-summary-row-wrap ${isWinner ? "winner" : ""} ${isExpanded ? "expanded" : ""}">
+          <button
+            type="button"
+            class="round-summary-row ${isWinner ? "winner" : ""}"
+            data-player-id="${escapeHtml(row.id)}"
+            aria-expanded="${isExpanded ? "true" : "false"}"
+            aria-label="Toggle details for ${escapeHtml(row.name)}">
+            <span class="round-summary-rank">${escapeHtml(row.rank)}</span>
+            <span class="round-summary-name">${escapeHtml(row.name)}</span>
+            <span class="round-summary-total">${display(row.total)} <span class="round-summary-total-label">strokes</span></span>
+            <span class="leader-relative">${formatRelativeToPar(row.relative)}</span>
+            <span class="round-summary-insights">
+              <span class="insight-chip">Best ${bestHoleText}</span>
+              <span class="insight-chip">Worst ${worstHoleText}</span>
+              <span class="insight-chip">Avg ${avgRelText}</span>
+              <span class="insight-chip insight-badge birdie" title="Birdies">${birdies}B</span>
+              <span class="insight-chip insight-badge eagle" title="Eagles">${eagles}E</span>
+              <span class="insight-chip insight-badge par" title="Pars">${pars}P</span>
+              <span class="insight-chip insight-badge bogey" title="Bogeys and above">${bogeysPlus}B+</span>
+            </span>
+          </button>
+          <div class="round-summary-detail ${isExpanded ? "" : "hidden"}">
+            <p class="round-summary-detail-line">Front: ${frontRel} • Back: ${backRel} • Back vs Front: ${splitText}</p>
+            <p class="round-summary-detail-line">Consistency (avg abs vs par): ${consistencyText}</p>
+          </div>
         </li>
       `;
     }).join("");
@@ -2041,8 +2195,27 @@ if (!dom.homeView.classList.contains("hidden")) {
         <span class="round-summary-winner-label">${winnerLabel}</span>
         <span class="round-summary-winner-name">${winnerNames}</span>
       </div>
+      <div class="round-highlights">
+        <div class="round-highlights-item">
+          <span class="round-highlights-label">Best Round Moment</span>
+          <span class="round-highlights-value">${bestMomentText}</span>
+        </div>
+        <div class="round-highlights-item">
+          <span class="round-highlights-label">Toughest Hole</span>
+          <span class="round-highlights-value">${toughestHoleText}</span>
+        </div>
+      </div>
       <ul class="round-summary-standings">${standingsMarkup}</ul>
     `;
+  }
+
+  function onRoundSummaryPanelClick(event) {
+    const trigger = event.target.closest(".round-summary-row[data-player-id]");
+    if (!trigger) return;
+    const playerId = trigger.getAttribute("data-player-id");
+    if (!playerId || !state.roundCompletion || !state.roundCompletion.isComplete) return;
+    state.roundSummaryExpandedPlayerId = String(state.roundSummaryExpandedPlayerId) === String(playerId) ? null : playerId;
+    renderRoundSummaryPanel(state.roundCompletion);
   }
 
   function renderRoundCompletionExperience() {
@@ -2955,6 +3128,19 @@ if (!dom.homeView.classList.contains("hidden")) {
 
   function display(v) {
     return v == null ? "-" : String(v);
+  }
+
+  function formatDecimal(value, digits) {
+    if (value == null || !Number.isFinite(Number(value))) return "-";
+    return Number(value).toFixed(digits);
+  }
+
+  function formatSignedDecimal(value, digits) {
+    if (value == null || !Number.isFinite(Number(value))) return "-";
+    const fixed = Number(value).toFixed(digits);
+    const normalized = Number(fixed);
+    if (normalized === 0) return "E";
+    return normalized > 0 ? `+${fixed}` : fixed;
   }
 
   function escapeHtml(text) {
