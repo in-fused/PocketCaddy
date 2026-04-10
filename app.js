@@ -132,6 +132,8 @@
     selectedCourseMetadata: null,
     courseContextRequestId: 0,
     courseIntelContext: null,
+    coursePreviewRequestId: 0,
+    coursePreviewLoadedUrl: null,
     potSettingsLocked: false,
     holeDetails: {},
     selectedHole: null,
@@ -1122,6 +1124,70 @@ if (!dom.homeView.classList.contains("hidden")) {
     return `https://staticmap.openstreetmap.de/staticmap.php?center=${encodeURIComponent(`${lat},${lng}`)}&zoom=12&size=640x240&markers=${encodeURIComponent(`${lat},${lng},red-pushpin`)}`;
   }
 
+  function isValidPreviewUrl(url) {
+    if (!url || typeof url !== "string") return false;
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch (_err) {
+      return false;
+    }
+  }
+
+  function showCoursePreviewFallback() {
+    if (!dom.courseIntelPreview || !dom.courseIntelPreviewFallback) return;
+    dom.courseIntelPreview.onload = null;
+    dom.courseIntelPreview.onerror = null;
+    dom.courseIntelPreview.classList.add("hidden");
+    dom.courseIntelPreview.removeAttribute("src");
+    dom.courseIntelPreviewFallback.classList.remove("hidden");
+    dom.courseIntelPreviewFallback.textContent = "No course preview available";
+    state.coursePreviewLoadedUrl = null;
+  }
+
+  function renderCoursePreviewImage(previewUrl) {
+    if (!dom.courseIntelPreview || !dom.courseIntelPreviewFallback) return;
+    if (!isValidPreviewUrl(previewUrl)) {
+      state.coursePreviewRequestId += 1;
+      showCoursePreviewFallback();
+      return;
+    }
+
+    if (state.coursePreviewLoadedUrl === previewUrl && dom.courseIntelPreview.getAttribute("src") === previewUrl) {
+      dom.courseIntelPreview.classList.remove("hidden");
+      dom.courseIntelPreviewFallback.classList.add("hidden");
+      return;
+    }
+
+    const requestId = state.coursePreviewRequestId + 1;
+    state.coursePreviewRequestId = requestId;
+    dom.courseIntelPreview.onload = null;
+    dom.courseIntelPreview.onerror = null;
+    dom.courseIntelPreview.classList.add("hidden");
+    dom.courseIntelPreviewFallback.classList.add("hidden");
+
+    const loader = new Image();
+    loader.decoding = "async";
+    loader.onload = function onPreviewLoad() {
+      if (requestId !== state.coursePreviewRequestId) return;
+      dom.courseIntelPreview.onload = null;
+      dom.courseIntelPreview.onerror = function onDisplayedPreviewError() {
+        dom.courseIntelPreview.onerror = null;
+        if (requestId !== state.coursePreviewRequestId) return;
+        showCoursePreviewFallback();
+      };
+      dom.courseIntelPreview.src = previewUrl;
+      dom.courseIntelPreview.classList.remove("hidden");
+      dom.courseIntelPreviewFallback.classList.add("hidden");
+      state.coursePreviewLoadedUrl = previewUrl;
+    };
+    loader.onerror = function onPreviewError() {
+      if (requestId !== state.coursePreviewRequestId) return;
+      showCoursePreviewFallback();
+    };
+    loader.src = previewUrl;
+  }
+
   function unavailableWeatherContext() {
     return {
       temperatureText: "Unavailable",
@@ -1185,21 +1251,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     dom.courseIntelWeather.textContent = context.weatherText || "Unavailable";
     dom.courseIntelWind.textContent = context.windText || "Unavailable";
 
-    if (context.previewUrl) {
-      dom.courseIntelPreview.classList.remove("hidden");
-      dom.courseIntelPreviewFallback.classList.add("hidden");
-      dom.courseIntelPreview.src = context.previewUrl;
-      dom.courseIntelPreview.onerror = function onCoursePreviewError() {
-        dom.courseIntelPreview.classList.add("hidden");
-        dom.courseIntelPreviewFallback.classList.remove("hidden");
-        dom.courseIntelPreviewFallback.textContent = "No course preview available";
-      };
-    } else {
-      dom.courseIntelPreview.classList.add("hidden");
-      dom.courseIntelPreview.removeAttribute("src");
-      dom.courseIntelPreviewFallback.classList.remove("hidden");
-      dom.courseIntelPreviewFallback.textContent = "No course preview available";
-    }
+    renderCoursePreviewImage(context.previewUrl);
     renderShotIntelligencePanel();
   }
 
