@@ -159,7 +159,10 @@
     leaderPulseTimer: null,
     leaderboardOrderById: {},
     leaderboardShiftMap: {},
-    leaderboardShiftTimer: null
+    leaderboardShiftTimer: null,
+    roundCompletion: null,
+    roundCompleteTransitionTimer: null,
+    roundCompletionCandidateAt: null
   };
 
   function init() {
@@ -739,6 +742,10 @@ if (!dom.homeView.classList.contains("hidden")) {
     state.holeDetailSaveTimers.forEach((timerId) => clearTimeout(timerId));
     state.holeDetailSaveTimers.clear();
     state.activeCell = null;
+    state.roundCompletion = null;
+    state.roundCompletionCandidateAt = null;
+    clearTimeout(state.roundCompleteTransitionTimer);
+    dom.scoreView.classList.remove("round-complete-enter");
 
     applyStoredIdentityOrPrompt();
     renderRound({ scrollToIdentity: true });
@@ -1323,10 +1330,11 @@ if (!dom.homeView.classList.contains("hidden")) {
     renderShotIntelligencePanel();
     renderHoleDetailEditor();
 
+    const completion = renderRoundCompletionExperience();
     renderScoreUxMeta();
     renderParRow();
-    renderLeaderboard();
-    renderScoreTable();
+    renderLeaderboard(completion.standings);
+    renderScoreTable(completion.standings);
     maybeShowScoreTooltipOnce();
     if (opts.scrollToIdentity) scheduleScrollToIdentityRow(Boolean(opts.forceScroll));
   }
@@ -1616,7 +1624,10 @@ if (!dom.homeView.classList.contains("hidden")) {
     if (!dom.scoreHint) return;
     const selectedHole = getSafeSelectedHole();
     const selectedText = selectedHole ? ` (Hole ${selectedHole})` : "";
-    dom.scoreHint.textContent = `Tap a hole to enter score${selectedText}`;
+    const completion = state.roundCompletion || buildRoundCompletionState();
+    dom.scoreHint.textContent = completion.isComplete
+      ? `Round complete. Tap a hole to edit if needed${selectedText}`
+      : `Tap a hole to enter score${selectedText}`;
     dom.scoreHint.classList.add("score-entry-hint");
     const scoreSection = dom.scoreScrollContainer && dom.scoreScrollContainer.closest("section");
     if (!scoreSection) return;
@@ -1629,7 +1640,9 @@ if (!dom.homeView.classList.contains("hidden")) {
       scoreSection.insertBefore(summary, dom.scoreHint);
     }
 
-    const standings = buildStandings();
+    const standings = Array.isArray(completion.standings) && completion.standings.length
+      ? completion.standings
+      : buildStandings();
     let target = null;
     if (state.identityPlayerId) {
       target = standings.find((r) => String(r.id) === String(state.identityPlayerId)) || null;
@@ -1642,7 +1655,9 @@ if (!dom.homeView.classList.contains("hidden")) {
       return;
     }
     const birdies = countBirdies(target.id);
-    summary.textContent = `${target.name}: ${formatRelativeToPar(target.relative)} (Birdies: ${birdies})`;
+    summary.textContent = completion.isComplete
+      ? `Final: ${target.name} ${formatRelativeToPar(target.relative)} (${target.total} strokes, Birdies: ${birdies})`
+      : `${target.name}: ${formatRelativeToPar(target.relative)} (Birdies: ${birdies})`;
     summary.classList.remove("hidden");
   }
 
@@ -1697,8 +1712,9 @@ if (!dom.homeView.classList.contains("hidden")) {
     }
     state.parMap[hole] = nextPar;
     renderHoleIntelligenceStrip();
-    renderLeaderboard();
-    renderScoreTable();
+    const completion = renderRoundCompletionExperience();
+    renderLeaderboard(completion.standings);
+    renderScoreTable(completion.standings);
     queueParSave(hole, nextPar);
   }
 
@@ -1874,9 +1890,194 @@ if (!dom.homeView.classList.contains("hidden")) {
     return rows;
   }
 
-  function renderLeaderboard() {
+  function buildRoundCompletionState(standings) {
+    if (!state.round) {
+      return {
+        isComplete: false,
+        holes: 0,
+        playersCount: 0,
+        totalRequiredScores: 0,
+        enteredScores: 0,
+        missingScores: 0,
+        pendingScoreCount: state.pendingScoreKeys.size,
+        standings: [],
+        leaders: []
+      };
+    }
+    const holes = Number(state.round.holes) || 0;
+    const players = Array.isArray(state.players) ? state.players : [];
+    const totalRequiredScores = players.length * holes;
+    let enteredScores = 0;
+    let missingScores = 0;
+    for (const player of players) {
+      for (let hole = 1; hole <= holes; hole += 1) {
+        if (Number.isInteger(getScore(player.id, hole))) enteredScores += 1;
+        else missingScores += 1;
+      }
+    }
+    const safeStandings = Array.isArray(standings) ? standings : buildStandings();
+    const leaders = safeStandings.filter((row) => row.isLeader && row.total != null);
+    const isComplete = holes > 0 && players.length > 0 && missingScores === 0 && state.pendingScoreKeys.size === 0;
+    return {
+      isComplete: isComplete,
+      holes: holes,
+      playersCount: players.length,
+      totalRequiredScores: totalRequiredScores,
+      enteredScores: enteredScores,
+      missingScores: missingScores,
+      pendingScoreCount: state.pendingScoreKeys.size,
+      standings: safeStandings,
+      leaders: leaders
+    };
+  }
+
+  function applyRoundCompletionVisualState(completion) {
+    if (!dom.scoreView) return;
+    dom.scoreView.classList.toggle("round-complete", Boolean(completion && completion.isComplete));
+    dom.scoreView.setAttribute("data-round-state", completion && completion.isComplete ? "complete" : "active");
+    const scoreSection = dom.scoreScrollContainer && dom.scoreScrollContainer.closest("section");
+    if (scoreSection) scoreSection.classList.toggle("round-locked-visual", Boolean(completion && completion.isComplete));
+  }
+
+  function ensureShareReadyNoteNode() {
+    const existing = document.getElementById("share-ready-note");
+    if (existing) return existing;
+    const shareWrap = dom.shareLink && dom.shareLink.closest(".share-wrap");
+    if (!shareWrap) return null;
+    const note = document.createElement("p");
+    note.id = "share-ready-note";
+    note.className = "share-ready-note";
+    shareWrap.appendChild(note);
+    return note;
+  }
+
+  function renderShareReadyState(completion) {
+    const note = ensureShareReadyNoteNode();
+    if (!note) return;
+    if (completion && completion.isComplete) {
+      note.classList.add("complete");
+      note.textContent = "Round complete. Final results are ready to share.";
+      return;
+    }
+    note.classList.remove("complete");
+    note.textContent = "Round in progress. Shared scores update live for everyone.";
+  }
+
+  function ensureLeaderboardStateBadge() {
+    const section = dom.leaderboardBody && dom.leaderboardBody.closest("section");
+    if (!section) return null;
+    const heading = section.querySelector("h3");
+    if (!heading) return null;
+    let badge = heading.querySelector(".leaderboard-state-badge");
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "leaderboard-state-badge";
+      heading.appendChild(badge);
+    }
+    return badge;
+  }
+
+  function renderLeaderboardStateBadge(completion) {
+    const badge = ensureLeaderboardStateBadge();
+    if (!badge) return;
+    badge.classList.toggle("complete", Boolean(completion && completion.isComplete));
+    badge.textContent = completion && completion.isComplete ? "Final" : "Live";
+  }
+
+  function ensureRoundSummaryPanel() {
+    const section = dom.leaderboardBody && dom.leaderboardBody.closest("section");
+    if (!section) return null;
+    let panel = section.querySelector("#round-summary-panel");
+    if (!panel) {
+      panel = document.createElement("div");
+      panel.id = "round-summary-panel";
+      panel.className = "round-summary-panel pending";
+      const leaderboardScroll = section.querySelector(".leaderboard-scroll");
+      if (leaderboardScroll) section.insertBefore(panel, leaderboardScroll);
+      else section.appendChild(panel);
+    }
+    return panel;
+  }
+
+  function renderRoundSummaryPanel(completion) {
+    const panel = ensureRoundSummaryPanel();
+    if (!panel || !completion) return;
+    if (!completion.isComplete) {
+      panel.classList.remove("complete");
+      panel.classList.add("pending");
+      panel.innerHTML = `
+        <div class="round-summary-head">
+          <p class="round-summary-kicker">Round Status</p>
+          <p class="round-summary-title">Round in progress</p>
+          <p class="round-summary-meta">${completion.enteredScores}/${completion.totalRequiredScores} scores entered</p>
+        </div>
+      `;
+      return;
+    }
+    const leaders = completion.leaders || [];
+    const tie = leaders.length > 1;
+    const winnerLabel = tie ? "Winners (Tie)" : "Winner";
+    const winnerNames = leaders.map((row) => escapeHtml(row.name)).join(", ");
+    const standingsMarkup = completion.standings.map((row) => {
+      const isWinner = leaders.some((leader) => String(leader.id) === String(row.id));
+      return `
+        <li class="round-summary-row ${isWinner ? "winner" : ""}">
+          <span class="round-summary-rank">${escapeHtml(row.rank)}</span>
+          <span class="round-summary-name">${escapeHtml(row.name)}</span>
+          <span class="round-summary-total">${display(row.total)} <span class="round-summary-total-label">strokes</span></span>
+          <span class="leader-relative">${formatRelativeToPar(row.relative)}</span>
+        </li>
+      `;
+    }).join("");
+    panel.classList.remove("pending");
+    panel.classList.add("complete");
+    panel.innerHTML = `
+      <div class="round-summary-head">
+        <p class="round-summary-kicker">Round Complete</p>
+        <p class="round-summary-title">Final Leaderboard</p>
+        <p class="round-summary-meta">${completion.playersCount} players • ${completion.holes} holes completed</p>
+      </div>
+      <div class="round-summary-winner">
+        <span class="round-summary-winner-label">${winnerLabel}</span>
+        <span class="round-summary-winner-name">${winnerNames}</span>
+      </div>
+      <ul class="round-summary-standings">${standingsMarkup}</ul>
+    `;
+  }
+
+  function renderRoundCompletionExperience() {
+    const standings = buildStandings();
+    const next = buildRoundCompletionState(standings);
+    if (next.isComplete) {
+      if (state.roundCompletionCandidateAt == null) state.roundCompletionCandidateAt = Date.now();
+      if (Date.now() - state.roundCompletionCandidateAt < 260) next.isComplete = false;
+    } else {
+      state.roundCompletionCandidateAt = null;
+    }
+    if (next.isComplete) state.roundCompletionCandidateAt = null;
+    const previous = state.roundCompletion;
+    state.roundCompletion = next;
+    applyRoundCompletionVisualState(next);
+    renderShareReadyState(next);
+    renderLeaderboardStateBadge(next);
+    renderRoundSummaryPanel(next);
+    const transitionedToComplete = previous && !previous.isComplete && next.isComplete;
+    if (transitionedToComplete) {
+      clearTimeout(state.roundCompleteTransitionTimer);
+      dom.scoreView.classList.add("round-complete-enter");
+      state.roundCompleteTransitionTimer = setTimeout(() => {
+        dom.scoreView.classList.remove("round-complete-enter");
+      }, 460);
+    } else if (previous && previous.isComplete && !next.isComplete) {
+      clearTimeout(state.roundCompleteTransitionTimer);
+      dom.scoreView.classList.remove("round-complete-enter");
+    }
+    return next;
+  }
+
+  function renderLeaderboard(standings) {
     const showBack = state.round.holes === 18;
-    const rows = buildStandings();
+    const rows = Array.isArray(standings) ? standings : buildStandings();
     const previousOrder = state.leaderboardOrderById || {};
     const nextOrder = {};
     rows.forEach((r, index) => {
@@ -1921,12 +2122,12 @@ if (!dom.homeView.classList.contains("hidden")) {
     `).join("");
   }
 
-  function renderScoreTable() {
+  function renderScoreTable(standings) {
     renderScoreUxMeta();
     const holes = state.round.holes;
     const showBack = holes === 18;
-    const standings = buildStandings();
-    const leaders = new Set(standings.filter((s) => s.isLeader).map((s) => s.id));
+    const rows = Array.isArray(standings) ? standings : buildStandings();
+    const leaders = new Set(rows.filter((s) => s.isLeader).map((s) => s.id));
 
     let head = '<thead><tr><th class="sticky-player">Player</th>';
     for (let hole = 1; hole <= holes; hole += 1) {
@@ -2112,8 +2313,9 @@ if (!dom.homeView.classList.contains("hidden")) {
     if (nextValue == null) delete state.scoreMap[key];
     else state.scoreMap[key] = nextValue;
     syncPotSettingsLockState();
-    renderLeaderboard();
-    renderScoreTable();
+    const pendingCompletion = renderRoundCompletionExperience();
+    renderLeaderboard(pendingCompletion.standings);
+    renderScoreTable(pendingCompletion.standings);
     syncSelectedHole(hole, { scrollTable: true, scrollTile: true, smooth: false });
     updatePickerBusyState();
 
@@ -2149,8 +2351,9 @@ if (!dom.homeView.classList.contains("hidden")) {
     } finally {
       state.pendingScoreKeys.delete(key);
       syncPotSettingsLockState();
-      renderLeaderboard();
-      renderScoreTable();
+      const settledCompletion = renderRoundCompletionExperience();
+      renderLeaderboard(settledCompletion.standings);
+      renderScoreTable(settledCompletion.standings);
       updatePickerBusyState();
     }
   }
@@ -2269,8 +2472,9 @@ if (!dom.homeView.classList.contains("hidden")) {
     state.scoreMap = nextMap;
     if (changedKey) setRecentScoreFlash(changedKey);
     syncPotSettingsLockState();
-    renderLeaderboard();
-    renderScoreTable();
+    const completion = renderRoundCompletionExperience();
+    renderLeaderboard(completion.standings);
+    renderScoreTable(completion.standings);
   }
 
   function findChangedScoreKey(beforeMap, afterMap) {
@@ -2300,8 +2504,9 @@ if (!dom.homeView.classList.contains("hidden")) {
     renderShotIntelligencePanel();
     renderHoleDetailEditor();
     renderParRow();
-    renderLeaderboard();
-    renderScoreTable();
+    const completion = renderRoundCompletionExperience();
+    renderLeaderboard(completion.standings);
+    renderScoreTable(completion.standings);
   }
 
   async function refreshPlayers() {
@@ -2403,6 +2608,8 @@ if (!dom.homeView.classList.contains("hidden")) {
     state.leaderPulseOn = false;
     state.leaderboardOrderById = {};
     state.leaderboardShiftMap = {};
+    state.roundCompletion = null;
+    state.roundCompletionCandidateAt = null;
     clearTimeout(state.scoreFlashTimer);
     clearTimeout(state.scoreTapTimer);
     clearTimeout(state.activeCellPulseTimer);
@@ -2410,6 +2617,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     clearTimeout(state.holePulseTimer);
     clearTimeout(state.leaderPulseTimer);
     clearTimeout(state.leaderboardShiftTimer);
+    clearTimeout(state.roundCompleteTransitionTimer);
     clearTimeout(state.feedbackTimer);
     clearTimeout(state.feedbackHideTimer);
     clearTimeout(state.pickerCloseTimer);
