@@ -4299,37 +4299,56 @@ if (!dom.homeView.classList.contains("hidden")) {
 
     ctx.font = "600 46px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = accent;
-    ctx.fillText("🏆", size / 2, 402);
+    ctx.fillText("🏆", size / 2, 394);
+
+    ctx.font = "600 24px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.fillStyle = "#AEB8C7";
+    ctx.fillText("Round Winner", size / 2, 432);
 
     ctx.font = "600 42px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = "#D7DFEC";
-    ctx.fillText(fitCanvasText(ctx, data.winnerLabel || "Winner", textMax), size / 2, 456);
+    ctx.fillText(fitCanvasText(ctx, data.winnerLabel || "Winner", textMax), size / 2, 468);
+
+    const winnerSpotlight = ctx.createRadialGradient(size / 2, 544, 24, size / 2, 544, 260);
+    winnerSpotlight.addColorStop(0, accentRgba(0.24));
+    winnerSpotlight.addColorStop(0.65, accentRgba(0.08));
+    winnerSpotlight.addColorStop(1, accentRgba(0));
+    ctx.fillStyle = winnerSpotlight;
+    ctx.fillRect(120, 472, size - 240, 164);
 
     ctx.save();
-    ctx.shadowColor = accentRgba(0.36);
-    ctx.shadowBlur = 22;
-    ctx.font = "800 62px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.shadowColor = accentRgba(0.45);
+    ctx.shadowBlur = 26;
+    ctx.font = "800 66px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = "#FFFFFF";
-    ctx.fillText(fitCanvasText(ctx, data.winnerNamesText || "-", textMax), size / 2, 532);
+    ctx.fillText(fitCanvasText(ctx, data.winnerNamesText || "-", textMax), size / 2, 544);
     ctx.restore();
+
+    const separation = ctx.createLinearGradient(198, 0, size - 198, 0);
+    separation.addColorStop(0, "rgba(255,255,255,0)");
+    separation.addColorStop(0.2, accentRgba(0.15));
+    separation.addColorStop(0.8, accentRgba(0.15));
+    separation.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = separation;
+    ctx.fillRect(198, 618, size - 396, 1.5);
 
     ctx.font = "600 38px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = accent;
-    ctx.fillText("Top 3 Standings", size / 2, 678);
+    ctx.fillText("Top 3 Standings", size / 2, 686);
 
     const standings = Array.isArray(data.standings) ? data.standings.slice(0, 3) : [];
     while (standings.length < 3) standings.push({ place: standings.length + 1, name: "-", score: "-" });
     const rows = standings.map((row) => `${Number(row.place) || 1}. ${row.name || "-"} — ${row.score || "-"}`);
     ctx.font = "700 42px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = accent;
-    ctx.fillText(fitCanvasText(ctx, rows[0], textMax), size / 2, 748);
+    ctx.fillText(fitCanvasText(ctx, rows[0], textMax), size / 2, 756);
     ctx.fillStyle = accentRgba(0.2);
-    ctx.fillRect(186, 772, size - 372, 2);
+    ctx.fillRect(186, 780, size - 372, 2);
     ctx.font = "600 39px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = "#E9EEF8";
-    ctx.fillText(fitCanvasText(ctx, rows[1], textMax), size / 2, 816);
+    ctx.fillText(fitCanvasText(ctx, rows[1], textMax), size / 2, 824);
     ctx.fillStyle = "#DCE3EF";
-    ctx.fillText(fitCanvasText(ctx, rows[2], textMax), size / 2, 884);
+    ctx.fillText(fitCanvasText(ctx, rows[2], textMax), size / 2, 892);
 
     ctx.font = "500 30px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = "rgba(255,255,255,0.12)";
