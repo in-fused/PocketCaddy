@@ -27,7 +27,7 @@
         <section class="home-hero card-sub">
           <p class="home-kicker">PocketCaddy Home</p>
           <h2 class="home-title">Start Your Next Round Fast</h2>
-          <p class="home-tagline">Choose a quick action below, then create, join, resume, or review saved rounds on this device.</p>
+          <p class="home-tagline">Create a round, join from a link, or resume saved progress on this device in seconds.</p>
           <div class="actions home-hero-actions">
             <button id="hub-create-btn" class="btn btn-primary" type="button">Create Round</button>
             <button id="hub-join-btn" class="btn btn-secondary" type="button">Join Round</button>
@@ -36,7 +36,7 @@
 
         <section class="home-quick card-sub">
           <h3>Quick Actions</h3>
-          <p class="muted tiny home-quick-helper">Primary entry points for starting or returning to play.</p>
+          <p class="muted tiny home-quick-helper">Primary entry points for starting or returning to play. Saved progress actions appear here.</p>
           <div class="home-quick-grid">
             <button id="quick-create-btn" class="btn btn-primary" type="button">Start New Round</button>
             <button id="quick-join-btn" class="btn btn-secondary" type="button">Join Existing Round</button>
@@ -100,40 +100,15 @@
           </div>
         </section>
 
-        <section class="home-media card-sub">
-          <h3>Now in Golf</h3>
-          <p class="muted tiny">Quick links to major golf destinations.</p>
-          <div class="home-link-grid">
-            <article class="golf-link-card">
-              <h4>PGA TOUR Schedule</h4>
-              <p>See upcoming PGA TOUR events and dates.</p>
-              <a class="btn btn-secondary link-btn" href="https://www.pgatour.com/schedule" target="_blank" rel="noopener noreferrer">Open</a>
-            </article>
-            <article class="golf-link-card">
-              <h4>LPGA Tournaments</h4>
-              <p>Track the latest LPGA tournament calendar.</p>
-              <a class="btn btn-secondary link-btn" href="https://www.lpga.com/tournaments" target="_blank" rel="noopener noreferrer">Open</a>
-            </article>
-            <article class="golf-link-card">
-              <h4>Masters Official</h4>
-              <p>Official Masters information, updates, and coverage.</p>
-              <a class="btn btn-secondary link-btn" href="https://www.masters.com/index.html" target="_blank" rel="noopener noreferrer">Open</a>
-            </article>
-            <article class="golf-link-card">
-              <h4>Golf Digest News</h4>
-              <p>Latest golf headlines from Golf Digest.</p>
-              <a class="btn btn-secondary link-btn" href="https://www.golfdigest.com/golf-news" target="_blank" rel="noopener noreferrer">Open</a>
-            </article>
+        <section id="round-history-section" class="home-history card-sub">
+          <div class="home-section-head home-history-head">
+            <p class="home-history-kicker">Review Saved Rounds</p>
+            <h2>Round History</h2>
+            <p class="muted tiny">Replay completed rounds and track player progression saved on this device.</p>
           </div>
-        </section>
-
-        <section class="home-featured card-sub">
-          <h3>Featured Golf Links</h3>
-          <div class="home-featured-list">
-            <a class="home-featured-item" href="https://www.pgatour.com/" target="_blank" rel="noopener noreferrer">PGA TOUR Home</a>
-            <a class="home-featured-item" href="https://www.masters.com/en_US/live/index.html" target="_blank" rel="noopener noreferrer">Masters Live / Watch</a>
-            <a class="home-featured-item" href="https://www.golfdigest.com/equipment/hot-list" target="_blank" rel="noopener noreferrer">Golf Digest Hot List</a>
-          </div>
+          <div id="round-history-player-stats" class="round-history-player-stats"></div>
+          <div id="round-history-list" class="round-history-list"></div>
+          <div id="round-history-replay" class="round-history-replay hidden"></div>
         </section>
       </section>
 
