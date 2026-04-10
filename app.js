@@ -4132,55 +4132,130 @@ if (!dom.homeView.classList.contains("hidden")) {
     }, holdMs);
   }
 
-  function ensureHtml2CanvasLoaded() {
-    if (typeof window.html2canvas === "function") {
-      return Promise.resolve(window.html2canvas);
+  function fitCanvasText(ctx, text, maxWidth) {
+    const raw = String(text == null ? "" : text).trim();
+    if (!raw) return "-";
+    if (ctx.measureText(raw).width <= maxWidth) return raw;
+    const ellipsis = "…";
+    let out = raw;
+    while (out.length > 1 && ctx.measureText(out + ellipsis).width > maxWidth) {
+      out = out.slice(0, -1);
     }
-    if (state.shareImageLoaderPromise) return state.shareImageLoaderPromise;
-    state.shareImageLoaderPromise = new Promise((resolve, reject) => {
-      const existing = document.querySelector("script[data-lib='html2canvas']");
-      if (existing) {
-        existing.addEventListener("load", () => {
-          if (typeof window.html2canvas === "function") resolve(window.html2canvas);
-          else reject(new Error("html2canvas failed to initialize."));
-        }, { once: true });
-        existing.addEventListener("error", () => reject(new Error("html2canvas failed to load.")), { once: true });
-        return;
-      }
-      const script = document.createElement("script");
-      script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-      script.async = true;
-      script.dataset.lib = "html2canvas";
-      script.onload = () => {
-        if (typeof window.html2canvas === "function") resolve(window.html2canvas);
-        else reject(new Error("html2canvas failed to initialize."));
-      };
-      script.onerror = () => reject(new Error("html2canvas failed to load."));
-      document.head.appendChild(script);
-    }).catch((err) => {
-      state.shareImageLoaderPromise = null;
-      throw err;
-    });
-    return state.shareImageLoaderPromise;
+    return out.length ? `${out}${ellipsis}` : ellipsis;
   }
 
-  async function generateShareImage() {
-    const shareCard = document.querySelector(".round-share-card");
-    if (!shareCard) throw new Error("Share card not available.");
-    const html2canvas = await ensureHtml2CanvasLoaded();
-    const scale = Math.max(2, Math.min(3, window.devicePixelRatio || 2));
-    const canvas = await html2canvas(shareCard, {
-      useCORS: true,
-      backgroundColor: null,
-      scale: scale,
-      logging: false
-    });
-    return new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (blob) resolve(blob);
-        else reject(new Error("Could not create PNG blob."));
-      }, "image/png");
-    });
+  function buildShareImageData(completion) {
+    const safeCompletion = completion && completion.isComplete ? completion : state.roundCompletion;
+    const winnerNames = Array.isArray(safeCompletion && safeCompletion.winnerNames)
+      ? safeCompletion.winnerNames.filter(Boolean).map((name) => String(name).trim()).filter(Boolean)
+      : [];
+    const hasTie = winnerNames.length > 1 || /tie/i.test(String(safeCompletion && safeCompletion.winnerLabel ? safeCompletion.winnerLabel : ""));
+    const winnerLabel = hasTie ? "Winners (Tie)" : "Winner";
+    const standings = Array.isArray(safeCompletion && safeCompletion.topThree)
+      ? safeCompletion.topThree.slice(0, 3).map((row, idx) => ({
+          place: idx + 1,
+          name: row && row.name ? String(row.name).trim() : "-",
+          score: row && Number.isFinite(Number(row.total)) ? `${Number(row.total)} strokes` : "-"
+        }))
+      : [];
+    while (standings.length < 3) {
+      standings.push({ place: standings.length + 1, name: "-", score: "-" });
+    }
+    return {
+      roundName: state.round && state.round.name ? String(state.round.name).trim() : "Round Results",
+      courseName: state.round && state.round.course ? String(state.round.course).trim() : "-",
+      winnerLabel: winnerLabel,
+      winnerNamesText: joinNamesForShare(winnerNames),
+      standings: standings
+    };
+  }
+
+  function generateShareImage(roundData) {
+    const data = roundData || buildShareImageData(state.roundCompletion);
+    const size = 1080;
+    const scale = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(size * scale);
+    canvas.height = Math.round(size * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas context unavailable.");
+    ctx.scale(scale, scale);
+
+    const bg = ctx.createLinearGradient(0, 0, size, size);
+    bg.addColorStop(0, "#0C1224");
+    bg.addColorStop(0.55, "#101B35");
+    bg.addColorStop(1, "#0A1A2B");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, size, size);
+
+    const glow = ctx.createRadialGradient(size * 0.2, size * 0.15, 50, size * 0.2, size * 0.15, size * 0.9);
+    glow.addColorStop(0, "rgba(120,170,255,0.18)");
+    glow.addColorStop(1, "rgba(120,170,255,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.fillStyle = "rgba(255,255,255,0.06)";
+    ctx.fillRect(66, 66, size - 132, size - 132);
+
+    const textMax = size - 170;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    ctx.font = "700 72px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.fillStyle = "#F8FBFF";
+    ctx.fillText(fitCanvasText(ctx, data.roundName || "Round Results", textMax), size / 2, 170);
+
+    ctx.font = "500 42px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.fillStyle = "#B8C7E8";
+    ctx.fillText(fitCanvasText(ctx, data.courseName || "-", textMax), size / 2, 238);
+
+    ctx.font = "600 46px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.fillStyle = "#DCE8FF";
+    ctx.fillText("🏆", size / 2, 402);
+
+    ctx.font = "600 42px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.fillStyle = "#CFE0FF";
+    ctx.fillText(fitCanvasText(ctx, data.winnerLabel || "Winner", textMax), size / 2, 456);
+
+    ctx.font = "700 58px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillText(fitCanvasText(ctx, data.winnerNamesText || "-", textMax), size / 2, 532);
+
+    ctx.font = "600 38px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.fillStyle = "#D5E3FF";
+    ctx.fillText("Top 3 Standings", size / 2, 678);
+
+    const standings = Array.isArray(data.standings) ? data.standings.slice(0, 3) : [];
+    while (standings.length < 3) standings.push({ place: standings.length + 1, name: "-", score: "-" });
+    const rows = standings.map((row) => `${Number(row.place) || 1}. ${row.name || "-"} — ${row.score || "-"}`);
+    ctx.font = "500 37px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.fillStyle = "#F3F7FF";
+    ctx.fillText(fitCanvasText(ctx, rows[0], textMax), size / 2, 752);
+    ctx.fillText(fitCanvasText(ctx, rows[1], textMax), size / 2, 810);
+    ctx.fillText(fitCanvasText(ctx, rows[2], textMax), size / 2, 868);
+
+    ctx.font = "500 30px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.fillStyle = "#9CB1D8";
+    ctx.fillText("Shared via PocketCaddy", size / 2, 978);
+
+    return canvas.toDataURL("image/png");
+  }
+
+  function dataUrlToBlob(dataUrl) {
+    if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) {
+      throw new Error("Invalid image data URL.");
+    }
+    const parts = dataUrl.split(",");
+    if (parts.length < 2) throw new Error("Malformed image data URL.");
+    const meta = parts[0];
+    const payload = parts.slice(1).join(",");
+    const mimeMatch = meta.match(/^data:([^;]+);base64$/i);
+    const mime = mimeMatch ? mimeMatch[1] : "image/png";
+    const binary = atob(payload);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i += 1) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
   }
 
   function downloadShareImage(blob) {
@@ -4213,7 +4288,9 @@ if (!dom.homeView.classList.contains("hidden")) {
     let shouldDelayButtonReset = false;
     try {
       try {
-        imageBlob = await generateShareImage();
+        const shareImageData = buildShareImageData(state.roundCompletion);
+        const imageDataUrl = generateShareImage(shareImageData);
+        imageBlob = dataUrlToBlob(imageDataUrl);
       } catch (err) {
         imageError = err || new Error("Image generation unavailable.");
       }
