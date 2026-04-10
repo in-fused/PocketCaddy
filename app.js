@@ -7,6 +7,8 @@
   const SESSION_KEY = "pocketcaddy_live_session_v2";
   const IDENTITY_KEY_PREFIX = "pocketcaddy_identity_";
   const WEATHER_FETCH_TIMEOUT_MS = 4500;
+  const INTEL_UNAVAILABLE = "Unavailable";
+  const INTEL_LOADING = "Loading...";
 
   const dom = {
     startChoiceView: document.getElementById("start-choice-view"),
@@ -132,6 +134,7 @@
     selectedCourseMetadata: null,
     courseContextRequestId: 0,
     courseIntelContext: null,
+    courseIntelRoundKey: null,
     coursePreviewRequestId: 0,
     coursePreviewLoadedUrl: null,
     potSettingsLocked: false,
@@ -610,6 +613,7 @@ if (!dom.homeView.classList.contains("hidden")) {
 
   async function loadRound(roundId) {
     stopRealtime();
+    resetIntelligenceState({ invalidateRequests: true, resetSelectedHole: true });
     const [round, players, scores, pars] = await Promise.all([
       window.SupabaseAPI.getRoundById(roundId),
       window.SupabaseAPI.getPlayers(roundId),
@@ -641,6 +645,18 @@ if (!dom.homeView.classList.contains("hidden")) {
     applyStoredIdentityOrPrompt();
     renderRound({ scrollToIdentity: true });
     startRealtime(roundId);
+  }
+
+  function resetIntelligenceState(options) {
+    const opts = options || {};
+    if (opts.invalidateRequests) {
+      state.courseContextRequestId += 1;
+      state.coursePreviewRequestId += 1;
+    }
+    state.courseIntelContext = null;
+    state.courseIntelRoundKey = null;
+    state.coursePreviewLoadedUrl = null;
+    if (opts.resetSelectedHole) state.selectedHole = null;
   }
 
   function buildScoreMap(scoreRows) {
@@ -719,6 +735,30 @@ if (!dom.homeView.classList.contains("hidden")) {
     return { distance: distance, difficulty: difficulty };
   }
 
+  function getSafeSelectedHole() {
+    if (!state.round) return null;
+    return clampHoleSelection(state.selectedHole, state.round.holes);
+  }
+
+  function displayUnavailableOrValue(value, fallbackValue) {
+    const text = String(value == null ? "" : value).trim();
+    if (!text) return fallbackValue || INTEL_UNAVAILABLE;
+    if (text.toLowerCase() === "nan" || text.toLowerCase() === "undefined" || text.toLowerCase() === "null") {
+      return fallbackValue || INTEL_UNAVAILABLE;
+    }
+    return text;
+  }
+
+  function formatHoleDistance(detail) {
+    if (!detail || detail.distance == null || !Number.isFinite(Number(detail.distance))) return INTEL_UNAVAILABLE;
+    return `${Math.round(Number(detail.distance))} yds`;
+  }
+
+  function formatHoleDifficulty(detail) {
+    if (!detail || !isValidDifficulty(detail.difficulty)) return INTEL_UNAVAILABLE;
+    return capitalize(detail.difficulty);
+  }
+
   function renderHoleIntelligenceStrip() {
     if (!state.round || !dom.holeIntelligenceStrip) return;
     const holes = state.round.holes;
@@ -737,10 +777,10 @@ if (!dom.homeView.classList.contains("hidden")) {
           title="Jump to hole ${hole}">
           <div class="hole-intelligence-top">
             <span class="hole-intelligence-hole">H${hole}</span>
-            <span class="hole-intelligence-par">Par ${display(par)}</span>
+            <span class="hole-intelligence-par">${par == null ? "Par Unavailable" : `Par ${par}`}</span>
           </div>
-          <div class="hole-intelligence-distance">${detail.distance == null ? "Distance unavailable" : `${detail.distance} yds`}</div>
-          <div class="hole-intelligence-difficulty ${detail.difficulty || ""}">${detail.difficulty == null ? "Difficulty unavailable" : detail.difficulty}</div>
+          <div class="hole-intelligence-distance">Distance: ${formatHoleDistance(detail)}</div>
+          <div class="hole-intelligence-difficulty ${detail.difficulty || ""}">Difficulty: ${formatHoleDifficulty(detail)}</div>
         </button>
       `;
     }
@@ -800,7 +840,8 @@ if (!dom.homeView.classList.contains("hidden")) {
   }
 
   function parseWindMph(windText) {
-    const source = String(windText || "");
+    const source = displayUnavailableOrValue(windText, INTEL_UNAVAILABLE);
+    if (source === INTEL_UNAVAILABLE) return null;
     const match = source.match(/(\d+(?:\.\d+)?)\s*mph/i);
     if (!match) return null;
     const value = Number(match[1]);
@@ -809,41 +850,53 @@ if (!dom.homeView.classList.contains("hidden")) {
 
   function renderShotIntelligencePanel() {
     if (!state.round || !dom.shotIntelHole || !dom.shotIntelWind || !dom.shotIntelClub || !dom.shotIntelWindNote || !dom.shotIntelTip) return;
-    const selectedHole = clampHoleSelection(state.selectedHole, state.round.holes) || 1;
+    const selectedHole = getSafeSelectedHole();
+    if (!selectedHole) {
+      dom.shotIntelHole.textContent = "Hole: Unavailable";
+      dom.shotIntelWind.textContent = `Wind: ${INTEL_UNAVAILABLE}`;
+      dom.shotIntelClub.textContent = `Estimated Club: ${INTEL_UNAVAILABLE}`;
+      dom.shotIntelWindNote.textContent = `Wind Note: ${INTEL_UNAVAILABLE}`;
+      dom.shotIntelTip.textContent = `Strategy Note: ${INTEL_UNAVAILABLE}`;
+      dom.shotIntelWindNote.classList.remove("wind-adjust");
+      return;
+    }
     const detail = getHoleDetail(selectedHole);
-    const distanceLabel = detail.distance == null ? "Distance unavailable" : `${detail.distance} yds`;
-    const windText = state.courseIntelContext && state.courseIntelContext.windText
-      ? state.courseIntelContext.windText
-      : "Unavailable";
+    const distanceLabel = formatHoleDistance(detail);
+    const windTextRaw = state.courseIntelContext ? state.courseIntelContext.windText : null;
+    const windText = displayUnavailableOrValue(
+      windTextRaw && windTextRaw !== INTEL_LOADING ? windTextRaw : INTEL_UNAVAILABLE,
+      INTEL_UNAVAILABLE
+    );
     const windMph = parseWindMph(windText);
-    const hasDistance = detail.distance != null;
+    const hasDistance = detail.distance != null && Number.isFinite(Number(detail.distance));
     const par = getPar(selectedHole);
     const hasPar = Number.isInteger(par);
-    const hasDifficulty = Boolean(detail.difficulty);
+    const hasDifficulty = isValidDifficulty(detail.difficulty);
     const club = hasDistance ? getSuggestedClub(detail.distance) : "Unavailable";
 
-    let windNote = "Wind Note: Wind unavailable";
+    let windNote = `Wind Note: ${INTEL_UNAVAILABLE}`;
     if (windMph != null) {
       if (windMph < 8) windNote = "Wind Note: Light wind";
       else if (windMph <= 14) windNote = "Wind Note: Wind present. Verify direction before choosing club.";
       else windNote = "Wind Note: Strong wind. Verify direction and consider extra adjustment.";
     }
 
-    let strategyNote = "Strategy Note: Hole detail unavailable";
+    let strategyNote = `Strategy Note: ${INTEL_UNAVAILABLE}`;
+    const difficultyText = hasDifficulty ? capitalize(detail.difficulty) : null;
     if (hasPar && hasDifficulty) {
-      strategyNote = `Strategy Note: ${capitalize(detail.difficulty)} difficulty par ${par}.`;
+      strategyNote = `Strategy Note: ${difficultyText} difficulty, par ${par}.`;
     } else if (hasPar) {
       strategyNote = `Strategy Note: Par ${par}.`;
     } else if (hasDifficulty) {
-      strategyNote = `Strategy Note: ${capitalize(detail.difficulty)} difficulty hole.`;
+      strategyNote = `Strategy Note: ${difficultyText} difficulty hole.`;
     }
 
-    if (strategyNote !== "Strategy Note: Hole detail unavailable" && hasDistance) {
+    if (strategyNote !== `Strategy Note: ${INTEL_UNAVAILABLE}` && hasDistance) {
       if (detail.distance >= 200) strategyNote += " Long approach likely.";
       else if (detail.distance <= 130) strategyNote += " Short approach range.";
     }
 
-    dom.shotIntelHole.textContent = `Hole ${selectedHole} - ${distanceLabel}`;
+    dom.shotIntelHole.textContent = `Hole ${selectedHole} - Distance: ${distanceLabel}`;
     dom.shotIntelWind.textContent = `Wind: ${windText}`;
     dom.shotIntelClub.textContent = `Estimated Club: ${club}`;
     dom.shotIntelWindNote.textContent = windNote;
@@ -1052,52 +1105,84 @@ if (!dom.homeView.classList.contains("hidden")) {
     if (opts.scrollToIdentity) scheduleScrollToIdentityRow(Boolean(opts.forceScroll));
   }
 
+  function getCourseIntelRoundKey(round) {
+    if (!round) return "no-round";
+    const lat = Number(round.course_lat);
+    const lng = Number(round.course_lng);
+    const latText = Number.isFinite(lat) ? lat.toFixed(6) : "na";
+    const lngText = Number.isFinite(lng) ? lng.toFixed(6) : "na";
+    return [
+      String(round.id || ""),
+      displayUnavailableOrValue(round.course, "-"),
+      displayUnavailableOrValue(round.course_location_text, INTEL_UNAVAILABLE),
+      latText,
+      lngText
+    ].join("|");
+  }
+
+  function buildUnavailableCourseContext() {
+    return {
+      name: "-",
+      locationText: INTEL_UNAVAILABLE,
+      coordsText: INTEL_UNAVAILABLE,
+      mappedDetailText: INTEL_UNAVAILABLE,
+      weatherText: INTEL_UNAVAILABLE,
+      windText: INTEL_UNAVAILABLE,
+      previewUrl: null
+    };
+  }
+
+  function sanitizeCourseIntelContext(context) {
+    const raw = context || {};
+    const safe = buildUnavailableCourseContext();
+    safe.name = displayUnavailableOrValue(raw.name, "-");
+    safe.locationText = displayUnavailableOrValue(raw.locationText, INTEL_UNAVAILABLE);
+    safe.coordsText = displayUnavailableOrValue(raw.coordsText, INTEL_UNAVAILABLE);
+    safe.mappedDetailText = displayUnavailableOrValue(raw.mappedDetailText, INTEL_UNAVAILABLE);
+    safe.weatherText = displayUnavailableOrValue(raw.weatherText, INTEL_UNAVAILABLE);
+    safe.windText = displayUnavailableOrValue(raw.windText, INTEL_UNAVAILABLE);
+    safe.previewUrl = isValidPreviewUrl(raw.previewUrl) ? raw.previewUrl : null;
+    return safe;
+  }
+
   async function getCourseContext() {
     if (!state.round) {
-      return {
-        name: "-",
-        locationText: "Location unavailable",
-        coordsText: "Coordinates unavailable",
-        mappedDetailText: "Mapped detail unavailable",
-        weatherText: "Unavailable",
-        windText: "Unavailable",
-        previewUrl: null
-      };
+      return buildUnavailableCourseContext();
     }
     const round = state.round;
-    const name = round.course || "-";
-    const locationText = round.course_location_text || "Location unavailable";
+    const name = displayUnavailableOrValue(round.course, "-");
+    const locationText = displayUnavailableOrValue(round.course_location_text, INTEL_UNAVAILABLE);
     const lat = Number(round.course_lat);
     const lng = Number(round.course_lng);
     const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
-    const coordsText = hasCoords ? `${lat.toFixed(4)}, ${lng.toFixed(4)}` : "Coordinates unavailable";
+    const coordsText = hasCoords ? `${lat.toFixed(4)}, ${lng.toFixed(4)}` : INTEL_UNAVAILABLE;
     const previewUrl = hasCoords ? buildCoursePreviewUrl(lat, lng) : null;
 
     if (!hasCoords) {
-      return {
+      return sanitizeCourseIntelContext({
         name: name,
         locationText: locationText,
         coordsText: coordsText,
-        mappedDetailText: "Mapped detail unavailable",
-        weatherText: "Unavailable",
-        windText: "Unavailable",
+        mappedDetailText: INTEL_UNAVAILABLE,
+        weatherText: INTEL_UNAVAILABLE,
+        windText: INTEL_UNAVAILABLE,
         previewUrl: previewUrl
-      };
+      });
     }
 
     const [weather, enrichment] = await Promise.all([
       fetchCourseWeather(lat, lng),
       fetchCourseEnrichment(lat, lng)
     ]);
-    return {
+    return sanitizeCourseIntelContext({
       name: name,
       locationText: locationText,
       coordsText: coordsText,
       mappedDetailText: summarizeMappedDetail(enrichment),
-      weatherText: weather.temperatureText || "Unavailable",
-      windText: weather.windText || "Unavailable",
+      weatherText: weather.temperatureText || INTEL_UNAVAILABLE,
+      windText: weather.windText || INTEL_UNAVAILABLE,
       previewUrl: previewUrl
-    };
+    });
   }
 
   async function fetchCourseEnrichment(lat, lng) {
@@ -1110,14 +1195,14 @@ if (!dom.homeView.classList.contains("hidden")) {
   }
 
   function summarizeMappedDetail(enrichment) {
-    if (!enrichment || !enrichment.hasMappedDetail) return "Mapped detail unavailable";
+    if (!enrichment || !enrichment.hasMappedDetail) return INTEL_UNAVAILABLE;
     const hasGreens = Number(enrichment.greenCount || 0) > 0;
     const hasHazards = Number(enrichment.bunkerCount || 0) > 0;
     const hasTees = Number(enrichment.teeCount || 0) > 0;
     const hasFairways = Number(enrichment.fairwayCount || 0) > 0;
     if (hasGreens && hasHazards) return "Mapped detail: Greens and hazards available";
     if (hasGreens || hasHazards || hasTees || hasFairways) return "Mapped detail: Limited course mapping";
-    return "Mapped detail unavailable";
+    return INTEL_UNAVAILABLE;
   }
 
   function buildCoursePreviewUrl(lat, lng) {
@@ -1190,8 +1275,8 @@ if (!dom.homeView.classList.contains("hidden")) {
 
   function unavailableWeatherContext() {
     return {
-      temperatureText: "Unavailable",
-      windText: "Unavailable"
+      temperatureText: INTEL_UNAVAILABLE,
+      windText: INTEL_UNAVAILABLE
     };
   }
 
@@ -1242,33 +1327,40 @@ if (!dom.homeView.classList.contains("hidden")) {
 
   function renderCourseIntelligenceCard(context) {
     if (!dom.courseIntelCard) return;
-    state.courseIntelContext = context || null;
+    const safeContext = sanitizeCourseIntelContext(context);
+    state.courseIntelContext = safeContext;
     dom.courseIntelCard.classList.remove("hidden");
-    dom.courseIntelName.textContent = context.name || "-";
-    dom.courseIntelLocation.textContent = context.locationText || "Location unavailable";
-    dom.courseIntelCoords.textContent = context.coordsText || "Coordinates unavailable";
-    if (dom.courseIntelMapped) dom.courseIntelMapped.textContent = context.mappedDetailText || "Mapped detail unavailable";
-    dom.courseIntelWeather.textContent = context.weatherText || "Unavailable";
-    dom.courseIntelWind.textContent = context.windText || "Unavailable";
+    dom.courseIntelName.textContent = safeContext.name;
+    dom.courseIntelLocation.textContent = safeContext.locationText;
+    dom.courseIntelCoords.textContent = safeContext.coordsText;
+    if (dom.courseIntelMapped) dom.courseIntelMapped.textContent = safeContext.mappedDetailText;
+    dom.courseIntelWeather.textContent = safeContext.weatherText;
+    dom.courseIntelWind.textContent = safeContext.windText;
 
-    renderCoursePreviewImage(context.previewUrl);
+    renderCoursePreviewImage(safeContext.previewUrl);
     renderShotIntelligencePanel();
   }
 
   async function renderCourseIntelligence() {
     if (!dom.courseIntelCard) return;
+    const roundKey = getCourseIntelRoundKey(state.round);
+    if (state.courseIntelContext && state.courseIntelRoundKey === roundKey) {
+      renderCourseIntelligenceCard(state.courseIntelContext);
+      return;
+    }
     const hasCoords = state.round && Number.isFinite(Number(state.round.course_lat)) && Number.isFinite(Number(state.round.course_lng));
     const requestId = (state.courseContextRequestId || 0) + 1;
     state.courseContextRequestId = requestId;
+    state.courseIntelRoundKey = roundKey;
     renderCourseIntelligenceCard({
       name: state.round && state.round.course ? state.round.course : "-",
-      locationText: state.round && state.round.course_location_text ? state.round.course_location_text : "Location unavailable",
+      locationText: state.round && state.round.course_location_text ? state.round.course_location_text : INTEL_UNAVAILABLE,
       coordsText: hasCoords
         ? `${Number(state.round.course_lat).toFixed(4)}, ${Number(state.round.course_lng).toFixed(4)}`
-        : "Coordinates unavailable",
-      mappedDetailText: hasCoords ? "Mapped detail unavailable" : "Mapped detail unavailable",
-      weatherText: hasCoords ? "Loading..." : "Unavailable",
-      windText: hasCoords ? "Loading..." : "Unavailable",
+        : INTEL_UNAVAILABLE,
+      mappedDetailText: INTEL_UNAVAILABLE,
+      weatherText: hasCoords ? INTEL_LOADING : INTEL_UNAVAILABLE,
+      windText: hasCoords ? INTEL_LOADING : INTEL_UNAVAILABLE,
       previewUrl: hasCoords
         ? buildCoursePreviewUrl(Number(state.round.course_lat), Number(state.round.course_lng))
         : null
@@ -1890,6 +1982,7 @@ if (!dom.homeView.classList.contains("hidden")) {
 
   async function refreshRound() {
     if (!state.round) return;
+    const previousRound = state.round;
     const latest = await window.SupabaseAPI.getRoundById(state.round.id);
     if (!latest) return;
     state.round = normalizeRoundCourseMetadata({
@@ -1904,6 +1997,9 @@ if (!dom.homeView.classList.contains("hidden")) {
     state.selectedHole = clampHoleSelection(state.selectedHole, state.round.holes);
     if (state.selectedHole == null && state.round.holes >= 1) state.selectedHole = 1;
     state.parMap = buildParMap(Object.keys(state.parMap).map((hole) => ({ hole: Number(hole), par: state.parMap[hole] })), state.round.holes);
+    if (getCourseIntelRoundKey(previousRound) !== getCourseIntelRoundKey(state.round)) {
+      resetIntelligenceState({ invalidateRequests: true });
+    }
     renderRound();
   }
 
@@ -1959,8 +2055,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     state.activeCell = null;
     state.identityName = null;
     state.identityPlayerId = null;
-    state.courseContextRequestId = 0;
-    state.courseIntelContext = null;
+    resetIntelligenceState({ invalidateRequests: true, resetSelectedHole: true });
     state.lastAutoScrollIdentityToken = null;
     state.recentScoreFlashKey = null;
     state.leaderPulseOn = false;
