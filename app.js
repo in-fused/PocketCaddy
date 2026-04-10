@@ -127,6 +127,7 @@
     identityName: null,
     identityPlayerId: null,
     feedbackTimer: null,
+    feedbackHideTimer: null,
     copyBtnTimer: null,
     settingsSaveTimer: null,
     courseSearchTimer: null,
@@ -140,13 +141,25 @@
     potSettingsLocked: false,
     holeDetails: {},
     selectedHole: null,
+    selectedHolePulse: null,
+    holePulseTimer: null,
     lastAutoScrollIdentityToken: null,
     recentScoreFlashKey: null,
     scoreFlashTimer: null,
+    scoreTapKey: null,
+    scoreTapTimer: null,
+    activeCellPulseKey: null,
+    activeCellPulseTimer: null,
+    scoreAutoAdvanceTimer: null,
     pickerStatusTimer: null,
+    pickerCloseTimer: null,
+    pickerOpenRaf: null,
     lastLeaderSignature: null,
     leaderPulseOn: false,
-    leaderPulseTimer: null
+    leaderPulseTimer: null,
+    leaderboardOrderById: {},
+    leaderboardShiftMap: {},
+    leaderboardShiftTimer: null
   };
 
   function init() {
@@ -271,12 +284,21 @@
 
   function showFeedback(message, isError) {
     clearTimeout(state.feedbackTimer);
+    clearTimeout(state.feedbackHideTimer);
     dom.scoreFeedback.textContent = message;
-    dom.scoreFeedback.classList.remove("hidden");
+    dom.scoreFeedback.classList.remove("hidden", "is-exit");
+    dom.scoreFeedback.classList.add("is-showing");
     dom.scoreFeedback.classList.toggle("error", Boolean(isError));
+    requestAnimationFrame(() => {
+      dom.scoreFeedback.classList.add("is-visible");
+    });
     state.feedbackTimer = setTimeout(() => {
-      dom.scoreFeedback.classList.add("hidden");
-      dom.scoreFeedback.classList.remove("error");
+      dom.scoreFeedback.classList.add("is-exit");
+      dom.scoreFeedback.classList.remove("is-visible");
+      state.feedbackHideTimer = setTimeout(() => {
+        dom.scoreFeedback.classList.add("hidden");
+        dom.scoreFeedback.classList.remove("error", "is-showing", "is-exit");
+      }, 220);
     }, 2200);
   }
 
@@ -852,9 +874,10 @@ if (!dom.homeView.classList.contains("hidden")) {
       const par = getPar(hole);
       const detail = getHoleDetail(hole);
       const selected = state.selectedHole === hole;
+      const pulse = state.selectedHolePulse === hole;
       html += `
         <button
-          class="hole-intelligence-tile ${selected ? "active" : ""}"
+          class="hole-intelligence-tile ${selected ? "active" : ""} ${pulse ? "hole-context-pulse" : ""}"
           type="button"
           data-hole="${hole}"
           role="option"
@@ -887,9 +910,21 @@ if (!dom.homeView.classList.contains("hidden")) {
   function syncSelectedHole(hole, options) {
     if (!state.round) return;
     const opts = options || {};
+    const prevHole = state.selectedHole;
     const nextHole = clampHoleSelection(hole, state.round.holes);
     if (!nextHole) return;
     state.selectedHole = nextHole;
+    if (prevHole !== nextHole) {
+      state.selectedHolePulse = nextHole;
+      clearTimeout(state.holePulseTimer);
+      state.holePulseTimer = setTimeout(() => {
+        state.selectedHolePulse = null;
+        if (state.round) {
+          renderHoleIntelligenceStrip();
+          renderScoreTable();
+        }
+      }, 320);
+    }
     renderHoleIntelligenceStrip();
     renderShotIntelligencePanel();
     renderHoleDetailEditor();
@@ -1842,6 +1877,27 @@ if (!dom.homeView.classList.contains("hidden")) {
   function renderLeaderboard() {
     const showBack = state.round.holes === 18;
     const rows = buildStandings();
+    const previousOrder = state.leaderboardOrderById || {};
+    const nextOrder = {};
+    rows.forEach((r, index) => {
+      nextOrder[String(r.id)] = index;
+    });
+    const shiftMap = {};
+    rows.forEach((r, index) => {
+      const prevIndex = previousOrder[String(r.id)];
+      if (Number.isInteger(prevIndex) && prevIndex !== index) {
+        shiftMap[String(r.id)] = prevIndex > index ? "up" : "down";
+      }
+    });
+    clearTimeout(state.leaderboardShiftTimer);
+    state.leaderboardShiftMap = shiftMap;
+    state.leaderboardOrderById = nextOrder;
+    if (Object.keys(shiftMap).length > 0) {
+      state.leaderboardShiftTimer = setTimeout(() => {
+        state.leaderboardShiftMap = {};
+        if (state.round) renderLeaderboard();
+      }, 340);
+    }
     const leaderIds = rows.filter((r) => r.isLeader).map((r) => String(r.id)).sort();
     const signature = leaderIds.join("|");
     if (state.lastLeaderSignature !== null && state.lastLeaderSignature !== signature) {
@@ -1855,7 +1911,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     state.lastLeaderSignature = signature;
 
     dom.leaderboardBody.innerHTML = rows.map((r) => `
-      <tr class="${r.isLeader ? "leader-row" : ""} ${r.isLeader && state.leaderPulseOn ? "leader-pulse" : ""}">
+      <tr class="${r.isLeader ? "leader-row" : ""} ${r.isLeader && state.leaderPulseOn ? "leader-pulse" : ""} ${state.leaderboardShiftMap[String(r.id)] === "up" ? "leader-row-move-up" : ""} ${state.leaderboardShiftMap[String(r.id)] === "down" ? "leader-row-move-down" : ""}">
         <td><strong>${r.rank}</strong></td>
         <td>${escapeHtml(r.name)}</td>
         <td>${display(r.front)}</td>
@@ -1875,7 +1931,8 @@ if (!dom.homeView.classList.contains("hidden")) {
     let head = '<thead><tr><th class="sticky-player">Player</th>';
     for (let hole = 1; hole <= holes; hole += 1) {
       const selectedClass = state.selectedHole === hole ? "score-hole-selected" : "";
-      head += `<th data-hole="${hole}" class="${hole <= 9 ? "front-head" : "back-head"} ${selectedClass}">H${hole}</th>`;
+      const selectedPulseClass = state.selectedHolePulse === hole ? "score-hole-change-pulse" : "";
+      head += `<th data-hole="${hole}" class="${hole <= 9 ? "front-head" : "back-head"} ${selectedClass} ${selectedPulseClass}">H${hole}</th>`;
     }
     head += '<th class="tot-head">Front</th>';
     if (showBack) head += '<th class="tot-head">Back</th>';
@@ -1886,7 +1943,8 @@ if (!dom.homeView.classList.contains("hidden")) {
     body += '<td class="sticky-player"><span class="player-name">Par</span><span class="player-note">By hole</span></td>';
     for (let hole = 1; hole <= holes; hole += 1) {
       const selectedClass = state.selectedHole === hole ? "score-hole-selected" : "";
-      body += `<td class="${hole > 9 ? "back-cell" : ""} ${selectedClass}"><span class="par-chip">${display(getPar(hole))}</span></td>`;
+      const selectedPulseClass = state.selectedHolePulse === hole ? "score-hole-change-pulse" : "";
+      body += `<td class="${hole > 9 ? "back-cell" : ""} ${selectedClass} ${selectedPulseClass}"><span class="par-chip">${display(getPar(hole))}</span></td>`;
     }
     body += '<td class="tot-cell">-</td>';
     if (showBack) body += '<td class="tot-cell">-</td>';
@@ -1914,15 +1972,18 @@ if (!dom.homeView.classList.contains("hidden")) {
         const active = state.activeCell && state.activeCell.playerId === player.id && state.activeCell.hole === hole;
         const saving = state.pendingScoreKeys.has(key);
         const flash = state.recentScoreFlashKey === key;
+        const tapPulse = state.scoreTapKey === key;
+        const activeChange = state.activeCellPulseKey === key;
         const subLabel = val == null ? "" : (term || relative);
         const selectedClass = state.selectedHole === hole ? "score-hole-selected" : "";
+        const selectedPulseClass = state.selectedHolePulse === hole ? "score-hole-change-pulse" : "";
         const title = val == null
           ? `${player.name} hole ${hole}`
           : `${player.name} hole ${hole}: ${text} (${relative})${term ? ` ${term}` : ""}`;
         body += `
-          <td class="${hole > 9 ? "back-cell" : ""} ${selectedClass}">
+          <td class="${hole > 9 ? "back-cell" : ""} ${selectedClass} ${selectedPulseClass}">
             <button
-              class="score-btn ${val == null ? "empty" : ""} ${active ? "active" : ""} ${editableRow ? "" : "readonly"} ${saving ? "saving" : ""} ${termClass} ${flash ? "score-updated-flash" : ""}"
+              class="score-btn ${val == null ? "empty" : ""} ${active ? "active" : ""} ${editableRow ? "" : "readonly"} ${saving ? "saving" : ""} ${termClass} ${flash ? "score-updated-flash" : ""} ${tapPulse ? "score-tap" : ""} ${activeChange ? "score-cell-change" : ""}"
               type="button"
               data-player-id="${player.id}"
               data-hole="${hole}"
@@ -1951,12 +2012,32 @@ if (!dom.homeView.classList.contains("hidden")) {
     const playerId = btn.getAttribute("data-player-id");
     const hole = Number(btn.getAttribute("data-hole"));
     if (!playerId || !Number.isInteger(hole) || hole < 1) return;
+    state.scoreTapKey = scoreKey(playerId, hole);
+    clearTimeout(state.scoreTapTimer);
+    state.scoreTapTimer = setTimeout(() => {
+      state.scoreTapKey = null;
+      if (state.round) renderScoreTable();
+    }, 180);
     syncSelectedHole(hole, { scrollTable: true, scrollTile: true, smooth: true });
     openPicker(playerId, hole);
   }
 
   function openPicker(playerId, hole) {
+    const prevActiveKey = state.activeCell
+      ? scoreKey(state.activeCell.playerId, state.activeCell.hole)
+      : null;
     state.activeCell = { playerId: playerId, hole: hole };
+    const nextActiveKey = scoreKey(playerId, hole);
+    if (prevActiveKey !== nextActiveKey) {
+      state.activeCellPulseKey = nextActiveKey;
+      clearTimeout(state.activeCellPulseTimer);
+      state.activeCellPulseTimer = setTimeout(() => {
+        if (state.activeCellPulseKey === nextActiveKey) {
+          state.activeCellPulseKey = null;
+          if (state.round) renderScoreTable();
+        }
+      }, 260);
+    }
     const player = state.players.find((p) => p.id === playerId);
     const current = getScore(playerId, hole);
     const par = getPar(hole);
@@ -1981,20 +2062,36 @@ if (!dom.homeView.classList.contains("hidden")) {
         btn.setAttribute("aria-pressed", "false");
       }
       btn.addEventListener("click", async () => {
+        btn.classList.add("confirming");
+        setTimeout(() => btn.classList.remove("confirming"), 220);
         await setScore(Number(btn.getAttribute("data-v")), { source: "grid" });
       });
     });
-    dom.picker.classList.remove("hidden");
+    clearTimeout(state.pickerCloseTimer);
+    if (state.pickerOpenRaf != null) cancelAnimationFrame(state.pickerOpenRaf);
+    dom.picker.classList.remove("hidden", "is-closing");
+    state.pickerOpenRaf = requestAnimationFrame(() => {
+      dom.picker.classList.add("is-open");
+      state.pickerOpenRaf = null;
+    });
     updatePickerBusyState();
     renderScoreTable();
   }
 
   function closePicker() {
+    clearTimeout(state.scoreAutoAdvanceTimer);
     state.activeCell = null;
+    state.activeCellPulseKey = null;
     clearPickerStatus();
-    dom.pickerGrid.innerHTML = "";
-    dom.pickerTitle.textContent = "Select score";
-    dom.picker.classList.add("hidden");
+    dom.picker.classList.remove("is-open");
+    dom.picker.classList.add("is-closing");
+    clearTimeout(state.pickerCloseTimer);
+    state.pickerCloseTimer = setTimeout(() => {
+      dom.picker.classList.add("hidden");
+      dom.picker.classList.remove("is-closing");
+      dom.pickerGrid.innerHTML = "";
+      dom.pickerTitle.textContent = "Select score";
+    }, 170);
     if (state.round) renderScoreTable();
   }
 
@@ -2028,11 +2125,16 @@ if (!dom.homeView.classList.contains("hidden")) {
       }
       setRecentScoreFlash(key);
       if (isActiveScoreCell(playerId, hole)) {
-        if (opts.source === "grid" && movePickerToAdjacentHole(playerId, hole, 1)) {
-          setPickerStatus("Saved. Next hole ready.", "success", 950);
-        } else if (opts.source === "grid") {
-          closePicker();
-          showFeedback("Score saved.");
+        if (opts.source === "grid") {
+          clearTimeout(state.scoreAutoAdvanceTimer);
+          state.scoreAutoAdvanceTimer = setTimeout(() => {
+            if (isActiveScoreCell(playerId, hole) && movePickerToAdjacentHole(playerId, hole, 1)) {
+              setPickerStatus("Saved. Next hole ready.", "success", 980);
+            } else {
+              closePicker();
+              showFeedback("Score saved.");
+            }
+          }, 130);
         } else {
           setPickerStatus("Saved.", "success", 900);
         }
@@ -2282,6 +2384,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     state.parMap = {};
     state.holeDetails = {};
     state.selectedHole = null;
+    state.selectedHolePulse = null;
     state.pendingScoreKeys.clear();
     state.pendingParHoles.clear();
     state.pendingHoleDetailHoles.clear();
@@ -2295,9 +2398,22 @@ if (!dom.homeView.classList.contains("hidden")) {
     resetIntelligenceState({ invalidateRequests: true, resetSelectedHole: true });
     state.lastAutoScrollIdentityToken = null;
     state.recentScoreFlashKey = null;
+    state.scoreTapKey = null;
+    state.activeCellPulseKey = null;
     state.leaderPulseOn = false;
+    state.leaderboardOrderById = {};
+    state.leaderboardShiftMap = {};
     clearTimeout(state.scoreFlashTimer);
+    clearTimeout(state.scoreTapTimer);
+    clearTimeout(state.activeCellPulseTimer);
+    clearTimeout(state.scoreAutoAdvanceTimer);
+    clearTimeout(state.holePulseTimer);
     clearTimeout(state.leaderPulseTimer);
+    clearTimeout(state.leaderboardShiftTimer);
+    clearTimeout(state.feedbackTimer);
+    clearTimeout(state.feedbackHideTimer);
+    clearTimeout(state.pickerCloseTimer);
+    if (state.pickerOpenRaf != null) cancelAnimationFrame(state.pickerOpenRaf);
     clearLocalSavedSessionState(previousRoundId);
     clearUrlRoundParam();
     closePicker();
@@ -2350,9 +2466,6 @@ if (!dom.homeView.classList.contains("hidden")) {
     dom.pickerStatus.classList.remove("hidden");
     dom.pickerStatus.textContent = message;
     dom.pickerStatus.dataset.state = mode;
-    if (mode === "error") dom.pickerStatus.style.color = "#7a2020";
-    else if (mode === "success") dom.pickerStatus.style.color = "#23452a";
-    else dom.pickerStatus.style.color = "#31563a";
     if (Number(autoHideMs) > 0) {
       state.pickerStatusTimer = setTimeout(() => {
         clearPickerStatus();
@@ -2366,7 +2479,6 @@ if (!dom.homeView.classList.contains("hidden")) {
     dom.pickerStatus.classList.add("hidden");
     dom.pickerStatus.textContent = "";
     dom.pickerStatus.dataset.state = "";
-    dom.pickerStatus.style.color = "";
   }
 
   function parseMoney(value) {

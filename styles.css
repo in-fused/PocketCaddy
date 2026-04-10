@@ -774,6 +774,11 @@ input:focus, select:focus {
   border-color: var(--focus-strong);
   background: #ecf6ef;
   box-shadow: inset 0 0 0 1px rgba(77, 123, 90, 0.22), inset 0 0 0 2px #d3e5d8;
+  transition: background-color 200ms ease, border-color 200ms ease, transform 140ms ease, opacity 140ms ease;
+}
+
+.hole-intelligence-tile.hole-context-pulse {
+  animation: holeTilePulse 280ms ease;
 }
 
 .shot-intelligence-section h3 {
@@ -958,8 +963,23 @@ input:focus, select:focus {
 }
 .score-hole-selected {
   position: relative;
+  overflow: hidden;
   box-shadow: inset 0 0 0 2px var(--score-selected-line);
   background: var(--score-selected-bg) !important;
+  transition: background-color 220ms ease;
+}
+
+.score-hole-selected::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(95, 152, 111, 0.24);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.score-hole-change-pulse::after {
+  animation: holeContextPulse 320ms ease;
 }
 
 .tot-cell {
@@ -986,7 +1006,8 @@ input:focus, select:focus {
   grid-template-rows: 1fr auto;
   align-items: center;
   justify-items: center;
-  transition: transform 120ms ease, box-shadow 150ms ease, border-color 150ms ease, background 150ms ease;
+  transition: transform 120ms ease, box-shadow 150ms ease, border-color 150ms ease, background 150ms ease, opacity 150ms ease;
+  will-change: transform, opacity;
 }
 
 .score-main {
@@ -1012,7 +1033,15 @@ input:focus, select:focus {
 }
 
 .score-btn:not([disabled]):active {
-  transform: scale(0.97);
+  transform: scale(0.95);
+}
+
+.score-btn.score-tap {
+  animation: scoreTap 170ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.score-btn.score-cell-change {
+  animation: activeCellShift 240ms ease;
 }
 
 .score-btn.empty {
@@ -1072,6 +1101,7 @@ input:focus, select:focus {
   outline: 2px solid rgba(184, 145, 28, 0.4);
   outline-offset: -2px;
   background: linear-gradient(180deg, rgba(255, 247, 215, 0.62) 0%, rgba(255, 242, 204, 0.74) 100%);
+  transition: background-color 220ms ease, opacity 180ms ease;
 }
 
 .score-updated-flash {
@@ -1117,6 +1147,21 @@ input:focus, select:focus {
   box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.14);
   padding: 12px;
   padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  opacity: 0;
+  transform: translateY(14px);
+  pointer-events: none;
+  transition: transform 180ms ease, opacity 180ms ease;
+  will-change: transform, opacity;
+}
+
+.picker.is-open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.picker.is-closing {
+  pointer-events: none;
 }
 
 .picker h4 {
@@ -1132,6 +1177,26 @@ input:focus, select:focus {
   border-radius: 9px;
   border: 1px solid #d5e2d8;
   background: #f4faf6;
+  transition: transform 150ms ease, opacity 150ms ease, background-color 180ms ease, border-color 180ms ease;
+}
+
+.picker-status[data-state="saving"] {
+  color: #31563a;
+  background: #edf7ef;
+  border-color: #c8ddcf;
+  animation: pickerStatusSaving 900ms ease-in-out infinite;
+}
+
+.picker-status[data-state="success"] {
+  color: #23452a;
+  background: #edf8f0;
+  border-color: #bfd8c7;
+}
+
+.picker-status[data-state="error"] {
+  color: #7a2020;
+  background: #fff2f2;
+  border-color: #e7bcbc;
 }
 
 .picker-grid {
@@ -1150,6 +1215,7 @@ input:focus, select:focus {
   font-weight: 800;
   cursor: pointer;
   transition: border-color 140ms ease, transform 120ms ease, box-shadow 140ms ease;
+  will-change: transform, opacity;
 }
 
 .pick-btn:hover:not(:disabled) {
@@ -1163,10 +1229,18 @@ input:focus, select:focus {
   cursor: progress;
 }
 
+.pick-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.pick-btn.confirming:not(:disabled) {
+  animation: pickerConfirm 210ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
 .feedback {
   position: fixed;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, 10px);
   bottom: 18px;
   z-index: 70;
   max-width: min(92vw, 600px);
@@ -1177,6 +1251,20 @@ input:focus, select:focus {
   background: #f3f8f4;
   color: #23452a;
   box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease, background-color 180ms ease, border-color 180ms ease;
+  will-change: transform, opacity;
+}
+
+.feedback.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.feedback.is-exit {
+  opacity: 0;
+  transform: translate(-50%, 8px);
 }
 
 .feedback.error {
@@ -1226,19 +1314,81 @@ input:focus, select:focus {
 }
 
 .leader-pulse {
-  animation: leaderPulse 900ms ease;
+  position: relative;
+}
+
+.leader-pulse td {
+  animation: leaderCellPulse 320ms ease;
+}
+
+#leaderboard-body tr {
+  transition: transform 220ms ease, opacity 220ms ease, background-color 220ms ease;
+}
+
+.leader-row-move-up {
+  animation: leaderMoveUp 300ms ease;
+}
+
+.leader-row-move-down {
+  animation: leaderMoveDown 300ms ease;
+}
+
+@keyframes holeContextPulse {
+  0% { opacity: 0; }
+  35% { opacity: 0.95; }
+  100% { opacity: 0; }
+}
+
+@keyframes scoreTap {
+  0% { transform: scale(1); }
+  45% { transform: scale(0.94); }
+  100% { transform: scale(1); }
+}
+
+@keyframes activeCellShift {
+  0% { transform: scale(1); opacity: 0.88; }
+  60% { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 @keyframes scoreFlash {
-  0% { box-shadow: 0 0 0 rgba(68, 148, 95, 0); }
-  35% { box-shadow: 0 0 0 3px rgba(68, 148, 95, 0.35); }
-  100% { box-shadow: 0 0 0 rgba(68, 148, 95, 0); }
+  0% { transform: scale(1); opacity: 0.92; }
+  38% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
-@keyframes leaderPulse {
-  0% { background-color: #fff6dc; }
-  50% { background-color: #ffeab4; }
-  100% { background-color: #fff2cc; }
+@keyframes holeTilePulse {
+  0% { transform: scale(1); opacity: 0.92; }
+  55% { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pickerConfirm {
+  0% { transform: scale(1); opacity: 1; }
+  45% { transform: scale(1.07); opacity: 0.96; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pickerStatusSaving {
+  0% { opacity: 0.88; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-1px); }
+  100% { opacity: 0.88; transform: translateY(0); }
+}
+
+@keyframes leaderMoveUp {
+  0% { transform: translateY(10px); opacity: 0.82; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes leaderMoveDown {
+  0% { transform: translateY(-10px); opacity: 0.82; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes leaderCellPulse {
+  0% { transform: translateY(0); opacity: 1; }
+  35% { transform: translateY(-1px); opacity: 0.88; }
+  100% { transform: translateY(0); opacity: 1; }
 }
 
 .leader-relative {
@@ -1265,6 +1415,30 @@ input:focus, select:focus {
   background: #edf5ef;
   color: #29553a;
   font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .score-btn,
+  .pick-btn,
+  .picker,
+  .feedback,
+  .hole-intelligence-tile,
+  #leaderboard-body tr {
+    transition-duration: 1ms !important;
+  }
+
+  .score-updated-flash,
+  .score-btn.score-tap,
+  .score-btn.score-cell-change,
+  .hole-intelligence-tile.hole-context-pulse,
+  .pick-btn.confirming,
+  .leader-row-move-up,
+  .leader-row-move-down,
+  .leader-pulse td,
+  .score-hole-change-pulse::after,
+  .picker-status[data-state="saving"] {
+    animation: none !important;
+  }
 }
 
 @media (max-width: 560px) {
