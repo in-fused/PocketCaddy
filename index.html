@@ -26,8 +26,8 @@
       <section id="home-view" class="card section hidden">
         <section class="home-hero card-sub">
           <p class="home-kicker">PocketCaddy Home</p>
-          <h2 class="home-title">PocketCaddy</h2>
-          <p class="home-tagline">Live scoring for your golf group, built for quick rounds and clean payouts.</p>
+          <h2 class="home-title">Start Your Next Round Fast</h2>
+          <p class="home-tagline">Choose a quick action below, then create, join, resume, or review saved rounds on this device.</p>
           <div class="actions home-hero-actions">
             <button id="hub-create-btn" class="btn btn-primary" type="button">Create Round</button>
             <button id="hub-join-btn" class="btn btn-secondary" type="button">Join Round</button>
@@ -36,62 +36,69 @@
 
         <section class="home-quick card-sub">
           <h3>Quick Actions</h3>
+          <p class="muted tiny home-quick-helper">Primary entry points for starting or returning to play.</p>
           <div class="home-quick-grid">
-            <button id="quick-create-btn" class="btn btn-primary" type="button">Create Round</button>
-            <button id="quick-join-btn" class="btn btn-secondary" type="button">Join Round</button>
+            <button id="quick-create-btn" class="btn btn-primary" type="button">Start New Round</button>
+            <button id="quick-join-btn" class="btn btn-secondary" type="button">Join Existing Round</button>
             <button id="quick-resume-btn" class="btn btn-secondary hidden" type="button">Resume Saved Round</button>
-            <button id="quick-cancel-saved-btn" class="btn btn-danger hidden" type="button">Cancel Saved Round</button>
+            <button id="quick-cancel-saved-btn" class="btn btn-danger hidden" type="button">Remove Saved Session</button>
           </div>
+          <p class="muted tiny">Resume and remove options appear when a saved session exists on this device.</p>
           <p class="muted tiny home-quick-note">Cancel Saved Round removes only this device's saved session. It does not delete the shared round.</p>
         </section>
 
-        <div id="create-round-section"></div>
-        <h2>Create Round</h2>
-
-        <div class="form-grid">
-          <label><span>Round Name</span><input id="round-name" type="text" placeholder="Saturday Match"></label>
-          <label class="course-search-field">
-            <span>Course Search (optional)</span>
-            <input id="course-search" type="text" placeholder="Search golf courses">
-            <div id="course-search-list" class="course-search-list hidden" role="listbox" aria-label="Course suggestions"></div>
-            <p id="course-search-status" class="course-search-status hidden"></p>
-            <div id="selected-course-card" class="selected-course-card hidden"></div>
-          </label>
-          <label><span>Course Name</span><input id="course-name" type="text" placeholder="Eagle Creek"></label>
-          <label><span>Tee / Color</span><input id="tee" type="text" placeholder="Blue (optional)"></label>
-          <label>
-            <span>Holes</span>
-            <select id="holes">
-              <option value="9">9</option>
-              <option value="18" selected>18</option>
-            </select>
-          </label>
-        </div>
-
-        <section class="card-sub">
-          <h3>Players <small id="player-count">(0 / 30)</small></h3>
-          <div class="player-add-row">
-            <input id="new-player" type="text" placeholder="Add player name">
-            <button id="add-player-btn" class="btn btn-primary" type="button">Add</button>
+        <section id="create-round-section" class="home-flow-section card-sub">
+          <div class="home-section-head">
+            <h2>Create Round</h2>
+            <p class="muted tiny">Set up your round, add players, and launch scoring.</p>
           </div>
-          <p class="muted tiny">Edit/remove players before creating the round.</p>
-          <div id="setup-player-list" class="setup-player-list"></div>
+          <div class="form-grid">
+            <label><span>Round Name</span><input id="round-name" type="text" placeholder="Saturday Match"></label>
+            <label class="course-search-field">
+              <span>Course Search (optional)</span>
+              <input id="course-search" type="text" placeholder="Search golf courses">
+              <div id="course-search-list" class="course-search-list hidden" role="listbox" aria-label="Course suggestions"></div>
+              <p id="course-search-status" class="course-search-status hidden"></p>
+              <div id="selected-course-card" class="selected-course-card hidden"></div>
+            </label>
+            <label><span>Course Name</span><input id="course-name" type="text" placeholder="Eagle Creek"></label>
+            <label><span>Tee / Color</span><input id="tee" type="text" placeholder="Blue (optional)"></label>
+            <label>
+              <span>Holes</span>
+              <select id="holes">
+                <option value="9">9</option>
+                <option value="18" selected>18</option>
+              </select>
+            </label>
+          </div>
+
+          <section class="home-players card-sub">
+            <h3>Players <small id="player-count">(0 / 30)</small></h3>
+            <div class="player-add-row">
+              <input id="new-player" type="text" placeholder="Add player name">
+              <button id="add-player-btn" class="btn btn-primary" type="button">Add</button>
+            </div>
+            <p class="muted tiny">Edit or remove players before creating the round.</p>
+            <div id="setup-player-list" class="setup-player-list"></div>
+          </section>
+
+          <div id="home-error" class="error hidden"></div>
+          <div class="actions">
+            <button id="create-round-btn" class="btn btn-primary" type="button">Create Round</button>
+          </div>
         </section>
 
-        <div id="home-error" class="error hidden"></div>
-        <div class="actions">
-          <button id="create-round-btn" class="btn btn-primary" type="button">Create Round</button>
-        </div>
-
-        <hr class="divider">
-
-        <div id="join-round-section"></div>
-        <h2>Join Round</h2>
-        <label><span>Round Link or Full Round ID</span><input id="join-input" type="text" placeholder="Round Link or Full Round ID"></label>
-        <div id="join-error" class="error hidden"></div>
-        <div class="actions">
-          <button id="join-round-btn" class="btn btn-secondary" type="button">Join Round</button>
-        </div>
+        <section id="join-round-section" class="home-flow-section card-sub">
+          <div class="home-section-head">
+            <h2>Join Round</h2>
+            <p class="muted tiny">Paste a round link or full round ID to join instantly.</p>
+          </div>
+          <label><span>Round Link or Full Round ID</span><input id="join-input" type="text" placeholder="Round Link or Full Round ID"></label>
+          <div id="join-error" class="error hidden"></div>
+          <div class="actions">
+            <button id="join-round-btn" class="btn btn-secondary" type="button">Join Round</button>
+          </div>
+        </section>
 
         <section class="home-media card-sub">
           <h3>Now in Golf</h3>
