@@ -179,7 +179,12 @@
     roundHistoryReplayRoundId: null,
     roundHistoryPersistFingerprint: null,
     shareImageLoaderPromise: null,
+    shareImageBlob: null,
+    shareImageBlobKey: null,
+    shareImageCanvas: null,
+    shareImageCanvasKey: null,
     shareInFlight: false,
+    shareSaveInFlight: false,
     shareButtonResetTimer: null,
     eventsWired: false
   };
@@ -2692,6 +2697,7 @@ if (!dom.homeView.classList.contains("hidden")) {
       </div>
       <div class="round-share-actions">
         <button type="button" class="btn btn-secondary round-share-btn" data-action="share-round">Share Results</button>
+        <button type="button" class="btn btn-secondary round-save-image-btn" data-action="save-share-image">Save Image</button>
         <button type="button" class="btn btn-primary round-rematch-btn" data-action="start-rematch">Start Rematch</button>
       </div>
     `;
@@ -2830,6 +2836,13 @@ if (!dom.homeView.classList.contains("hidden")) {
       event.preventDefault();
       if (state.shareInFlight || shareBtn.disabled) return;
       shareRound();
+      return;
+    }
+    const saveImageBtn = event.target.closest("[data-action='save-share-image']");
+    if (saveImageBtn) {
+      event.preventDefault();
+      if (state.shareSaveInFlight || saveImageBtn.disabled) return;
+      saveRoundShareImage();
       return;
     }
     const actionBtn = event.target.closest("[data-action='start-rematch']");
@@ -3871,6 +3884,10 @@ if (!dom.homeView.classList.contains("hidden")) {
     return document.querySelector(".round-share-btn[data-action='share-round']");
   }
 
+  function getRoundSaveImageButton() {
+    return document.querySelector(".round-save-image-btn[data-action='save-share-image']");
+  }
+
   function setRoundShareButtonLabel(label) {
     const button = getRoundShareButton();
     if (!button) return;
@@ -4181,63 +4198,128 @@ if (!dom.homeView.classList.contains("hidden")) {
     if (!ctx) throw new Error("Canvas context unavailable.");
     ctx.scale(scale, scale);
 
-    const bg = ctx.createLinearGradient(0, 0, size, size);
-    bg.addColorStop(0, "#0C1224");
-    bg.addColorStop(0.55, "#101B35");
-    bg.addColorStop(1, "#0A1A2B");
+    const defaultAccent = "#22c55e";
+    const accentCandidate = (
+      data.accentColor ||
+      data.accent ||
+      (state.round && (state.round.accent_color || state.round.theme_accent_color || state.round.brand_accent_color)) ||
+      ""
+    );
+    const accent = (typeof accentCandidate === "string" && accentCandidate.trim() && typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("color", accentCandidate.trim()))
+      ? accentCandidate.trim()
+      : defaultAccent;
+    const accentHexMatch = accent.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    const accentRgb = (() => {
+      if (!accentHexMatch) return { r: 34, g: 197, b: 94 };
+      const raw = accentHexMatch[1];
+      const full = raw.length === 3 ? raw.split("").map((ch) => ch + ch).join("") : raw;
+      return {
+        r: parseInt(full.slice(0, 2), 16),
+        g: parseInt(full.slice(2, 4), 16),
+        b: parseInt(full.slice(4, 6), 16)
+      };
+    })();
+    const accentRgba = (alpha) => `rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},${alpha})`;
+
+    const bg = ctx.createLinearGradient(0, 0, 0, size);
+    bg.addColorStop(0, "#1a1a1a");
+    bg.addColorStop(0.55, "#141414");
+    bg.addColorStop(1, "#0f0f0f");
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, size, size);
 
-    const glow = ctx.createRadialGradient(size * 0.2, size * 0.15, 50, size * 0.2, size * 0.15, size * 0.9);
-    glow.addColorStop(0, "rgba(120,170,255,0.18)");
-    glow.addColorStop(1, "rgba(120,170,255,0)");
-    ctx.fillStyle = glow;
+    const ambient = ctx.createRadialGradient(size * 0.2, size * 0.15, 50, size * 0.2, size * 0.15, size * 0.9);
+    ambient.addColorStop(0, "rgba(255,255,255,0.06)");
+    ambient.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = ambient;
     ctx.fillRect(0, 0, size, size);
 
-    ctx.fillStyle = "rgba(255,255,255,0.06)";
-    ctx.fillRect(66, 66, size - 132, size - 132);
+    const accentGlow = ctx.createRadialGradient(size * 0.82, size * 0.16, 30, size * 0.82, size * 0.16, size * 0.6);
+    accentGlow.addColorStop(0, accentRgba(0.18));
+    accentGlow.addColorStop(1, accentRgba(0));
+    ctx.fillStyle = accentGlow;
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.save();
+    ctx.globalAlpha = 0.06;
+    ctx.strokeStyle = "#FFFFFF";
+    ctx.lineWidth = 1;
+    for (let i = -size; i < size * 2; i += 40) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i - size, size);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.38)";
+    ctx.shadowBlur = 48;
+    ctx.fillStyle = "rgba(255,255,255,0.07)";
+    ctx.beginPath();
+    ctx.roundRect(66, 66, size - 132, size - 132, 26);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.strokeStyle = accentRgba(0.38);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(66, 66, size - 132, size - 132, 26);
+    ctx.stroke();
 
     const textMax = size - 170;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    ctx.font = "700 72px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.font = "800 78px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = "#F8FBFF";
     ctx.fillText(fitCanvasText(ctx, data.roundName || "Round Results", textMax), size / 2, 170);
 
+    ctx.fillStyle = accent;
+    ctx.fillRect(262, 286, size - 524, 6);
+
     ctx.font = "500 42px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-    ctx.fillStyle = "#B8C7E8";
+    ctx.fillStyle = "#C8D1DF";
     ctx.fillText(fitCanvasText(ctx, data.courseName || "-", textMax), size / 2, 238);
 
     ctx.font = "600 46px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-    ctx.fillStyle = "#DCE8FF";
+    ctx.fillStyle = accent;
     ctx.fillText("🏆", size / 2, 402);
 
     ctx.font = "600 42px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-    ctx.fillStyle = "#CFE0FF";
+    ctx.fillStyle = "#D7DFEC";
     ctx.fillText(fitCanvasText(ctx, data.winnerLabel || "Winner", textMax), size / 2, 456);
 
-    ctx.font = "700 58px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.save();
+    ctx.shadowColor = accentRgba(0.36);
+    ctx.shadowBlur = 22;
+    ctx.font = "800 62px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = "#FFFFFF";
     ctx.fillText(fitCanvasText(ctx, data.winnerNamesText || "-", textMax), size / 2, 532);
+    ctx.restore();
 
     ctx.font = "600 38px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-    ctx.fillStyle = "#D5E3FF";
+    ctx.fillStyle = accent;
     ctx.fillText("Top 3 Standings", size / 2, 678);
 
     const standings = Array.isArray(data.standings) ? data.standings.slice(0, 3) : [];
     while (standings.length < 3) standings.push({ place: standings.length + 1, name: "-", score: "-" });
     const rows = standings.map((row) => `${Number(row.place) || 1}. ${row.name || "-"} — ${row.score || "-"}`);
-    ctx.font = "500 37px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.font = "600 40px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     ctx.fillStyle = "#F3F7FF";
     ctx.fillText(fitCanvasText(ctx, rows[0], textMax), size / 2, 752);
+    ctx.fillStyle = accentRgba(0.16);
+    ctx.fillRect(186, 774, size - 372, 2);
+    ctx.fillStyle = "#E9EEF8";
     ctx.fillText(fitCanvasText(ctx, rows[1], textMax), size / 2, 810);
+    ctx.fillStyle = "#DCE3EF";
     ctx.fillText(fitCanvasText(ctx, rows[2], textMax), size / 2, 868);
 
     ctx.font = "500 30px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-    ctx.fillStyle = "#9CB1D8";
+    ctx.fillStyle = "#A5ADBA";
     ctx.fillText("Shared via PocketCaddy", size / 2, 978);
 
+    state.shareImageCanvas = canvas;
     return canvas.toDataURL("image/png");
   }
 
@@ -4256,6 +4338,78 @@ if (!dom.homeView.classList.contains("hidden")) {
     const bytes = new Uint8Array(len);
     for (let i = 0; i < len; i += 1) bytes[i] = binary.charCodeAt(i);
     return new Blob([bytes], { type: mime });
+  }
+
+  function getShareImageCacheKey(completion) {
+    const safeCompletion = completion && completion.isComplete ? completion : state.roundCompletion;
+    const roundId = state.round && state.round.id ? String(state.round.id) : "no-round";
+    const winnerNames = Array.isArray(safeCompletion && safeCompletion.winnerNames)
+      ? safeCompletion.winnerNames.map((name) => String(name || "").trim()).filter(Boolean)
+      : [];
+    const topThree = Array.isArray(safeCompletion && safeCompletion.topThree)
+      ? safeCompletion.topThree.slice(0, 3).map((row) => `${row && row.name ? String(row.name) : "-"}:${row && Number.isFinite(Number(row.total)) ? Number(row.total) : "-"}`)
+      : [];
+    return `${roundId}|${winnerNames.join(",")}|${topThree.join(",")}`;
+  }
+
+  function canvasToPngBlob(canvas) {
+    return new Promise((resolve, reject) => {
+      if (!canvas || typeof canvas.toBlob !== "function") {
+        reject(new Error("Canvas blob export unavailable."));
+        return;
+      }
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Could not create PNG blob."));
+      }, "image/png");
+    });
+  }
+
+  async function getOrCreateShareImageBlob(completion) {
+    const cacheKey = getShareImageCacheKey(completion);
+    if (state.shareImageBlob && state.shareImageBlobKey === cacheKey) {
+      return state.shareImageBlob;
+    }
+    const shareImageData = buildShareImageData(completion);
+    generateShareImage(shareImageData);
+    const canvas = state.shareImageCanvas;
+    const blob = await canvasToPngBlob(canvas);
+    state.shareImageBlob = blob;
+    state.shareImageBlobKey = cacheKey;
+    state.shareImageCanvasKey = cacheKey;
+    return blob;
+  }
+
+  async function saveRoundShareImage() {
+    if (state.shareSaveInFlight) return;
+    if (!state.roundCompletion || !state.roundCompletion.isComplete) {
+      showFeedback("Round incomplete. Finish all holes to save image.", "error");
+      return;
+    }
+    state.shareSaveInFlight = true;
+    const button = getRoundSaveImageButton();
+    const originalText = button ? String(button.textContent || "Save Image") : "Save Image";
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Saving...";
+    }
+    try {
+      const blob = await getOrCreateShareImageBlob(state.roundCompletion);
+      downloadShareImage(blob);
+      showFeedback("Saved!", "success");
+      if (button) button.textContent = "Saved!";
+    } catch (_err) {
+      showFeedback("Save image failed.", "error");
+      if (button) button.textContent = originalText;
+    } finally {
+      setTimeout(() => {
+        if (button) {
+          button.disabled = false;
+          button.textContent = originalText;
+        }
+        state.shareSaveInFlight = false;
+      }, 850);
+    }
   }
 
   function downloadShareImage(blob) {
@@ -4288,9 +4442,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     let shouldDelayButtonReset = false;
     try {
       try {
-        const shareImageData = buildShareImageData(state.roundCompletion);
-        const imageDataUrl = generateShareImage(shareImageData);
-        imageBlob = dataUrlToBlob(imageDataUrl);
+        imageBlob = await getOrCreateShareImageBlob(state.roundCompletion);
       } catch (err) {
         imageError = err || new Error("Image generation unavailable.");
       }
