@@ -339,11 +339,11 @@ if (!dom.homeView.classList.contains("hidden")) {
     if (query.length < 2) {
       state.courseSearchResults = [];
       renderCourseSuggestions([]);
-      setCourseSearchStatus(query.length === 0 ? "" : "Type at least 2 characters");
+      setCourseSearchStatus(query.length === 0 ? "" : "Type at least 2 characters, or enter course name manually.");
       return;
     }
     clearTimeout(state.courseSearchTimer);
-    setCourseSearchStatus("Searching...");
+    setCourseSearchStatus("Searching courses...");
     state.courseSearchTimer = setTimeout(() => {
       searchCourses(query);
     }, 220);
@@ -385,24 +385,93 @@ if (!dom.homeView.classList.contains("hidden")) {
     if (!state.selectedCourseMetadata || !dom.courseName) return;
     const typed = dom.courseName.value.trim().toLowerCase();
     const selectedName = String(state.selectedCourseMetadata.displayName || "").trim().toLowerCase();
-    if (!typed || typed !== selectedName) clearSelectedCourse({ keepCourseName: true });
+    if (!typed || typed !== selectedName) {
+      clearSelectedCourse({
+        keepCourseName: true,
+        statusMessage: "Using manual course name entry.",
+        keepSuggestions: true
+      });
+    }
   }
 
   async function searchCourses(query) {
     try {
       const results = await window.SupabaseAPI.searchCourses(query);
-      state.courseSearchResults = Array.isArray(results) ? results : [];
+      state.courseSearchResults = rankCourseResults(Array.isArray(results) ? results : [], query);
       renderCourseSuggestions(state.courseSearchResults);
       if (state.courseSearchResults.length === 0) {
-        setCourseSearchStatus("No matching courses found");
+        setCourseSearchStatus("No matches found. Enter course name manually to continue.");
       } else {
-        setCourseSearchStatus("");
+        setCourseSearchStatus(`${state.courseSearchResults.length} result${state.courseSearchResults.length === 1 ? "" : "s"} found. Tap to select.`);
       }
     } catch (_err) {
       state.courseSearchResults = [];
       renderCourseSuggestions([]);
-      setCourseSearchStatus("Search unavailable. Enter Course Name manually.");
+      setCourseSearchStatus("Search unavailable. Enter course name manually.");
     }
+  }
+
+  function normalizeSearchText(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function hasCourseCoords(item) {
+    return Number.isFinite(Number(item && item.lat)) && Number.isFinite(Number(item && item.lng));
+  }
+
+  function hasCourseLocation(item) {
+    return String(item && item.locationText ? item.locationText : "").trim().length > 0;
+  }
+
+  function hasCourseSource(item) {
+    return normalizeCourseSource(item ? item.source : null) != null;
+  }
+
+  function getCourseNameRank(name, query) {
+    const n = normalizeSearchText(name);
+    const q = normalizeSearchText(query);
+    if (!n || !q) return 0;
+    if (n === q) return 5;
+    if (n.startsWith(q)) return 4;
+    if (n.includes(q)) return 3;
+    const nTokens = n.split(" ").filter(Boolean);
+    const qTokens = q.split(" ").filter(Boolean);
+    if (qTokens.length && qTokens.every((token) => nTokens.includes(token))) return 2;
+    return 1;
+  }
+
+  function rankCourseResults(results, query) {
+    const rows = Array.isArray(results) ? results : [];
+    return rows
+      .map((item, index) => ({
+        item: item,
+        index: index,
+        nameRank: getCourseNameRank(item && item.displayName, query),
+        hasCoords: hasCourseCoords(item),
+        hasLocation: hasCourseLocation(item),
+        hasSource: hasCourseSource(item)
+      }))
+      .sort((a, b) => {
+        if (b.nameRank !== a.nameRank) return b.nameRank - a.nameRank;
+        if (a.hasCoords !== b.hasCoords) return a.hasCoords ? -1 : 1;
+        if (a.hasLocation !== b.hasLocation) return a.hasLocation ? -1 : 1;
+        if (a.hasSource !== b.hasSource) return a.hasSource ? -1 : 1;
+        return a.index - b.index;
+      })
+      .map((row) => row.item);
+  }
+
+  function getCourseSuggestionHint(item) {
+    const hints = [];
+    if (hasCourseCoords(item)) hints.push("Coordinates available");
+    const source = normalizeCourseSource(item ? item.source : null);
+    if (source) hints.push(`Source: ${source}`);
+    if (hints.length === 0) return "Limited metadata";
+    return hints.join(" • ");
   }
 
   function renderCourseSuggestions(results) {
@@ -417,6 +486,7 @@ if (!dom.homeView.classList.contains("hidden")) {
       <button class="course-suggestion" type="button" data-index="${index}" role="option">
         <div class="course-suggestion-main">${escapeHtml(item.displayName || "")}</div>
         <div class="course-suggestion-sub">${escapeHtml(item.locationText || "Location unavailable")}</div>
+        <div class="course-suggestion-sub muted tiny">${escapeHtml(getCourseSuggestionHint(item))}</div>
       </button>
     `).join("");
     dom.courseSearchList.classList.remove("hidden");
@@ -448,7 +518,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     if (dom.courseSearchInput) dom.courseSearchInput.value = state.selectedCourseMetadata.displayName;
     state.courseSearchResults = [];
     renderCourseSuggestions([]);
-    setCourseSearchStatus("Course selected");
+    setCourseSearchStatus("Course selected. Ready for round setup.");
     renderSelectedCourseCard();
   }
 
@@ -457,9 +527,13 @@ if (!dom.homeView.classList.contains("hidden")) {
     state.selectedCourseMetadata = null;
     if (!opts.keepCourseName && dom.courseName) dom.courseName.value = "";
     if (dom.courseSearchInput) dom.courseSearchInput.value = "";
-    state.courseSearchResults = [];
-    renderCourseSuggestions([]);
-    setCourseSearchStatus("");
+    if (!opts.keepSuggestions) {
+      state.courseSearchResults = [];
+      renderCourseSuggestions([]);
+    } else if (state.courseSearchResults.length > 0) {
+      renderCourseSuggestions(state.courseSearchResults);
+    }
+    setCourseSearchStatus(typeof opts.statusMessage === "string" ? opts.statusMessage : "");
     renderSelectedCourseCard();
   }
 
@@ -474,12 +548,13 @@ if (!dom.homeView.classList.contains("hidden")) {
     const latLng = Number.isFinite(selected.lat) && Number.isFinite(selected.lng)
       ? `${selected.lat.toFixed(4)}, ${selected.lng.toFixed(4)}`
       : "Unavailable";
-    const sourceText = selected.source ? `Search source: ${selected.source}` : "";
+    const source = normalizeCourseSource(selected.source);
     dom.selectedCourseCard.innerHTML = `
-      <h4>Selected: ${escapeHtml(selected.displayName || "-")}</h4>
-      <p>${escapeHtml(selected.locationText || "Location unavailable")}</p>
+      <h4>Selected Course: ${escapeHtml(selected.displayName || "-")}</h4>
+      <p>Location: ${escapeHtml(selected.locationText || "Location unavailable")}</p>
       <p>Coordinates: ${escapeHtml(latLng)}</p>
-      ${sourceText ? `<p>${escapeHtml(sourceText)}</p>` : ""}
+      <p>Source: ${escapeHtml(source || "Unavailable")}</p>
+      <p class="muted tiny">Ready for round setup</p>
       <button class="btn btn-secondary" type="button" data-action="clear">Clear Selection</button>
     `;
     dom.selectedCourseCard.classList.remove("hidden");
@@ -674,6 +749,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     if (!Object.prototype.hasOwnProperty.call(next, "course_location_text")) next.course_location_text = null;
     if (!Object.prototype.hasOwnProperty.call(next, "course_lat")) next.course_lat = null;
     if (!Object.prototype.hasOwnProperty.call(next, "course_lng")) next.course_lng = null;
+    if (!Object.prototype.hasOwnProperty.call(next, "course_source")) next.course_source = null;
     return next;
   }
 
@@ -746,6 +822,14 @@ if (!dom.homeView.classList.contains("hidden")) {
     if (text.toLowerCase() === "nan" || text.toLowerCase() === "undefined" || text.toLowerCase() === "null") {
       return fallbackValue || INTEL_UNAVAILABLE;
     }
+    return text;
+  }
+
+  function normalizeCourseSource(source) {
+    const text = String(source == null ? "" : source).trim();
+    if (!text) return null;
+    const lower = text.toLowerCase();
+    if (lower === "nan" || lower === "undefined" || lower === "null") return null;
     return text;
   }
 
@@ -1198,12 +1282,14 @@ if (!dom.homeView.classList.contains("hidden")) {
     const lng = Number(round.course_lng);
     const latText = Number.isFinite(lat) ? lat.toFixed(6) : "na";
     const lngText = Number.isFinite(lng) ? lng.toFixed(6) : "na";
+    const sourceText = normalizeCourseSource(round.course_source) || "na";
     return [
       String(round.id || ""),
       displayUnavailableOrValue(round.course, "-"),
       displayUnavailableOrValue(round.course_location_text, INTEL_UNAVAILABLE),
       latText,
-      lngText
+      lngText,
+      sourceText
     ].join("|");
   }
 
@@ -1215,8 +1301,17 @@ if (!dom.homeView.classList.contains("hidden")) {
       mappedDetailText: INTEL_UNAVAILABLE,
       weatherText: INTEL_UNAVAILABLE,
       windText: INTEL_UNAVAILABLE,
+      sourceText: null,
       previewUrl: null
     };
+  }
+
+  function formatMappedDetailWithSource(mappedDetailText, sourceText) {
+    const mapped = displayUnavailableOrValue(mappedDetailText, INTEL_UNAVAILABLE);
+    const source = normalizeCourseSource(sourceText);
+    if (!source) return mapped;
+    if (mapped === INTEL_UNAVAILABLE) return `Source: ${source}`;
+    return `Source: ${source} • ${mapped}`;
   }
 
   function sanitizeCourseIntelContext(context) {
@@ -1225,7 +1320,8 @@ if (!dom.homeView.classList.contains("hidden")) {
     safe.name = displayUnavailableOrValue(raw.name, "-");
     safe.locationText = displayUnavailableOrValue(raw.locationText, INTEL_UNAVAILABLE);
     safe.coordsText = displayUnavailableOrValue(raw.coordsText, INTEL_UNAVAILABLE);
-    safe.mappedDetailText = displayUnavailableOrValue(raw.mappedDetailText, INTEL_UNAVAILABLE);
+    safe.sourceText = normalizeCourseSource(raw.sourceText);
+    safe.mappedDetailText = formatMappedDetailWithSource(raw.mappedDetailText, safe.sourceText);
     safe.weatherText = displayUnavailableOrValue(raw.weatherText, INTEL_UNAVAILABLE);
     safe.windText = displayUnavailableOrValue(raw.windText, INTEL_UNAVAILABLE);
     safe.previewUrl = isValidPreviewUrl(raw.previewUrl) ? raw.previewUrl : null;
@@ -1239,6 +1335,7 @@ if (!dom.homeView.classList.contains("hidden")) {
     const round = state.round;
     const name = displayUnavailableOrValue(round.course, "-");
     const locationText = displayUnavailableOrValue(round.course_location_text, INTEL_UNAVAILABLE);
+    const sourceText = normalizeCourseSource(round.course_source);
     const lat = Number(round.course_lat);
     const lng = Number(round.course_lng);
     const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
@@ -1253,6 +1350,7 @@ if (!dom.homeView.classList.contains("hidden")) {
         mappedDetailText: INTEL_UNAVAILABLE,
         weatherText: INTEL_UNAVAILABLE,
         windText: INTEL_UNAVAILABLE,
+        sourceText: sourceText,
         previewUrl: previewUrl
       });
     }
@@ -1268,6 +1366,7 @@ if (!dom.homeView.classList.contains("hidden")) {
       mappedDetailText: summarizeMappedDetail(enrichment),
       weatherText: weather.temperatureText || INTEL_UNAVAILABLE,
       windText: weather.windText || INTEL_UNAVAILABLE,
+      sourceText: sourceText,
       previewUrl: previewUrl
     });
   }
@@ -1448,6 +1547,7 @@ if (!dom.homeView.classList.contains("hidden")) {
       mappedDetailText: INTEL_UNAVAILABLE,
       weatherText: hasCoords ? INTEL_LOADING : INTEL_UNAVAILABLE,
       windText: hasCoords ? INTEL_LOADING : INTEL_UNAVAILABLE,
+      sourceText: state.round ? normalizeCourseSource(state.round.course_source) : null,
       previewUrl: hasCoords
         ? buildCoursePreviewUrl(Number(state.round.course_lat), Number(state.round.course_lng))
         : null
