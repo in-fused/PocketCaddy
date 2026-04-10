@@ -59,6 +59,8 @@
     shareLink: document.getElementById("share-link"),
     qrBox: document.getElementById("qr-box"),
     copyLinkBtn: document.getElementById("copy-link-btn"),
+    copyShareBtn: document.getElementById("copy-share-btn"),
+    nativeShareBtn: document.getElementById("native-share-btn"),
     backHomeBtn: document.getElementById("back-home-btn"),
     newRoundBtn: document.getElementById("new-round-btn"),
     clearRoundBtn: document.getElementById("clear-round-btn"),
@@ -198,6 +200,7 @@
     renderSetupPlayers();
     renderSelectedCourseCard();
     renderCourseSuggestions([]);
+    ensureShareActionButtons();
     renderRoundHistorySection();
 
     const fromUrl = getRoundIdFromUrl();
@@ -703,13 +706,18 @@
     node.textContent = message;
   }
 
-  function showFeedback(message, isError) {
+  function showFeedback(message, type) {
+    const normalizedType = typeof type === "string"
+      ? String(type).trim().toLowerCase()
+      : (type ? "error" : "success");
+    const isError = normalizedType === "error";
     clearTimeout(state.feedbackTimer);
     clearTimeout(state.feedbackHideTimer);
     dom.scoreFeedback.textContent = message;
     dom.scoreFeedback.classList.remove("hidden", "is-exit");
     dom.scoreFeedback.classList.add("is-showing");
     dom.scoreFeedback.classList.toggle("error", Boolean(isError));
+    dom.scoreFeedback.dataset.tone = isError ? "error" : "success";
     requestAnimationFrame(() => {
       dom.scoreFeedback.classList.add("is-visible");
     });
@@ -719,6 +727,7 @@
       state.feedbackHideTimer = setTimeout(() => {
         dom.scoreFeedback.classList.add("hidden");
         dom.scoreFeedback.classList.remove("error", "is-showing", "is-exit");
+        dom.scoreFeedback.dataset.tone = "";
       }, 220);
     }, 2200);
   }
@@ -1738,6 +1747,8 @@ if (!dom.homeView.classList.contains("hidden")) {
     const link = buildShareLink(state.round.id);
     dom.shareLink.value = link;
     renderQr(link);
+    ensureShareActionButtons();
+    updateNativeShareButtonAvailability();
 
     const showBack = state.round.holes === 18;
     dom.leaderboardBackHead.classList.toggle("hidden", !showBack);
@@ -3823,17 +3834,150 @@ if (!dom.homeView.classList.contains("hidden")) {
     return map;
   }
 
-  async function copyShareLink() {
-    const text = dom.shareLink.value;
+  function getCurrentShareUrl() {
+    const currentFieldValue = dom.shareLink && typeof dom.shareLink.value === "string"
+      ? dom.shareLink.value.trim()
+      : "";
+    const fallback = state.round && state.round.id ? buildShareLink(state.round.id) : "";
+    const candidate = currentFieldValue || fallback;
+    if (!candidate) return "";
+    try {
+      return new URL(candidate, window.location.origin).toString();
+    } catch (_err) {
+      return fallback || "";
+    }
+  }
+
+  function lockShareActionButtonBriefly(button, delayMs) {
+    if (!button) return;
+    const holdMs = Math.max(300, Math.min(600, Number(delayMs) || 450));
+    button.disabled = true;
+    if (button._shareCooldownTimer) clearTimeout(button._shareCooldownTimer);
+    button._shareCooldownTimer = setTimeout(() => {
+      button._shareCooldownTimer = null;
+      if (button.id === "native-share-btn" && typeof navigator.share !== "function") {
+        button.disabled = true;
+        button.hidden = true;
+        return;
+      }
+      button.disabled = false;
+    }, holdMs);
+  }
+
+  function updateNativeShareButtonAvailability() {
+    const button = dom.nativeShareBtn || document.getElementById("native-share-btn");
+    if (!button) return;
+    const supported = typeof navigator.share === "function";
+    button.hidden = !supported;
+    button.disabled = !supported;
+    button.setAttribute("aria-hidden", supported ? "false" : "true");
+  }
+
+  function ensureShareActionButtons() {
+    const shareFields = dom.shareLink && dom.shareLink.closest(".share-fields");
+    if (!shareFields) return;
+    let actionsRow = shareFields.querySelector(".actions");
+    if (!actionsRow) {
+      actionsRow = document.createElement("div");
+      actionsRow.className = "actions";
+      shareFields.appendChild(actionsRow);
+    }
+
+    let copyShareBtn = document.getElementById("copy-share-btn");
+    if (!copyShareBtn) {
+      copyShareBtn = document.createElement("button");
+      copyShareBtn.id = "copy-share-btn";
+      copyShareBtn.type = "button";
+      copyShareBtn.className = "btn btn-secondary";
+      copyShareBtn.textContent = "Copy Share URL";
+      actionsRow.appendChild(copyShareBtn);
+    }
+
+    let nativeShareBtn = document.getElementById("native-share-btn");
+    if (!nativeShareBtn) {
+      nativeShareBtn = document.createElement("button");
+      nativeShareBtn.id = "native-share-btn";
+      nativeShareBtn.type = "button";
+      nativeShareBtn.className = "btn btn-secondary";
+      nativeShareBtn.textContent = "Share Link";
+      actionsRow.appendChild(nativeShareBtn);
+    }
+
+    dom.copyShareBtn = copyShareBtn;
+    dom.nativeShareBtn = nativeShareBtn;
+
+    if (!copyShareBtn.dataset.wired) {
+      copyShareBtn.addEventListener("click", () => {
+        copyShareLink(copyShareBtn);
+      });
+      copyShareBtn.dataset.wired = "true";
+    }
+    if (!nativeShareBtn.dataset.wired) {
+      nativeShareBtn.addEventListener("click", nativeShareCurrentRoundLink);
+      nativeShareBtn.dataset.wired = "true";
+    }
+
+    updateNativeShareButtonAvailability();
+  }
+
+  async function copyShareLink(trigger) {
+    const button = trigger && trigger.nodeType === 1
+      ? trigger
+      : (trigger && trigger.currentTarget && trigger.currentTarget.nodeType === 1
+        ? trigger.currentTarget
+        : (dom.copyLinkBtn || dom.copyShareBtn || null));
+    if (button && button.disabled) return;
+    if (button) lockShareActionButtonBriefly(button, 450);
+    const text = getCurrentShareUrl();
+    if (!text) {
+      showFeedback("Copy failed", "error");
+      return;
+    }
     try {
       await navigator.clipboard.writeText(text);
-      const prev = dom.copyLinkBtn.textContent;
-      clearTimeout(state.copyBtnTimer);
-      dom.copyLinkBtn.textContent = "Copied";
-      showFeedback("Share link copied.");
-      state.copyBtnTimer = setTimeout(() => { dom.copyLinkBtn.textContent = prev; }, 1000);
+      showFeedback("Link copied", "success");
+      const flashTargets = [dom.copyLinkBtn, dom.copyShareBtn].filter(Boolean);
+      flashTargets.forEach((btn) => {
+        const prev = btn.textContent;
+        clearTimeout(btn._copyFlashTimer);
+        btn.textContent = "Copied";
+        btn._copyFlashTimer = setTimeout(() => {
+          btn.textContent = prev;
+        }, 1000);
+      });
     } catch (_err) {
-      window.alert(text);
+      showFeedback("Copy failed", "error");
+    }
+  }
+
+  async function nativeShareCurrentRoundLink() {
+    const button = dom.nativeShareBtn || document.getElementById("native-share-btn");
+    if (!button || button.disabled) return;
+    lockShareActionButtonBriefly(button, 500);
+    if (typeof navigator.share !== "function") {
+      updateNativeShareButtonAvailability();
+      showFeedback("Share failed", "error");
+      return;
+    }
+    const shareUrl = getCurrentShareUrl();
+    if (!shareUrl) {
+      showFeedback("Share failed", "error");
+      return;
+    }
+    try {
+      await navigator.share({
+        title: "Golf Round Results",
+        text: "Check out our round results",
+        url: shareUrl
+      });
+      showFeedback("Link shared", "success");
+    } catch (err) {
+      if (err && err.name === "AbortError") {
+        showFeedback("Share canceled", "success");
+        return;
+      }
+      showFeedback("Share failed", "error");
+      console.error(err);
     }
   }
 
