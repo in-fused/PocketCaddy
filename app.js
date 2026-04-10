@@ -175,8 +175,18 @@
     roundHistory: [],
     roundHistoryExpandedRoundId: null,
     roundHistoryReplayRoundId: null,
-    roundHistoryPersistFingerprint: null
+    roundHistoryPersistFingerprint: null,
+    shareImageLoaderPromise: null,
+    eventsWired: false
   };
+
+  function safeClone(obj) {
+    try {
+      return JSON.parse(JSON.stringify(obj));
+    } catch (_err) {
+      return obj == null ? obj : Array.isArray(obj) ? obj.slice() : { ...obj };
+    }
+  }
 
   function init() {
     console.log("PocketCaddy v1 live");
@@ -204,6 +214,8 @@
   }
 
   function wireEvents() {
+    if (state.eventsWired) return;
+    state.eventsWired = true;
     dom.resumeSessionBtn.addEventListener("click", resumeSession);
     dom.startFreshBtn.addEventListener("click", () => {
       clearLocalSavedSessionState();
@@ -434,8 +446,8 @@
       winnerLabel: String(entry.winnerLabel || "Winner"),
       winnerNames: winnerNames,
       winnerIds: Array.isArray(entry.winnerIds) ? entry.winnerIds.map((id) => String(id)) : [],
-      highlights: entry.highlights && typeof entry.highlights === "object" ? entry.highlights : {},
-      insights: entry.insights && typeof entry.insights === "object" ? entry.insights : {},
+      highlights: entry.highlights && typeof entry.highlights === "object" ? safeClone(entry.highlights) : {},
+      insights: entry.insights && typeof entry.insights === "object" ? safeClone(entry.insights) : {},
       competitiveTags: Array.isArray(entry.competitiveTags)
         ? entry.competitiveTags.map((tag) => ({
             key: String((tag && tag.key) || ""),
@@ -471,7 +483,7 @@
 
   function buildCompletionFromHistoryEntry(entry) {
     if (!entry) return null;
-    const standings = Array.isArray(entry.standings) ? entry.standings : [];
+    const standings = safeClone(Array.isArray(entry.standings) ? entry.standings : []);
     const winners = getWinnerNamesFromHistory(entry);
     const winnerLabel = entry.winnerLabel || (winners.length > 1 ? "Winners (Tie)" : "Winner");
     return {
@@ -493,9 +505,9 @@
         total: row.total,
         relative: row.relative
       })),
-      competitiveTags: Array.isArray(entry.competitiveTags) ? entry.competitiveTags : [],
-      playerInsightsById: entry.insights && typeof entry.insights === "object" ? entry.insights : {},
-      highlights: entry.highlights && typeof entry.highlights === "object" ? entry.highlights : {}
+      competitiveTags: safeClone(Array.isArray(entry.competitiveTags) ? entry.competitiveTags : []),
+      playerInsightsById: entry.insights && typeof entry.insights === "object" ? safeClone(entry.insights) : {},
+      highlights: entry.highlights && typeof entry.highlights === "object" ? safeClone(entry.highlights) : {}
     };
   }
 
@@ -2647,6 +2659,7 @@ if (!dom.homeView.classList.contains("hidden")) {
         <ol class="round-share-standings">${topThreeMarkup || "<li class=\"round-share-standings-row\"><span class=\"round-share-name\">No final standings</span></li>"}</ol>
       </div>
       <div class="round-share-actions">
+        <button type="button" class="btn btn-secondary round-share-btn" data-action="share-round">Share Results</button>
         <button type="button" class="btn btn-primary round-rematch-btn" data-action="start-rematch">Start Rematch</button>
       </div>
     `;
@@ -2780,6 +2793,12 @@ if (!dom.homeView.classList.contains("hidden")) {
   }
 
   function onRoundSummaryPanelClick(event) {
+    const shareBtn = event.target.closest("[data-action='share-round']");
+    if (shareBtn) {
+      event.preventDefault();
+      shareRound();
+      return;
+    }
     const actionBtn = event.target.closest("[data-action='start-rematch']");
     if (actionBtn) {
       event.preventDefault();
@@ -3801,6 +3820,176 @@ if (!dom.homeView.classList.contains("hidden")) {
     }
   }
 
+  function buildRoundShareText(completion) {
+    const safeCompletion = completion && completion.isComplete ? completion : state.roundCompletion;
+    const winnerNames = Array.isArray(safeCompletion && safeCompletion.winnerNames)
+      ? safeCompletion.winnerNames.filter(Boolean).map((name) => String(name).trim()).filter(Boolean)
+      : [];
+    const winner = winnerNames.length ? winnerNames.join(", ") : "-";
+    const topThree = Array.isArray(safeCompletion && safeCompletion.topThree) ? safeCompletion.topThree.slice(0, 3) : [];
+    const first = topThree[0] && topThree[0].name ? String(topThree[0].name) : "-";
+    const second = topThree[1] && topThree[1].name ? String(topThree[1].name) : "-";
+    const third = topThree[2] && topThree[2].name ? String(topThree[2].name) : "-";
+    return `🏆 Winner: ${winner}\n🥇 ${first}\n🥈 ${second}\n🥉 ${third}`;
+  }
+
+  async function copyShareText(precomputedText) {
+    const text = precomputedText || buildRoundShareText(state.roundCompletion);
+    if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") return false;
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_err) {
+      return false;
+    }
+  }
+
+  function setShareButtonLoading(isLoading) {
+    const button = document.querySelector(".round-share-btn[data-action='share-round']");
+    if (!button) return;
+    if (isLoading) {
+      if (!button.dataset.originalText) {
+        button.dataset.originalText = String(button.textContent || "Share Results");
+      }
+      button.disabled = true;
+      button.textContent = "Preparing share...";
+      return;
+    }
+    button.disabled = false;
+    if (button.dataset.originalText) {
+      button.textContent = button.dataset.originalText;
+      delete button.dataset.originalText;
+    }
+  }
+
+  function ensureHtml2CanvasLoaded() {
+    if (typeof window.html2canvas === "function") {
+      return Promise.resolve(window.html2canvas);
+    }
+    if (state.shareImageLoaderPromise) return state.shareImageLoaderPromise;
+    state.shareImageLoaderPromise = new Promise((resolve, reject) => {
+      const existing = document.querySelector("script[data-lib='html2canvas']");
+      if (existing) {
+        existing.addEventListener("load", () => {
+          if (typeof window.html2canvas === "function") resolve(window.html2canvas);
+          else reject(new Error("html2canvas failed to initialize."));
+        }, { once: true });
+        existing.addEventListener("error", () => reject(new Error("html2canvas failed to load.")), { once: true });
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+      script.async = true;
+      script.dataset.lib = "html2canvas";
+      script.onload = () => {
+        if (typeof window.html2canvas === "function") resolve(window.html2canvas);
+        else reject(new Error("html2canvas failed to initialize."));
+      };
+      script.onerror = () => reject(new Error("html2canvas failed to load."));
+      document.head.appendChild(script);
+    }).catch((err) => {
+      state.shareImageLoaderPromise = null;
+      throw err;
+    });
+    return state.shareImageLoaderPromise;
+  }
+
+  async function generateShareImage() {
+    const shareCard = document.querySelector(".round-share-card");
+    if (!shareCard) throw new Error("Share card not available.");
+    const html2canvas = await ensureHtml2CanvasLoaded();
+    const scale = Math.max(2, Math.min(3, window.devicePixelRatio || 2));
+    const canvas = await html2canvas(shareCard, {
+      useCORS: true,
+      backgroundColor: null,
+      scale: scale,
+      logging: false
+    });
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Could not create PNG blob."));
+      }, "image/png");
+    });
+  }
+
+  function downloadShareImage(blob) {
+    if (!blob) return false;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const name = `pocketcaddy-round-${timestamp}.png`;
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = name;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    return true;
+  }
+
+  async function shareRound() {
+    if (!state.roundCompletion || !state.roundCompletion.isComplete) {
+      showFeedback("Round must be complete before sharing.", true);
+      return;
+    }
+    const summaryText = buildRoundShareText(state.roundCompletion);
+    setShareButtonLoading(true);
+    showFeedback("Preparing share...");
+    let imageBlob = null;
+    try {
+      try {
+        imageBlob = await generateShareImage();
+      } catch (err) {
+        console.error(err);
+      }
+      if (typeof navigator.share === "function") {
+        const shareData = {
+          title: "Golf Round Results",
+          text: summaryText
+        };
+        if (imageBlob && typeof window.File === "function") {
+          const shareFile = new File([imageBlob], "golf-round-results.png", { type: "image/png" });
+          const supportsFiles = typeof navigator.canShare !== "function" || navigator.canShare({ files: [shareFile] });
+          if (supportsFiles) {
+            shareData.files = [shareFile];
+          }
+        }
+        await navigator.share(shareData);
+        showFeedback("Round shared.");
+        return;
+      }
+      if (imageBlob) {
+        downloadShareImage(imageBlob);
+      }
+      const copied = await copyShareText(summaryText);
+      if (imageBlob && copied) {
+        showFeedback("Image downloaded and summary copied.");
+        return;
+      }
+      if (imageBlob) {
+        showFeedback("Image downloaded.");
+        return;
+      }
+      if (copied) {
+        showFeedback("Summary copied.");
+        return;
+      }
+      window.alert(summaryText);
+    } catch (err) {
+      if (err && err.name === "AbortError") return;
+      console.error(err);
+      const copied = await copyShareText(summaryText);
+      if (copied) {
+        showFeedback("Image share failed. Summary copied instead.");
+        return;
+      }
+      window.alert(summaryText);
+    } finally {
+      setShareButtonLoading(false);
+    }
+  }
+
   function saveSession(session) {
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   }
@@ -3861,5 +4050,5 @@ if (!dom.homeView.classList.contains("hidden")) {
       .replace(/'/g, "&#039;");
   }
 
-  document.addEventListener("DOMContentLoaded", init);
+  document.addEventListener("DOMContentLoaded", init, { once: true });
 })();
