@@ -103,14 +103,14 @@
     const homeView = document.getElementById("home-view");
     const scoreView = document.getElementById("score-view");
     const fallbackMessage = message || "PocketCaddy could not finish loading. Please refresh and try again.";
-    let homeError = document.getElementById("home-error");
+    let homeError = document.getElementById("app-boot-fallback-error");
 
     if (homeView) homeView.classList.remove("hidden");
     if (scoreView) scoreView.classList.add("hidden");
 
     if (!homeError) {
       homeError = document.createElement("div");
-      homeError.id = "home-error";
+      homeError.id = "app-boot-fallback-error";
       homeError.className = "error";
       if (homeView) {
         homeView.prepend(homeError);
