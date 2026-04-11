@@ -265,15 +265,24 @@
     return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
   }
 
+  function normalizeRoundEntryForExport(roundEntry) {
+    if (!roundEntry || typeof roundEntry !== "object") {
+      throw new Error("Invalid round history entry for export.");
+    }
+    return roundEntry;
+  }
+
   function downloadRoundAsJSON(roundEntry) {
-    const payload = buildRoundExportData(roundEntry);
+    const entry = normalizeRoundEntryForExport(roundEntry);
+    const payload = buildRoundExportData(entry);
     const filename = buildExportFilename("json", payload);
     const content = JSON.stringify(payload, null, 2);
     downloadBlob(filename, content, "application/json;charset=utf-8");
   }
 
   function downloadRoundAsCSV(roundEntry) {
-    const payload = buildRoundExportData(roundEntry);
+    const entry = normalizeRoundEntryForExport(roundEntry);
+    const payload = buildRoundExportData(entry);
     const filename = buildExportFilename("csv", payload);
     const holeCount = payload.perHoleScores.reduce((max, row) => {
       const count = Array.isArray(row && row.holeScores) ? row.holeScores.length : 0;
