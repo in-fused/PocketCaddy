@@ -4,6 +4,7 @@
   --pc-accent-soft: #d9ecdf;
   --pc-brand-surface: #f5faf6;
   --pc-brand-ink: #17231a;
+  --pc-brand-logo-url: none;
   --brand: var(--pc-accent);
   --brand-dark: var(--pc-accent-strong);
   --focus-soft: var(--pc-accent-soft);
@@ -103,10 +104,47 @@
   outline-color: var(--pc-accent-soft);
 }
 
+.btn-secondary {
+  border-color: var(--pc-accent-soft);
+}
+
+#score-view > .top-sticky > .card.section {
+  border-color: var(--pc-accent-soft);
+  background: linear-gradient(180deg, #ffffff 0%, var(--pc-brand-surface) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 10px 20px rgba(17, 44, 29, 0.1);
+}
+
+#meta-round-name {
+  color: var(--pc-brand-ink);
+}
+
+.identity-line {
+  color: var(--pc-brand-ink);
+}
+
+.identity-badge {
+  border-color: var(--pc-accent-soft);
+  background: linear-gradient(180deg, #ffffff 0%, var(--pc-brand-surface) 100%);
+  color: var(--pc-accent-strong);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 6px rgba(15, 42, 28, 0.1);
+}
+
+.share-wrap {
+  border-color: var(--pc-accent-soft);
+  background: linear-gradient(180deg, #fbfefc 0%, var(--pc-brand-surface) 100%);
+}
+
 .share-ready-note {
   color: var(--pc-accent-strong);
   border-color: var(--pc-accent-soft);
   background: linear-gradient(180deg, #f9fcfa 0%, var(--pc-brand-surface) 100%);
+}
+
+.share-ready-note.complete {
+  color: #ffffff;
+  border-color: var(--pc-accent-strong);
+  background: linear-gradient(140deg, var(--pc-accent) 0%, var(--pc-accent-strong) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 4px 12px rgba(13, 45, 28, 0.24);
 }
 
 .leaderboard-state-badge {
@@ -115,9 +153,21 @@
   color: var(--pc-accent-strong);
 }
 
+.leaderboard-state-badge.complete {
+  border-color: var(--pc-accent-strong);
+  background: linear-gradient(140deg, var(--pc-accent) 0%, var(--pc-accent-strong) 100%);
+  color: #ffffff;
+}
+
 .round-summary-panel {
   border-color: var(--pc-accent-soft);
   background: linear-gradient(180deg, #fbfefc 0%, var(--pc-brand-surface) 100%);
+}
+
+.round-summary-panel.complete {
+  border-color: var(--pc-accent-strong);
+  background: linear-gradient(165deg, #ffffff 0%, var(--pc-brand-surface) 48%, var(--pc-accent-soft) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 7px 16px rgba(18, 56, 36, 0.18);
 }
 
 .round-summary-kicker,
@@ -126,9 +176,89 @@
   color: var(--pc-accent-strong);
 }
 
+.round-summary-kicker::before,
+.round-share-kicker::before,
+.share-ready-note::before {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  vertical-align: -1px;
+  border-radius: 999px;
+  border: 1px solid var(--pc-accent-soft);
+  background: linear-gradient(180deg, #ffffff 0%, var(--pc-brand-surface) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.share-ready-note.complete::before {
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.22);
+}
+
+:root.pc-has-logo .round-summary-kicker::before,
+:root.pc-has-logo .round-share-kicker::before,
+:root.pc-has-logo .share-ready-note::before {
+  border-radius: 4px;
+  border-color: var(--pc-accent-soft);
+  background-image: var(--pc-brand-logo-url);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 .round-share-card {
   border-color: var(--pc-accent-soft);
-  background: linear-gradient(160deg, #f8fdf9 0%, var(--pc-brand-surface) 45%, #fef8e6 100%);
+  background: linear-gradient(160deg, #f8fdf9 0%, var(--pc-brand-surface) 52%, var(--pc-accent-soft) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 6px 14px rgba(16, 46, 30, 0.12);
+}
+
+.round-share-winner,
+.round-summary-winner,
+.round-highlights-item,
+.competitive-tag {
+  border-color: var(--pc-accent-soft);
+  background: linear-gradient(180deg, #ffffff 0%, var(--pc-brand-surface) 100%);
+}
+
+.round-share-winner-label,
+.round-summary-winner-label,
+.round-highlights-label,
+.competitive-tag {
+  color: var(--pc-accent-strong);
+}
+
+.round-share-winner-name,
+.round-summary-winner-name,
+.round-highlights-value {
+  color: var(--pc-brand-ink);
+}
+
+.round-summary-row.winner,
+.round-summary-row-wrap.winner .round-summary-detail,
+.round-share-standings-row:first-child {
+  border-color: var(--pc-accent-soft);
+  background: linear-gradient(180deg, #ffffff 0%, var(--pc-brand-surface) 100%);
+}
+
+.round-summary-row.winner {
+  box-shadow: inset 3px 0 0 var(--pc-accent), 0 3px 10px rgba(17, 49, 32, 0.12);
+}
+
+.round-rematch-btn,
+.round-share-actions .btn {
+  border-color: var(--pc-accent-soft);
+}
+
+.round-share-actions .btn-primary,
+.round-rematch-btn.btn-primary {
+  border-color: var(--pc-accent-strong);
+}
+
+.round-locked-visual::before {
+  color: #ffffff;
+  border-color: var(--pc-accent-strong);
+  background: linear-gradient(140deg, var(--pc-accent) 0%, var(--pc-accent-strong) 100%);
 }
 
 .leader-row {
@@ -140,10 +270,50 @@
   background-image: linear-gradient(180deg, rgba(248, 254, 249, 0.88) 0%, rgba(217, 236, 223, 0.36) 100%);
 }
 
+.score-leader-row {
+  outline-color: var(--pc-accent-soft);
+  background: linear-gradient(180deg, #ffffff 0%, var(--pc-accent-soft) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), inset 0 -1px 0 rgba(34, 84, 55, 0.24);
+}
+
+.score-leader-row .sticky-player {
+  background: linear-gradient(180deg, #ffffff 0%, var(--pc-brand-surface) 100%) !important;
+  box-shadow: inset 3px 0 0 var(--pc-accent), 9px 0 14px rgba(20, 57, 37, 0.16);
+}
+
+.score-leader-row .player-name,
+.score-leader-row .player-note {
+  color: var(--pc-accent-strong);
+}
+
+.score-hole-selected {
+  box-shadow: inset 0 0 0 2px var(--pc-accent-strong);
+  background: linear-gradient(180deg, #ffffff 0%, var(--pc-brand-surface) 100%) !important;
+}
+
+.score-hole-selected::after {
+  background: rgba(33, 113, 68, 0.2);
+}
+
+.score-btn.active {
+  border-color: var(--pc-accent-strong);
+  outline-color: var(--pc-accent-soft);
+  background: linear-gradient(180deg, #ffffff 0%, var(--pc-brand-surface) 100%);
+  box-shadow: 0 0 0 1px rgba(24, 82, 49, 0.24), 0 7px 14px rgba(34, 76, 46, 0.2);
+}
+
 @media (max-width: 520px) {
   .app-logo-slot {
     width: 36px;
     height: 36px;
     border-radius: 9px;
+  }
+
+  .round-summary-kicker::before,
+  .round-share-kicker::before,
+  .share-ready-note::before {
+    width: 11px;
+    height: 11px;
+    margin-right: 5px;
   }
 }

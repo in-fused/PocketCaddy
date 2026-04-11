@@ -8,8 +8,8 @@
     accentStrongColor: "#155f30",
     accentSoftColor: "#d9ecdf",
     logoPath: "",
-    surfaceTint: "",
-    inkColor: ""
+    surfaceTint: "#f5faf6",
+    inkColor: "#17231a"
   });
 
   function getBrandingSource() {
@@ -63,6 +63,41 @@
     };
   }
 
+  function parseRgbColor(value) {
+    const text = typeof value === "string" ? value.trim() : "";
+    const match = text.match(/^rgba?\(\s*(\d{1,3})(?:\s*,\s*|\s+)(\d{1,3})(?:\s*,\s*|\s+)(\d{1,3})(?:\s*(?:,|\/)\s*[\d.]+\s*)?\)$/i);
+    if (!match) return null;
+    const r = Number(match[1]);
+    const g = Number(match[2]);
+    const b = Number(match[3]);
+    if (![r, g, b].every((n) => Number.isFinite(n) && n >= 0 && n <= 255)) return null;
+    return { r, g, b };
+  }
+
+  function parseCssColorToRgb(value) {
+    const hex = parseHexColor(value);
+    if (hex) return hex;
+    const rgb = parseRgbColor(value);
+    if (rgb) return rgb;
+    const text = typeof value === "string" ? value.trim() : "";
+    if (!text || typeof document === "undefined" || typeof window === "undefined" || typeof window.getComputedStyle !== "function") {
+      return null;
+    }
+    const probe = document.createElement("span");
+    probe.style.color = "";
+    probe.style.color = text;
+    if (!probe.style.color) return null;
+    probe.style.position = "absolute";
+    probe.style.opacity = "0";
+    probe.style.pointerEvents = "none";
+    const root = document.documentElement || document.body;
+    if (!root || typeof root.appendChild !== "function") return null;
+    root.appendChild(probe);
+    const computed = window.getComputedStyle(probe).color;
+    probe.remove();
+    return parseRgbColor(computed);
+  }
+
   function clampChannel(n) {
     return Math.max(0, Math.min(255, Math.round(n)));
   }
@@ -82,6 +117,63 @@
     };
   }
 
+  function mixColor(base, target, ratio) {
+    if (!base || !target) return null;
+    const safeRatio = Number.isFinite(Number(ratio))
+      ? Math.max(0, Math.min(1, Number(ratio)))
+      : 0;
+    return {
+      r: clampChannel(base.r + (target.r - base.r) * safeRatio),
+      g: clampChannel(base.g + (target.g - base.g) * safeRatio),
+      b: clampChannel(base.b + (target.b - base.b) * safeRatio)
+    };
+  }
+
+  function relativeLuminance(rgb) {
+    if (!rgb) return 0;
+    const channel = (n) => {
+      const v = clampChannel(n) / 255;
+      return v <= 0.03928 ? (v / 12.92) : Math.pow((v + 0.055) / 1.055, 2.4);
+    };
+    const r = channel(rgb.r);
+    const g = channel(rgb.g);
+    const b = channel(rgb.b);
+    return (0.2126 * r) + (0.7152 * g) + (0.0722 * b);
+  }
+
+  function contrastRatio(a, b) {
+    const la = relativeLuminance(a);
+    const lb = relativeLuminance(b);
+    const lighter = Math.max(la, lb);
+    const darker = Math.min(la, lb);
+    return (lighter + 0.05) / (darker + 0.05);
+  }
+
+  function deriveInkColor(accentRgb, surfaceRgb) {
+    const defaultInkRgb = parseCssColorToRgb(DEFAULT_BRANDING.inkColor);
+    if (!accentRgb || !surfaceRgb) return DEFAULT_BRANDING.inkColor;
+    const candidates = [
+      mixColor(accentRgb, { r: 0, g: 0, b: 0 }, 0.82),
+      mixColor(accentRgb, { r: 0, g: 0, b: 0 }, 0.72),
+      adjustColor(accentRgb, -160),
+      defaultInkRgb
+    ].filter(Boolean);
+    let best = candidates[0];
+    let bestRatio = contrastRatio(candidates[0], surfaceRgb);
+    for (let i = 1; i < candidates.length; i += 1) {
+      const ratio = contrastRatio(candidates[i], surfaceRgb);
+      if (ratio > bestRatio) {
+        best = candidates[i];
+        bestRatio = ratio;
+      }
+    }
+    return rgbToHex(best) || DEFAULT_BRANDING.inkColor;
+  }
+
+  function escapeForCssUrl(value) {
+    return String(value || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  }
+
   function rgbaString(rgb, alpha) {
     if (!rgb) return "";
     const safeAlpha = Number.isFinite(Number(alpha)) ? Math.max(0, Math.min(1, Number(alpha))) : 1;
@@ -96,9 +188,12 @@
       source && (source.accentColor || source.accent || source.brandColor),
       DEFAULT_BRANDING.accentColor
     );
-    const accentRgb = parseHexColor(accentColor);
-    const derivedStrong = accentRgb ? rgbToHex(adjustColor(accentRgb, -26)) : DEFAULT_BRANDING.accentStrongColor;
-    const derivedSoft = accentRgb ? rgbaString(accentRgb, 0.17) : DEFAULT_BRANDING.accentSoftColor;
+    const accentRgb = parseCssColorToRgb(accentColor);
+    const derivedStrongRgb = accentRgb ? mixColor(accentRgb, { r: 0, g: 0, b: 0 }, 0.23) : null;
+    const derivedSoftRgb = accentRgb ? mixColor(accentRgb, { r: 255, g: 255, b: 255 }, 0.8) : null;
+    const derivedSurfaceRgb = accentRgb ? mixColor(accentRgb, { r: 255, g: 255, b: 255 }, 0.9) : null;
+    const derivedStrong = derivedStrongRgb ? rgbToHex(derivedStrongRgb) : DEFAULT_BRANDING.accentStrongColor;
+    const derivedSoft = derivedSoftRgb ? rgbToHex(derivedSoftRgb) : DEFAULT_BRANDING.accentSoftColor;
     const accentStrongColor = normalizeColor(
       source && (source.accentStrongColor || source.brandStrongColor),
       derivedStrong || DEFAULT_BRANDING.accentStrongColor
@@ -107,6 +202,15 @@
       source && (source.accentSoftColor || source.brandSoftColor),
       derivedSoft || DEFAULT_BRANDING.accentSoftColor
     );
+    const surfaceTint = normalizeColor(
+      source && source.surfaceTint,
+      (derivedSurfaceRgb ? rgbToHex(derivedSurfaceRgb) : DEFAULT_BRANDING.surfaceTint) || DEFAULT_BRANDING.surfaceTint
+    );
+    const surfaceRgb = parseCssColorToRgb(surfaceTint) || parseCssColorToRgb(DEFAULT_BRANDING.surfaceTint);
+    const inkColor = normalizeColor(
+      source && source.inkColor,
+      deriveInkColor(accentRgb, surfaceRgb)
+    );
     return {
       displayName: displayName,
       subtitle: subtitle,
@@ -114,8 +218,8 @@
       accentStrongColor: accentStrongColor,
       accentSoftColor: accentSoftColor,
       logoPath: source && typeof source.logoPath === "string" ? source.logoPath.trim() : "",
-      surfaceTint: normalizeColor(source && source.surfaceTint, ""),
-      inkColor: normalizeColor(source && source.inkColor, "")
+      surfaceTint: surfaceTint || DEFAULT_BRANDING.surfaceTint,
+      inkColor: inkColor || DEFAULT_BRANDING.inkColor
     };
   }
 
@@ -128,12 +232,10 @@
       root.style.setProperty("--pc-accent", branding.accentColor || DEFAULT_BRANDING.accentColor);
       root.style.setProperty("--pc-accent-strong", branding.accentStrongColor || DEFAULT_BRANDING.accentStrongColor);
       root.style.setProperty("--pc-accent-soft", branding.accentSoftColor || DEFAULT_BRANDING.accentSoftColor);
-      if (branding.surfaceTint) {
-        root.style.setProperty("--pc-brand-surface", branding.surfaceTint);
-      }
-      if (branding.inkColor) {
-        root.style.setProperty("--pc-brand-ink", branding.inkColor);
-      }
+      root.style.setProperty("--pc-brand-surface", branding.surfaceTint || DEFAULT_BRANDING.surfaceTint);
+      root.style.setProperty("--pc-brand-ink", branding.inkColor || DEFAULT_BRANDING.inkColor);
+      root.style.setProperty("--pc-brand-logo-url", "none");
+      root.classList.toggle("pc-has-logo", Boolean(branding.logoPath));
     }
 
     const displayNameNode = document.getElementById("app-display-name");
@@ -160,6 +262,7 @@
       logoImage.removeAttribute("src");
       logoImage.alt = "";
       logoSlot.classList.add("hidden");
+      if (root && root.classList) root.classList.remove("pc-has-logo");
       return;
     }
 
@@ -168,7 +271,12 @@
       logoImage.removeAttribute("src");
       logoImage.alt = "";
       logoSlot.classList.add("hidden");
+      if (root && root.style) root.style.setProperty("--pc-brand-logo-url", "none");
+      if (root && root.classList) root.classList.remove("pc-has-logo");
     }, { once: true });
+    if (root && root.style) {
+      root.style.setProperty("--pc-brand-logo-url", `url("${escapeForCssUrl(branding.logoPath)}")`);
+    }
     logoImage.src = branding.logoPath;
     logoSlot.classList.remove("hidden");
   }
