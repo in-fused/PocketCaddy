@@ -26,8 +26,9 @@
           </div>
           <p class="home-hero-guidance muted tiny">Use continuity and quick actions below to resume, review history, or jump into a new scorecard.</p>
           <div class="home-hero-path">
-            <a class="home-hero-path-link" href="#home-golf-dashboard">Explore Featured Golf Surface</a>
-            <a class="home-hero-path-link" href="#home-operations-section">Go to Round Operations</a>
+            <button class="home-hero-path-link" type="button" data-home-mode="golf">Explore Golf Dashboard</button>
+            <button class="home-hero-path-link" type="button" data-home-mode="operations" data-focus-target="home-operations-section">Go to Round Operations</button>
+            <button class="home-hero-path-link" type="button" data-home-mode="history" data-focus-target="round-history-section">Open Round History</button>
           </div>
         </section>
 
@@ -46,6 +47,13 @@
           <p class="muted tiny home-saved-session-note">Removing this only clears saved progress on this device. Shared round data stays available.</p>
         </section>
 
+        <nav class="home-hub-nav card-sub" aria-label="Home hub navigation">
+          <button class="home-hub-tab" type="button" data-home-mode="home">Home</button>
+          <button class="home-hub-tab" type="button" data-home-mode="operations" data-focus-target="home-operations-section">Operations</button>
+          <button class="home-hub-tab" type="button" data-home-mode="history" data-focus-target="round-history-section">History</button>
+          <button class="home-hub-tab" type="button" data-home-mode="golf" data-focus-target="home-golf-dashboard">Golf</button>
+        </nav>
+
         <section class="home-continuity card-sub home-hub-panel">
           <div class="home-section-head">
             <h3>Personal Continuity</h3>
@@ -62,7 +70,7 @@
             </article>
           </div>
           <div class="actions home-continuity-actions">
-            <a class="btn btn-secondary" href="#round-history-section">Review History</a>
+            <button id="continuity-history-btn" class="btn btn-secondary" type="button">Review History</button>
           </div>
         </section>
 
@@ -138,7 +146,7 @@
           <div class="home-quick-grid">
             <button id="quick-create-btn" class="btn btn-primary" type="button">Start New Round</button>
             <button id="quick-join-btn" class="btn btn-secondary" type="button">Join Existing Round</button>
-            <a class="btn btn-secondary home-quick-link" href="#round-history-section">Open Round History</a>
+            <button id="quick-history-btn" class="btn btn-secondary home-quick-link" type="button">Open Round History</button>
           </div>
         </section>
 

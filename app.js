@@ -47,10 +47,15 @@
     hubJoinBtn: document.getElementById("hub-join-btn"),
     quickCreateBtn: document.getElementById("quick-create-btn"),
     quickJoinBtn: document.getElementById("quick-join-btn"),
+    quickHistoryBtn: document.getElementById("quick-history-btn"),
+    continuityHistoryBtn: document.getElementById("continuity-history-btn"),
     quickResumeBtn: document.getElementById("quick-resume-btn"),
     quickCancelSavedBtn: document.getElementById("quick-cancel-saved-btn"),
+    homeOperationsSection: document.getElementById("home-operations-section"),
     createRoundSection: document.getElementById("create-round-section"),
     joinRoundSection: document.getElementById("join-round-section"),
+    roundHistorySection: document.getElementById("round-history-section"),
+    homeGolfDashboard: document.getElementById("home-golf-dashboard"),
 
     scoreView: document.getElementById("score-view"),
     metaRoundName: document.getElementById("meta-round-name"),
@@ -191,6 +196,7 @@
     shareInFlight: false,
     shareSaveInFlight: false,
     shareButtonResetTimer: null,
+    homeMode: "home",
     eventsWired: false
   };
 
@@ -254,10 +260,9 @@
 
     dom.createRoundBtn.addEventListener("click", createRound);
     dom.joinRoundBtn.addEventListener("click", joinFromInput);
-    dom.hubCreateBtn.addEventListener("click", () => jumpToHomeSection("create"));
-    dom.hubJoinBtn.addEventListener("click", () => jumpToHomeSection("join"));
-    dom.quickCreateBtn.addEventListener("click", () => jumpToHomeSection("create"));
-    dom.quickJoinBtn.addEventListener("click", () => jumpToHomeSection("join"));
+    if (dom.homeView) {
+      dom.homeView.addEventListener("click", onHomeViewClick);
+    }
     if (dom.quickResumeBtn) {
       dom.quickResumeBtn.addEventListener("click", resumeSession);
     }
@@ -301,6 +306,19 @@
 
     const leaderboardSection = dom.leaderboardBody && dom.leaderboardBody.closest("section");
     if (leaderboardSection) leaderboardSection.addEventListener("click", onRoundSummaryPanelClick);
+
+    window.PocketCaddyHomeHub = {
+      setMode: function (mode, options) {
+        setHomeMode(mode, options);
+      }
+    };
+    window.addEventListener("pocketcaddy:home-mode", (event) => {
+      const detail = event && event.detail && typeof event.detail === "object" ? event.detail : {};
+      setHomeMode(detail.mode, {
+        focusTarget: detail.focusTarget || null,
+        skipFocus: Boolean(detail.skipFocus)
+      });
+    });
   }
 
   function ensureRoundHistorySection() {
@@ -690,6 +708,7 @@
     dom.scoreView.classList.add("hidden");
     if (name === "home") {
       dom.homeView.classList.remove("hidden");
+      setHomeMode("home", { skipFocus: true });
       updateHomeQuickActions();
       renderRoundHistorySection();
     }
@@ -815,16 +834,59 @@ if (!dom.homeView.classList.contains("hidden")) {
 }
   }
 
-  function jumpToHomeSection(section) {
-    if (section === "create") {
-      if (dom.createRoundSection) dom.createRoundSection.scrollIntoView({ behavior: "smooth", block: "start" });
-      setTimeout(() => dom.roundName.focus(), 80);
+  function focusById(id) {
+    const node = document.getElementById(id);
+    if (!node || typeof node.focus !== "function") return;
+    try {
+      node.focus({ preventScroll: true });
+    } catch (_err) {
+      node.focus();
+    }
+  }
+
+  function setHomeMode(mode, options) {
+    if (!dom.homeView) return;
+    const opts = options && typeof options === "object" ? options : {};
+    const safeMode = mode === "operations" || mode === "history" || mode === "golf" ? mode : "home";
+    state.homeMode = safeMode;
+    dom.homeView.classList.remove("home-mode-home", "home-mode-operations", "home-mode-history", "home-mode-golf");
+    dom.homeView.classList.add(`home-mode-${safeMode}`);
+    if (opts.focusTarget && !opts.skipFocus) {
+      focusById(String(opts.focusTarget));
+    }
+  }
+
+  function onHomeViewClick(event) {
+    const trigger = event.target.closest("[data-home-mode], #hub-create-btn, #hub-join-btn, #quick-create-btn, #quick-join-btn, #quick-history-btn, #continuity-history-btn");
+    if (!trigger) return;
+
+    const triggerId = trigger.id || "";
+    if (triggerId === "hub-create-btn" || triggerId === "quick-create-btn") {
+      event.preventDefault();
+      setHomeMode("operations", { focusTarget: "home-operations-section", skipFocus: true });
+      window.setTimeout(() => {
+        focusById("round-name");
+      }, 40);
       return;
     }
-    if (section === "join") {
-      if (dom.joinRoundSection) dom.joinRoundSection.scrollIntoView({ behavior: "smooth", block: "start" });
-      setTimeout(() => dom.joinInput.focus(), 80);
+    if (triggerId === "hub-join-btn" || triggerId === "quick-join-btn") {
+      event.preventDefault();
+      setHomeMode("operations", { focusTarget: "home-operations-section", skipFocus: true });
+      window.setTimeout(() => {
+        focusById("join-input");
+      }, 40);
+      return;
     }
+    if (triggerId === "quick-history-btn" || triggerId === "continuity-history-btn") {
+      event.preventDefault();
+      setHomeMode("history", { focusTarget: "round-history-section" });
+      return;
+    }
+
+    const mode = String(trigger.getAttribute("data-home-mode") || "").trim();
+    if (!mode) return;
+    const focusTarget = String(trigger.getAttribute("data-focus-target") || "").trim();
+    setHomeMode(mode, { focusTarget: focusTarget || null });
   }
 
   function addSetupPlayer() {
