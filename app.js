@@ -502,95 +502,20 @@
     const statsWrap = document.getElementById("round-history-player-stats");
     const replayWrap = document.getElementById("round-history-replay");
     if (!historyList || !statsWrap || !replayWrap) return;
-    const history = capRoundHistory(Array.isArray(state.roundHistory) ? state.roundHistory : []);
-    state.roundHistory = history;
-    if (!history.length) {
-      statsWrap.innerHTML = '<p class="muted tiny round-history-empty-state">No player trends yet. Finish a round to start tracking wins and averages.</p>';
-      historyList.innerHTML = '<p class="muted tiny round-history-empty-state">No saved rounds yet. Create a round above, then complete it to populate history.</p>';
-      replayWrap.classList.add("hidden");
-      replayWrap.innerHTML = "";
-      return;
-    }
-    const stats = computePlayerProgressionStats(history);
-    if (!stats.length) {
-      statsWrap.innerHTML = '<p class="muted tiny round-history-empty-state">No player trends available for these saved rounds yet.</p>';
-    } else {
-      statsWrap.innerHTML = stats.map((item) => {
-      const avgScore = item.scoredRounds > 0 ? (item.scoreSum / item.scoredRounds) : null;
-      return `
-        <div class="progression-chip">
-          <p class="progression-name">${escapeHtml(item.name)}</p>
-          <p class="progression-metric">Rounds ${item.roundsPlayed}</p>
-          <p class="progression-metric">Wins ${item.wins}</p>
-          <p class="progression-metric">Avg ${avgScore == null ? "-" : formatDecimal(avgScore, 1)}</p>
-          <p class="progression-metric">Best ${item.bestRound == null ? "-" : item.bestRound}</p>
-        </div>
-      `;
-      }).join("");
-    }
-    historyList.innerHTML = history.map((entry) => {
-      const roundId = String(entry.roundId);
-      const isExpanded = String(state.roundHistoryExpandedRoundId) === roundId;
-      const isReplay = String(state.roundHistoryReplayRoundId) === roundId;
-      const winnerNames = getWinnerNamesFromHistory(entry);
-      const winnerText = winnerNames.length ? winnerNames.map((name) => escapeHtml(name)).join(", ") : "-";
-      const summaryMeta = [
-        entry.roundName ? escapeHtml(entry.roundName) : null,
-        entry.courseName ? escapeHtml(entry.courseName) : null,
-        entry.tee ? `Tee ${escapeHtml(entry.tee)}` : null,
-        entry.holes ? `${entry.holes} holes` : null
-      ].filter(Boolean).join(" • ");
-      return `
-        <article class="round-history-row ${isExpanded ? "expanded" : ""}">
-          <button
-            type="button"
-            class="round-history-toggle"
-            data-action="toggle-history-row"
-            data-round-id="${escapeHtml(roundId)}"
-            aria-expanded="${isExpanded ? "true" : "false"}">
-            <span class="round-history-date">${escapeHtml(formatHistoryDate(entry.date))}</span>
-            <span class="round-history-winner">${escapeHtml(entry.winnerLabel || "Winner")}: ${winnerText}</span>
-          </button>
-          <div class="round-history-detail ${isExpanded ? "" : "hidden"}">
-            <p class="round-history-meta">${summaryMeta || "Round summary unavailable"}</p>
-            <div class="actions round-history-actions">
-              <button
-                type="button"
-                class="btn btn-secondary"
-                data-action="replay-history-round"
-                data-round-id="${escapeHtml(roundId)}">${isReplay ? "Hide Replay" : "View Replay"}</button>
-            </div>
-          </div>
-        </article>
-      `;
-    }).join("");
-    const replayEntry = history.find((entry) => String(entry.roundId) === String(state.roundHistoryReplayRoundId));
-    if (!replayEntry) {
-      replayWrap.classList.remove("hidden");
-      replayWrap.innerHTML = '<p class="muted tiny round-history-replay-empty">No replay selected. Choose "View Replay" on a saved round.</p>';
-      return;
-    }
-    const replayCompletion = buildCompletionFromHistoryEntry(replayEntry);
-    if (!replayCompletion) {
-      replayWrap.classList.remove("hidden");
-      replayWrap.innerHTML = '<p class="muted tiny round-history-replay-empty">Replay unavailable for this round.</p>';
-      return;
-    }
-    replayWrap.classList.remove("hidden");
-    replayWrap.innerHTML = `
-      <div class="round-history-replay-header">
-        <h4>Historical Replay Snapshot</h4>
-        <span class="round-history-context-pill replay">Replayed Round</span>
-        <span class="round-history-context-pill live">Live Round Above</span>
-      </div>
-      <p class="muted tiny">${escapeHtml(formatHistoryDate(replayEntry.date))} • ${escapeHtml(replayEntry.roundName || "Round")}</p>
-      <div class="round-summary-panel complete round-summary-replay-panel">
-        ${buildRoundSummaryPanelMarkup(replayCompletion, {
-          expandedPlayerId: state.roundSummaryReplayExpandedPlayerId,
-          interactive: true
-        })}
-      </div>
-    `;
+    window.PocketCaddyRender.renderRoundHistory({
+      historyList: historyList,
+      statsWrap: statsWrap,
+      replayWrap: replayWrap,
+      state: state,
+      capRoundHistory: capRoundHistory,
+      computePlayerProgressionStats: computePlayerProgressionStats,
+      getWinnerNamesFromHistory: getWinnerNamesFromHistory,
+      formatHistoryDate: formatHistoryDate,
+      escapeHtml: escapeHtml,
+      formatDecimal: formatDecimal,
+      buildCompletionFromHistoryEntry: buildCompletionFromHistoryEntry,
+      buildRoundSummaryPanelMarkup: buildRoundSummaryPanelMarkup
+    });
   }
 
   function showView(name) {
@@ -606,152 +531,24 @@
   }
 
   function showError(node, message) {
-    if (!message) {
-      node.classList.add("hidden");
-      node.textContent = "";
-      return;
-    }
-    node.classList.remove("hidden");
-    node.textContent = message;
+    window.PocketCaddyRender.showError({ node: node, message: message });
   }
 
   function showFeedback(message, type) {
-    const normalizedType = typeof type === "string"
-      ? String(type).trim().toLowerCase()
-      : (type ? "error" : "success");
-    const tone = normalizedType === "error"
-      ? "error"
-      : (normalizedType === "neutral" ? "neutral" : "success");
-    const isError = tone === "error";
-    clearTimeout(state.feedbackTimer);
-    clearTimeout(state.feedbackHideTimer);
-    dom.scoreFeedback.textContent = message;
-    dom.scoreFeedback.classList.remove("hidden", "is-exit");
-    dom.scoreFeedback.classList.add("is-showing");
-    dom.scoreFeedback.classList.toggle("error", Boolean(isError));
-    dom.scoreFeedback.dataset.tone = tone;
-    requestAnimationFrame(() => {
-      dom.scoreFeedback.classList.add("is-visible");
+    window.PocketCaddyRender.showFeedback({
+      message: message,
+      type: type,
+      state: state,
+      dom: dom
     });
-    state.feedbackTimer = setTimeout(() => {
-      dom.scoreFeedback.classList.add("is-exit");
-      dom.scoreFeedback.classList.remove("is-visible");
-      state.feedbackHideTimer = setTimeout(() => {
-        dom.scoreFeedback.classList.add("hidden");
-        dom.scoreFeedback.classList.remove("error", "is-showing", "is-exit");
-        dom.scoreFeedback.dataset.tone = "";
-      }, 220);
-    }, 2200);
   }
 
   function updateHomeQuickActions() {
-    const session = getSession();
-    const roundId = session && session.roundId ? String(session.roundId).trim() : "";
-    const hasSavedRound = roundId.length > 0;
-    const shortRoundId = hasSavedRound ? `${roundId.slice(0, 8)}...` : "";
-    const roundName = session && session.roundName != null ? String(session.roundName).trim() : "";
-    const playersCount = session && Number.isFinite(Number(session.playersCount)) ? Math.max(0, Number(session.playersCount)) : null;
-    const holesTotal = session && Number.isFinite(Number(session.holesTotal)) ? Math.max(0, Number(session.holesTotal)) : null;
-    const holesCompleteRaw = session && Number.isFinite(Number(session.holesComplete)) ? Math.max(0, Number(session.holesComplete)) : 0;
-    const holesComplete = holesTotal != null && holesTotal > 0 ? Math.min(holesCompleteRaw, holesTotal) : holesCompleteRaw;
-    const hasProgressSnapshot = Boolean(roundName) || playersCount != null || (holesTotal != null && holesTotal > 0);
-    const activeRoundLabel = state.round && state.round.id
-      ? (String(state.round.name || "").trim() || `ID ${String(state.round.id).slice(0, 8)}...`)
-      : "Unavailable";
-    const historyCount = Array.isArray(state.roundHistory) ? state.roundHistory.length : 0;
-    const historyStatus = historyCount > 0
-      ? `${historyCount} ${historyCount === 1 ? "entry" : "entries"}`
-      : "Unavailable";
-    const syncStatus = state.round && state.channel ? "Connected" : "Ready";
-
-    if (dom.homeSavedSessionCard) {
-      dom.homeSavedSessionCard.classList.toggle("hidden", !hasSavedRound);
-    }
-    if (dom.homeSavedSessionCopy) {
-      dom.homeSavedSessionCopy.textContent = hasSavedRound
-        ? `Resume your saved round${roundName ? ` "${roundName}"` : ` (${shortRoundId})`} from this device.`
-        : "Resume where you left off, or remove this local saved session.";
-    }
-    if (dom.homeSavedSessionProgress) {
-      dom.homeSavedSessionProgress.classList.toggle("hidden", !hasSavedRound || !hasProgressSnapshot);
-    }
-    if (dom.homeSavedRoundName) {
-      dom.homeSavedRoundName.textContent = roundName || `ID ${shortRoundId}`;
-    }
-    if (dom.homeSavedPlayerCount) {
-      dom.homeSavedPlayerCount.textContent = playersCount == null
-        ? "Unavailable"
-        : `${playersCount} ${playersCount === 1 ? "player" : "players"}`;
-    }
-    if (dom.homeSavedHoleProgress) {
-      dom.homeSavedHoleProgress.textContent = holesTotal != null && holesTotal > 0
-        ? `Through ${holesComplete} of ${holesTotal} holes`
-        : "Progress unavailable";
-    }
-    if (dom.quickResumeBtn) {
-      dom.quickResumeBtn.classList.toggle("hidden", !hasSavedRound);
-      dom.quickResumeBtn.disabled = !hasSavedRound;
-    }
-    if (dom.hubResumeBtn) {
-      dom.hubResumeBtn.classList.toggle("hidden", !hasSavedRound);
-      dom.hubResumeBtn.disabled = !hasSavedRound;
-    }
-    if (dom.quickCancelSavedBtn) {
-      dom.quickCancelSavedBtn.classList.toggle("hidden", !hasSavedRound);
-      dom.quickCancelSavedBtn.disabled = !hasSavedRound;
-    }
-    if (dom.homeView) {
-      dom.homeView.classList.toggle("home-has-saved", hasSavedRound);
-      dom.homeView.classList.toggle("home-no-saved", !hasSavedRound);
-    }
-    if (dom.homeTitle) {
-      dom.homeTitle.textContent = hasSavedRound ? "Resume Your Round" : "Start a New Round";
-    }
-    if (dom.homeTagline) {
-      dom.homeTagline.textContent = hasSavedRound
-        ? "Jump back into saved progress, or start a different round when you're ready."
-        : "Create a new round, add players, and start scoring in under a minute.";
-    }
-    if (dom.homeNextActionNote) {
-      dom.homeNextActionNote.textContent = hasSavedRound
-        ? "Next best action: Resume Saved Round to continue where you left off."
-        : "Next best action: Create Round to launch a new scorecard.";
-    }
-    if (dom.homeStatusActiveRound) {
-      dom.homeStatusActiveRound.textContent = activeRoundLabel;
-      dom.homeStatusActiveRound.classList.toggle("is-unavailable", activeRoundLabel === "Unavailable");
-    }
-    if (dom.homeStatusLocalSession) {
-      dom.homeStatusLocalSession.textContent = hasSavedRound ? "Available" : "Unavailable";
-      dom.homeStatusLocalSession.classList.toggle("is-unavailable", !hasSavedRound);
-    }
-    if (dom.homeStatusHistory) {
-      dom.homeStatusHistory.textContent = historyStatus;
-      dom.homeStatusHistory.classList.toggle("is-unavailable", historyStatus === "Unavailable");
-    }
-    if (dom.homeStatusSync) {
-      dom.homeStatusSync.textContent = syncStatus;
-      dom.homeStatusSync.classList.toggle("is-unavailable", false);
-    }
-    if (dom.homeHistoryPreviewStatus) {
-      dom.homeHistoryPreviewStatus.textContent = historyStatus;
-      dom.homeHistoryPreviewStatus.classList.toggle("is-unavailable", historyStatus === "Unavailable");
-    }
-    if (dom.homeGolfPreviewStatus) {
-      dom.homeGolfPreviewStatus.textContent = "Resources Ready";
-      dom.homeGolfPreviewStatus.classList.toggle("is-unavailable", false);
-    }
-    if (dom.hubCreateBtn) {
-      dom.hubCreateBtn.classList.toggle("home-primary-focus", !hasSavedRound);
-      dom.hubCreateBtn.classList.toggle("home-secondary-focus", hasSavedRound);
-    }
-    if (dom.hubJoinBtn) {
-      dom.hubJoinBtn.classList.add("home-core-path");
-    }
-    if (dom.hubResumeBtn) {
-      dom.hubResumeBtn.classList.toggle("home-primary-focus", hasSavedRound);
-      dom.hubResumeBtn.classList.toggle("home-secondary-focus", !hasSavedRound);
-    }
+    window.PocketCaddyRender.updateUIStatus({
+      state: state,
+      dom: dom,
+      getSession: getSession
+    });
   }
 
   function cancelSavedRoundSession() {
@@ -948,33 +745,19 @@
   }
 
   function renderCourseSuggestions(results) {
-    if (!dom.courseSearchList) return;
-    const list = Array.isArray(results) ? results : [];
-    if (list.length === 0) {
-      dom.courseSearchList.classList.add("hidden");
-      dom.courseSearchList.innerHTML = "";
-      return;
-    }
-    dom.courseSearchList.innerHTML = list.map((item, index) => `
-      <button class="course-suggestion" type="button" data-index="${index}" role="option">
-        <div class="course-suggestion-main">${escapeHtml(item.displayName || "")}</div>
-        <div class="course-suggestion-sub">${escapeHtml(item.locationText || "Location unavailable")}</div>
-        <div class="course-suggestion-sub muted tiny">${escapeHtml(getCourseSuggestionHint(item))}</div>
-      </button>
-    `).join("");
-    dom.courseSearchList.classList.remove("hidden");
+    window.PocketCaddyRender.renderCourseSuggestions({
+      dom: dom,
+      results: results,
+      escapeHtml: escapeHtml,
+      getCourseSuggestionHint: getCourseSuggestionHint
+    });
   }
 
   function setCourseSearchStatus(message) {
-    if (!dom.courseSearchStatus) return;
-    const text = String(message || "");
-    if (!text) {
-      dom.courseSearchStatus.classList.add("hidden");
-      dom.courseSearchStatus.textContent = "";
-      return;
-    }
-    dom.courseSearchStatus.classList.remove("hidden");
-    dom.courseSearchStatus.textContent = text;
+    window.PocketCaddyRender.setCourseSearchStatus({
+      dom: dom,
+      message: message
+    });
   }
 
   function applySelectedCourse(course) {
@@ -1011,26 +794,12 @@
   }
 
   function renderSelectedCourseCard() {
-    if (!dom.selectedCourseCard) return;
-    const selected = state.selectedCourseMetadata;
-    if (!selected) {
-      dom.selectedCourseCard.classList.add("hidden");
-      dom.selectedCourseCard.innerHTML = "";
-      return;
-    }
-    const latLng = Number.isFinite(selected.lat) && Number.isFinite(selected.lng)
-      ? `${selected.lat.toFixed(4)}, ${selected.lng.toFixed(4)}`
-      : "Unavailable";
-    const source = normalizeCourseSource(selected.source);
-    dom.selectedCourseCard.innerHTML = `
-      <h4>Selected Course: ${escapeHtml(selected.displayName || "-")}</h4>
-      <p>Location: ${escapeHtml(selected.locationText || "Location unavailable")}</p>
-      <p>Coordinates: ${escapeHtml(latLng)}</p>
-      <p>Source: ${escapeHtml(source || "Unavailable")}</p>
-      <p class="muted tiny">Ready for round setup</p>
-      <button class="btn btn-secondary" type="button" data-action="clear">Clear Selection</button>
-    `;
-    dom.selectedCourseCard.classList.remove("hidden");
+    window.PocketCaddyRender.renderSelectedCourseCard({
+      dom: dom,
+      selectedCourseMetadata: state.selectedCourseMetadata,
+      normalizeCourseSource: normalizeCourseSource,
+      escapeHtml: escapeHtml
+    });
   }
 
   function removeSetupPlayer(localId) {
@@ -1039,39 +808,12 @@
   }
 
   function renderSetupPlayers() {
-    dom.playerCount.textContent = `(${state.setupPlayers.length} / ${MAX_PLAYERS})`;
-    if (!state.setupPlayers.length) {
-      dom.setupPlayerList.innerHTML = '<p class="muted tiny">No players added yet.</p>';
-      return;
-    }
-    dom.setupPlayerList.innerHTML = state.setupPlayers.map((p, i) => {
-      return `
-        <div class="setup-player-row">
-          <div class="setup-player-main">
-            <span class="setup-player-index">${i + 1}.</span>
-            <input class="setup-player-name" type="text" data-local-id="${p.id}" value="${escapeHtml(p.name)}">
-          </div>
-          <button class="btn btn-danger setup-remove-btn" type="button" data-local-id="${p.id}">Remove</button>
-        </div>
-      `;
-    }).join("");
-
-    dom.setupPlayerList.querySelectorAll(".setup-player-name").forEach((input) => {
-      input.addEventListener("input", (e) => {
-        const id = e.target.getAttribute("data-local-id");
-        const p = state.setupPlayers.find((x) => x.id === id);
-        if (p) p.name = e.target.value;
-      });
-      input.addEventListener("blur", (e) => {
-        const id = e.target.getAttribute("data-local-id");
-        const p = state.setupPlayers.find((x) => x.id === id);
-        if (!p) return;
-        p.name = String(p.name || "").trim();
-        e.target.value = p.name;
-      });
-    });
-    dom.setupPlayerList.querySelectorAll(".setup-remove-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => removeSetupPlayer(e.target.getAttribute("data-local-id")));
+    window.PocketCaddyRender.renderPlayerList({
+      dom: dom,
+      setupPlayers: state.setupPlayers,
+      maxPlayers: MAX_PLAYERS,
+      escapeHtml: escapeHtml,
+      onRemoveSetupPlayer: removeSetupPlayer
     });
   }
 
@@ -2155,20 +1897,11 @@
   }
 
   function renderParRow() {
-    if (!state.round) return;
-    const holes = state.round.holes;
-    let html = "";
-    for (let hole = 1; hole <= holes; hole += 1) {
-      const par = getPar(hole);
-      const saving = state.pendingParHoles.has(hole);
-      html += `
-        <label class="par-input-wrap ${saving ? "saving" : ""}">
-          <span>H${hole}</span>
-          <input class="par-input" type="number" min="3" max="6" step="1" data-hole="${hole}" value="${par == null ? "" : par}">
-        </label>
-      `;
-    }
-    dom.parRow.innerHTML = html;
+    window.PocketCaddyRender.renderParRow({
+      state: state,
+      dom: dom,
+      getPar: getPar
+    });
   }
 
   function onParInputChanged(event) {
@@ -3048,134 +2781,37 @@
   }
 
   function renderLeaderboard(standings) {
-    const showBack = state.round.holes === 18;
-    const rows = Array.isArray(standings) ? standings : buildStandings();
-    const previousOrder = state.leaderboardOrderById || {};
-    const nextOrder = {};
-    rows.forEach((r, index) => {
-      nextOrder[String(r.id)] = index;
+    window.PocketCaddyRender.renderLeaderboard({
+      state: state,
+      dom: dom,
+      standings: standings,
+      buildStandings: buildStandings,
+      display: display,
+      escapeHtml: escapeHtml,
+      formatRelativeToPar: formatRelativeToPar,
+      onReRender: () => renderLeaderboard()
     });
-    const shiftMap = {};
-    rows.forEach((r, index) => {
-      const prevIndex = previousOrder[String(r.id)];
-      if (Number.isInteger(prevIndex) && prevIndex !== index) {
-        shiftMap[String(r.id)] = prevIndex > index ? "up" : "down";
-      }
-    });
-    clearTimeout(state.leaderboardShiftTimer);
-    state.leaderboardShiftMap = shiftMap;
-    state.leaderboardOrderById = nextOrder;
-    if (Object.keys(shiftMap).length > 0) {
-      state.leaderboardShiftTimer = setTimeout(() => {
-        state.leaderboardShiftMap = {};
-        if (state.round) renderLeaderboard();
-      }, 340);
-    }
-    const leaderIds = rows.filter((r) => r.isLeader).map((r) => String(r.id)).sort();
-    const signature = leaderIds.join("|");
-    if (state.lastLeaderSignature !== null && state.lastLeaderSignature !== signature) {
-      state.leaderPulseOn = true;
-      clearTimeout(state.leaderPulseTimer);
-      state.leaderPulseTimer = setTimeout(() => {
-        state.leaderPulseOn = false;
-        renderLeaderboard();
-      }, 850);
-    }
-    state.lastLeaderSignature = signature;
-
-    dom.leaderboardBody.innerHTML = rows.map((r) => `
-      <tr class="${r.isLeader ? "leader-row" : ""} ${r.isLeader && state.leaderPulseOn ? "leader-pulse" : ""} ${state.leaderboardShiftMap[String(r.id)] === "up" ? "leader-row-move-up" : ""} ${state.leaderboardShiftMap[String(r.id)] === "down" ? "leader-row-move-down" : ""}">
-        <td><strong>${r.rank}</strong></td>
-        <td>${escapeHtml(r.name)}</td>
-        <td>${display(r.front)}</td>
-        ${showBack ? `<td>${display(r.back)}</td>` : ""}
-        <td><strong>${display(r.total)}</strong>${r.total == null ? "" : ` <span class="leader-relative">${formatRelativeToPar(r.relative)}</span>`}</td>
-      </tr>
-    `).join("");
   }
 
   function renderScoreTable(standings) {
-    renderScoreUxMeta();
-    const holes = state.round.holes;
-    const showBack = holes === 18;
-    const rows = Array.isArray(standings) ? standings : buildStandings();
-    const leaders = new Set(rows.filter((s) => s.isLeader).map((s) => s.id));
-
-    let head = '<thead><tr><th class="sticky-player">Player</th>';
-    for (let hole = 1; hole <= holes; hole += 1) {
-      const selectedClass = state.selectedHole === hole ? "score-hole-selected" : "";
-      const selectedPulseClass = state.selectedHolePulse === hole ? "score-hole-change-pulse" : "";
-      head += `<th data-hole="${hole}" class="${hole <= 9 ? "front-head" : "back-head"} ${selectedClass} ${selectedPulseClass}">H${hole}</th>`;
-    }
-    head += '<th class="tot-head">Front</th>';
-    if (showBack) head += '<th class="tot-head">Back</th>';
-    head += '<th class="tot-head">Total</th></tr></thead>';
-
-    let body = "<tbody>";
-    body += '<tr class="par-display-row">';
-    body += '<td class="sticky-player"><span class="player-name">Par</span><span class="player-note">By hole</span></td>';
-    for (let hole = 1; hole <= holes; hole += 1) {
-      const selectedClass = state.selectedHole === hole ? "score-hole-selected" : "";
-      const selectedPulseClass = state.selectedHolePulse === hole ? "score-hole-change-pulse" : "";
-      body += `<td class="${hole > 9 ? "back-cell" : ""} ${selectedClass} ${selectedPulseClass}"><span class="par-chip">${display(getPar(hole))}</span></td>`;
-    }
-    body += '<td class="tot-cell">-</td>';
-    if (showBack) body += '<td class="tot-cell">-</td>';
-    body += '<td class="tot-cell">-</td>';
-    body += "</tr>";
-
-    state.players.forEach((player) => {
-      const totals = getTotals(player.id);
-      const editableRow = isEditablePlayerRow(player.id);
-      const rowClasses = [
-        leaders.has(player.id) ? "score-leader-row" : "",
-        editableRow ? "your-player-row" : ""
-      ].filter(Boolean).join(" ");
-      body += `<tr class="${rowClasses}" data-player-id="${player.id}">`;
-      body += `<td class="sticky-player"><span class="player-name">${escapeHtml(player.name)}</span><span class="player-note">${editableRow ? "You can edit this row" : "Read-only"}</span></td>`;
-      for (let hole = 1; hole <= holes; hole += 1) {
-        const key = scoreKey(player.id, hole);
-        const val = getScore(player.id, hole);
-        const text = val == null ? "-" : String(val);
-        const par = getPar(hole);
-        const delta = getScoreDelta(val, hole);
-        const relative = formatRelativeToPar(delta);
-        const term = getGolfTerm(val, par);
-        const termClass = getGolfTermClass(term);
-        const active = state.activeCell && state.activeCell.playerId === player.id && state.activeCell.hole === hole;
-        const saving = state.pendingScoreKeys.has(key);
-        const flash = state.recentScoreFlashKey === key;
-        const tapPulse = state.scoreTapKey === key;
-        const activeChange = state.activeCellPulseKey === key;
-        const subLabel = val == null ? "" : (term || relative);
-        const selectedClass = state.selectedHole === hole ? "score-hole-selected" : "";
-        const selectedPulseClass = state.selectedHolePulse === hole ? "score-hole-change-pulse" : "";
-        const title = val == null
-          ? `${player.name} hole ${hole}`
-          : `${player.name} hole ${hole}: ${text} (${relative})${term ? ` ${term}` : ""}`;
-        body += `
-          <td class="${hole > 9 ? "back-cell" : ""} ${selectedClass} ${selectedPulseClass}">
-            <button
-              class="score-btn ${val == null ? "empty" : ""} ${active ? "active" : ""} ${editableRow ? "" : "readonly"} ${saving ? "saving" : ""} ${termClass} ${flash ? "score-updated-flash" : ""} ${tapPulse ? "score-tap" : ""} ${activeChange ? "score-cell-change" : ""}"
-              type="button"
-              data-player-id="${player.id}"
-              data-hole="${hole}"
-              ${(editableRow && !saving) ? "" : "disabled"}
-              aria-label="${escapeHtml(player.name)} hole ${hole} score ${text} ${term ? term : ""}"
-              title="${escapeHtml(title)}">
-              <span class="score-main">${saving ? "..." : text}</span>
-              <span class="score-sub ${subLabel ? "" : "hidden"}">${escapeHtml(subLabel)}</span>
-            </button>
-          </td>
-        `;
-      }
-      body += `<td class="tot-cell">${display(totals.front)}</td>`;
-      if (showBack) body += `<td class="tot-cell">${display(totals.back)}</td>`;
-      body += `<td class="tot-cell">${display(totals.total)}</td>`;
-      body += "</tr>";
+    window.PocketCaddyRender.renderScoreTable({
+      state: state,
+      dom: dom,
+      standings: standings,
+      buildStandings: buildStandings,
+      renderScoreUxMeta: renderScoreUxMeta,
+      getPar: getPar,
+      display: display,
+      getTotals: getTotals,
+      isEditablePlayerRow: isEditablePlayerRow,
+      scoreKey: scoreKey,
+      getScore: getScore,
+      getScoreDelta: getScoreDelta,
+      formatRelativeToPar: formatRelativeToPar,
+      getGolfTerm: getGolfTerm,
+      getGolfTermClass: getGolfTermClass,
+      escapeHtml: escapeHtml
     });
-    body += "</tbody>";
-    dom.scoreTable.innerHTML = head + body;
   }
 
   function onScoreTableClick(event) {
@@ -3817,38 +3453,16 @@
   }
 
   function renderPayouts() {
-    if (!state.round) return;
-    const pot = parseMoney(state.round.pot_amount);
-    const p1 = parsePercent(state.round.payout_first);
-    const p2 = parsePercent(state.round.payout_second);
-    const p3 = parsePercent(state.round.payout_third);
-    const payoutByPos = {
-      1: pot * (p1 / 100),
-      2: pot * (p2 / 100),
-      3: pot * (p3 / 100)
-    };
-
-    const totalPct = p1 + p2 + p3;
-    if (Math.abs(totalPct - 100) > 0.0001) {
-      dom.payoutWarning.classList.remove("hidden");
-      dom.payoutWarning.textContent = `Payout percentages total ${totalPct.toFixed(2)}% (not 100%).`;
-    } else {
-      dom.payoutWarning.classList.add("hidden");
-      dom.payoutWarning.textContent = "";
-    }
-
-    dom.payoutPositionBody.innerHTML = `
-      <tr><td>1st</td><td>${p1.toFixed(2)}%</td><td>${money(payoutByPos[1])}</td></tr>
-      <tr><td>2nd</td><td>${p2.toFixed(2)}%</td><td>${money(payoutByPos[2])}</td></tr>
-      <tr><td>3rd</td><td>${p3.toFixed(2)}%</td><td>${money(payoutByPos[3])}</td></tr>
-      <tr><td><strong>Total Pot</strong></td><td>-</td><td><strong>${money(pot)}</strong></td></tr>
-    `;
-
-    const standings = buildStandings();
-    const payoutMap = calculateProjectedPayouts(standings, payoutByPos);
-    dom.payoutPlayerBody.innerHTML = standings.map((row) => {
-      return `<tr><td>${escapeHtml(row.name)}</td><td><strong>${money(payoutMap[row.id] || 0)}</strong></td></tr>`;
-    }).join("");
+    window.PocketCaddyRender.renderPayouts({
+      state: state,
+      dom: dom,
+      parseMoney: parseMoney,
+      parsePercent: parsePercent,
+      money: money,
+      buildStandings: buildStandings,
+      calculateProjectedPayouts: calculateProjectedPayouts,
+      escapeHtml: escapeHtml
+    });
   }
 
   function calculateProjectedPayouts(standings, payoutByPos) {
