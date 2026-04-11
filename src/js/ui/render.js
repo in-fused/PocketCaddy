@@ -214,19 +214,49 @@
     };
   }
 
+  function sanitizeExportFilenamePart(value, fallback) {
+    const base = String(value == null ? "" : value).trim() || String(fallback || "Unavailable");
+    return base
+      .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 80) || String(fallback || "Unavailable");
+  }
+
+  function buildExportFilename(extension, payload) {
+    const safeRoundId = sanitizeExportFilenamePart(payload && payload.roundId, "Unavailable");
+    return `pocketcaddy-round-${safeRoundId}.${extension}`;
+  }
+
   function downloadBlob(filename, content, mimeType) {
     const blob = new Blob([content], { type: mimeType });
+    const nav = typeof navigator !== "undefined" ? navigator : null;
+    if (nav && typeof nav.msSaveOrOpenBlob === "function") {
+      nav.msSaveOrOpenBlob(blob, filename);
+      return;
+    }
+
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = filename;
+    anchor.rel = "noopener";
+    anchor.target = "_blank";
     anchor.style.display = "none";
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
+    const root = document.body || document.documentElement;
+    root.appendChild(anchor);
+    if (typeof anchor.click === "function") {
+      anchor.click();
+    } else {
+      const clickEvent = document.createEvent("MouseEvents");
+      clickEvent.initMouseEvent("click", true, true, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
+      anchor.dispatchEvent(clickEvent);
+    }
+    root.removeChild(anchor);
     setTimeout(() => {
       URL.revokeObjectURL(url);
-    }, 0);
+    }, 1200);
   }
 
   function escapeCsvCell(value) {
@@ -237,16 +267,14 @@
 
   function downloadRoundAsJSON(roundEntry) {
     const payload = buildRoundExportData(roundEntry);
-    const roundId = toExportText(payload.roundId);
-    const filename = `pocketcaddy-round-${roundId}.json`;
+    const filename = buildExportFilename("json", payload);
     const content = JSON.stringify(payload, null, 2);
     downloadBlob(filename, content, "application/json;charset=utf-8");
   }
 
   function downloadRoundAsCSV(roundEntry) {
     const payload = buildRoundExportData(roundEntry);
-    const roundId = toExportText(payload.roundId);
-    const filename = `pocketcaddy-round-${roundId}.csv`;
+    const filename = buildExportFilename("csv", payload);
     const holeCount = payload.perHoleScores.reduce((max, row) => {
       const count = Array.isArray(row && row.holeScores) ? row.holeScores.length : 0;
       return count > max ? count : max;
@@ -696,30 +724,6 @@
         </article>
       `;
     }).join("");
-
-    historyList.querySelectorAll("[data-action='export-history-json']").forEach((btn) => {
-      btn.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const roundId = btn.getAttribute("data-round-id");
-        if (!roundId) return;
-        const roundEntry = history.find((entry) => String(entry.roundId) === String(roundId));
-        if (!roundEntry) return;
-        downloadRoundAsJSON(roundEntry);
-      });
-    });
-
-    historyList.querySelectorAll("[data-action='export-history-csv']").forEach((btn) => {
-      btn.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const roundId = btn.getAttribute("data-round-id");
-        if (!roundId) return;
-        const roundEntry = history.find((entry) => String(entry.roundId) === String(roundId));
-        if (!roundEntry) return;
-        downloadRoundAsCSV(roundEntry);
-      });
-    });
 
     const replayEntry = history.find((entry) => String(entry.roundId) === String(state.roundHistoryReplayRoundId));
     if (!replayEntry) {

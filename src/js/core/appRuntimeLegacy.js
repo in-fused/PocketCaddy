@@ -205,6 +205,7 @@
     roundHistory: [],
     roundHistoryExpandedRoundId: null,
     roundHistoryReplayRoundId: null,
+    roundHistoryExportCooldownByKey: {},
     roundHistoryPersistFingerprint: null,
     shareImageLoaderPromise: null,
     shareImageBlob: null,
@@ -348,6 +349,24 @@
   }
 
   function onRoundHistorySectionClick(event) {
+    const exportJsonBtn = event.target.closest("[data-action='export-history-json']");
+    if (exportJsonBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const roundId = exportJsonBtn.getAttribute("data-round-id");
+      triggerRoundHistoryExport("json", roundId);
+      return;
+    }
+
+    const exportCsvBtn = event.target.closest("[data-action='export-history-csv']");
+    if (exportCsvBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const roundId = exportCsvBtn.getAttribute("data-round-id");
+      triggerRoundHistoryExport("csv", roundId);
+      return;
+    }
+
     const rowBtn = event.target.closest("[data-action='toggle-history-row']");
     if (rowBtn) {
       const roundId = rowBtn.getAttribute("data-round-id");
@@ -371,6 +390,63 @@
       if (!playerId) return;
       state.roundSummaryReplayExpandedPlayerId = String(state.roundSummaryReplayExpandedPlayerId) === String(playerId) ? null : playerId;
       renderRoundHistorySection();
+    }
+  }
+
+  function findRoundHistoryEntry(roundId) {
+    const normalizedRoundId = String(roundId == null ? "" : roundId).trim();
+    if (!normalizedRoundId) return null;
+    const history = Array.isArray(state.roundHistory) ? state.roundHistory : [];
+    return history.find((entry) => String(entry && entry.roundId).trim() === normalizedRoundId) || null;
+  }
+
+  function canTriggerRoundHistoryExport(type, roundId) {
+    const normalizedType = String(type == null ? "" : type).trim().toLowerCase();
+    const normalizedRoundId = String(roundId == null ? "" : roundId).trim();
+    if (!normalizedType || !normalizedRoundId) return false;
+    const key = `${normalizedType}:${normalizedRoundId}`;
+    const now = Date.now();
+    const previous = Number(state.roundHistoryExportCooldownByKey[key] || 0);
+    if (now - previous < 650) return false;
+    state.roundHistoryExportCooldownByKey[key] = now;
+    return true;
+  }
+
+  function triggerRoundHistoryExport(type, roundId) {
+    const normalizedType = String(type == null ? "" : type).trim().toLowerCase();
+    const normalizedRoundId = String(roundId == null ? "" : roundId).trim();
+    if (!normalizedRoundId) {
+      showFeedback("Export unavailable for this round.", "error");
+      return;
+    }
+    if (!canTriggerRoundHistoryExport(normalizedType, normalizedRoundId)) return;
+
+    const entry = findRoundHistoryEntry(normalizedRoundId);
+    if (!entry) {
+      showFeedback("Export unavailable for this round.", "error");
+      return;
+    }
+    const renderApi = window.PocketCaddyRender;
+    if (!renderApi) {
+      showFeedback("Export unavailable right now.", "error");
+      return;
+    }
+
+    try {
+      if (normalizedType === "json") {
+        renderApi.downloadRoundAsJSON(entry);
+        showFeedback("Exported JSON.", "success");
+        return;
+      }
+      if (normalizedType === "csv") {
+        renderApi.downloadRoundAsCSV(entry);
+        showFeedback("Exported CSV.", "success");
+        return;
+      }
+      showFeedback("Unsupported export format.", "error");
+    } catch (err) {
+      console.error("Round history export failed:", err);
+      showFeedback("Export failed. Please try again.", "error");
     }
   }
 
