@@ -816,6 +816,7 @@
 
   function renderRoundHistory(options) {
     const opts = options || {};
+    const insightsWrap = opts.insightsWrap;
     const historyList = opts.historyList;
     const statsWrap = opts.statsWrap;
     const replayWrap = opts.replayWrap;
@@ -854,10 +855,173 @@
     const summaryPanelBuilder = typeof buildRoundSummaryPanelMarkup === "function"
       ? buildRoundSummaryPanelMarkup
       : () => "";
+    const renderUnavailable = "Unavailable";
+
+    function toSafeName(value) {
+      const text = value == null ? "" : String(value).trim();
+      return text || renderUnavailable;
+    }
+
+    function toSafeScore(value) {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    }
+
+    function formatInsightAverage(value) {
+      if (!Number.isFinite(Number(value))) return renderUnavailable;
+      return decimalFormatter(Number(value), 1);
+    }
+
+    function formatInsightCount(value) {
+      const num = Number(value);
+      return Number.isFinite(num) ? String(num) : renderUnavailable;
+    }
+
+    function buildHistoryInsights(entries) {
+      const historyEntries = Array.isArray(entries) ? entries : [];
+      if (!historyEntries.length) {
+        return {
+          empty: true
+        };
+      }
+
+      const playerStats = new Map();
+      historyEntries.forEach((entry) => {
+        const standings = Array.isArray(entry && entry.standings) ? entry.standings : [];
+        const winnerNames = winnerResolver(entry)
+          .map((name) => toSafeName(name))
+          .filter((name) => name !== renderUnavailable);
+        const winnerNameKeys = new Set(winnerNames.map((name) => name.toLowerCase()));
+        standings.forEach((row) => {
+          const playerName = toSafeName(row && row.name);
+          if (playerName === renderUnavailable) return;
+          const key = playerName.toLowerCase();
+          if (!playerStats.has(key)) {
+            playerStats.set(key, {
+              name: playerName,
+              wins: 0,
+              scoreSum: 0,
+              scoreCount: 0,
+              bestRound: null
+            });
+          }
+          const stat = playerStats.get(key);
+          stat.name = playerName;
+          if (winnerNameKeys.has(key)) stat.wins += 1;
+          const total = toSafeScore(row && row.total);
+          if (total == null) return;
+          stat.scoreSum += total;
+          stat.scoreCount += 1;
+          if (stat.bestRound == null || total < stat.bestRound) stat.bestRound = total;
+        });
+      });
+
+      const playerValues = Array.from(playerStats.values());
+      const mostWins = playerValues
+        .filter((item) => Number.isFinite(Number(item.wins)) && Number(item.wins) > 0)
+        .sort((a, b) => {
+          if (b.wins !== a.wins) return b.wins - a.wins;
+          return a.name.localeCompare(b.name);
+        })[0] || null;
+      const bestAverage = playerValues
+        .filter((item) => item.scoreCount > 0)
+        .map((item) => ({
+          name: item.name,
+          avg: item.scoreSum / item.scoreCount
+        }))
+        .sort((a, b) => {
+          if (a.avg !== b.avg) return a.avg - b.avg;
+          return a.name.localeCompare(b.name);
+        })[0] || null;
+      const lowestSingleRound = playerValues
+        .filter((item) => item.bestRound != null)
+        .map((item) => ({
+          name: item.name,
+          score: item.bestRound
+        }))
+        .sort((a, b) => {
+          if (a.score !== b.score) return a.score - b.score;
+          return a.name.localeCompare(b.name);
+        })[0] || null;
+
+      const lastRound = historyEntries[0] || null;
+      const lastWinners = lastRound
+        ? winnerResolver(lastRound).map((name) => toSafeName(name)).filter((name) => name !== renderUnavailable)
+        : [];
+      const lastStandings = Array.isArray(lastRound && lastRound.standings) ? lastRound.standings : [];
+      const topScoreValues = lastStandings
+        .map((row) => toSafeScore(row && row.total))
+        .filter((value) => value != null);
+      const topScore = topScoreValues.length ? Math.min.apply(null, topScoreValues) : null;
+
+      return {
+        empty: false,
+        totalRoundsPlayed: historyEntries.length,
+        mostWins: mostWins
+          ? `${toSafeName(mostWins.name)} (${formatInsightCount(mostWins.wins)})`
+          : renderUnavailable,
+        bestAverageScore: bestAverage
+          ? `${toSafeName(bestAverage.name)} (${formatInsightAverage(bestAverage.avg)})`
+          : renderUnavailable,
+        lowestSingleRound: lowestSingleRound
+          ? `${toSafeName(lowestSingleRound.name)} (${String(lowestSingleRound.score)})`
+          : renderUnavailable,
+        lastRoundSnapshot: {
+          roundName: toSafeName(lastRound && lastRound.roundName),
+          winners: lastWinners.length ? lastWinners.join(", ") : renderUnavailable,
+          date: lastRound ? toSafeName(historyDateFormatter(lastRound.date)) : renderUnavailable,
+          topScore: topScore == null ? renderUnavailable : String(topScore)
+        }
+      };
+    }
 
     const history = capHistory(Array.isArray(state.roundHistory) ? state.roundHistory : []);
     state.roundHistory = history;
     const hasHistory = history.length > 0;
+    const insights = buildHistoryInsights(history);
+    if (insightsWrap) {
+      if (insights.empty) {
+        insightsWrap.innerHTML = `
+          <div class="round-history-insights">
+            <h4 class="round-history-insights-title">History Insights</h4>
+            <p class="muted tiny round-history-empty-state">Complete a round to unlock insights</p>
+          </div>
+        `;
+      } else {
+        insightsWrap.innerHTML = `
+          <div class="round-history-insights">
+            <h4 class="round-history-insights-title">History Insights</h4>
+            <div class="round-history-insight-strip">
+              <article class="round-history-insight-card">
+                <p class="round-history-insight-label">Total Rounds Played</p>
+                <p class="round-history-insight-value">${htmlEscaper(formatInsightCount(insights.totalRoundsPlayed))}</p>
+              </article>
+              <article class="round-history-insight-card">
+                <p class="round-history-insight-label">Most Wins</p>
+                <p class="round-history-insight-value">${htmlEscaper(insights.mostWins)}</p>
+              </article>
+              <article class="round-history-insight-card">
+                <p class="round-history-insight-label">Best Average Score</p>
+                <p class="round-history-insight-value">${htmlEscaper(insights.bestAverageScore)}</p>
+              </article>
+              <article class="round-history-insight-card">
+                <p class="round-history-insight-label">Lowest Single Round</p>
+                <p class="round-history-insight-value">${htmlEscaper(insights.lowestSingleRound)}</p>
+              </article>
+            </div>
+            <article class="round-history-snapshot-card">
+              <p class="round-history-snapshot-title">Last Round Snapshot</p>
+              <div class="round-history-snapshot-grid">
+                <p class="round-history-snapshot-item"><span class="round-history-snapshot-label">Round</span><span class="round-history-snapshot-value">${htmlEscaper(insights.lastRoundSnapshot.roundName)}</span></p>
+                <p class="round-history-snapshot-item"><span class="round-history-snapshot-label">Winner(s)</span><span class="round-history-snapshot-value">${htmlEscaper(insights.lastRoundSnapshot.winners)}</span></p>
+                <p class="round-history-snapshot-item"><span class="round-history-snapshot-label">Date</span><span class="round-history-snapshot-value">${htmlEscaper(insights.lastRoundSnapshot.date)}</span></p>
+                <p class="round-history-snapshot-item"><span class="round-history-snapshot-label">Top Score</span><span class="round-history-snapshot-value">${htmlEscaper(insights.lastRoundSnapshot.topScore)}</span></p>
+              </div>
+            </article>
+          </div>
+        `;
+      }
+    }
     const summaryActionsMarkup = `
       <div class="round-history-action-group round-history-summary-actions" role="group" aria-label="Export history summary">
         <p class="round-history-action-label">History Summary Export</p>

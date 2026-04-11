@@ -338,6 +338,7 @@
         <h3>Round History</h3>
         <p class="muted tiny">Saved on this device only (last ${ROUND_HISTORY_MAX} rounds).</p>
         <div id="round-history-player-stats" class="round-history-player-stats"></div>
+        <div id="round-history-insights" class="round-history-insights-wrap"></div>
         <div id="round-history-list" class="round-history-list"></div>
         <div id="round-history-replay" class="round-history-replay hidden"></div>
       `;
@@ -348,11 +349,74 @@
         dom.homeView.appendChild(section);
       }
     }
+    ensureRoundHistoryMountContract(section);
     if (!section.dataset.wired) {
       section.addEventListener("click", onRoundHistorySectionClick);
       section.dataset.wired = "true";
     }
     return section;
+  }
+
+  function ensureRoundHistoryMountContract(section) {
+    if (!section) return;
+    const insightsWrap = ensureRoundHistoryChild(section, {
+      id: "round-history-insights",
+      className: "round-history-insights-wrap",
+      beforeId: "round-history-player-stats"
+    });
+    const statsWrap = ensureRoundHistoryChild(section, {
+      id: "round-history-player-stats",
+      className: "round-history-player-stats",
+      beforeId: "round-history-list"
+    });
+    ensureRoundHistoryChild(section, {
+      id: "round-history-list",
+      className: "round-history-list",
+      afterId: statsWrap ? statsWrap.id : (insightsWrap ? insightsWrap.id : "")
+    });
+    ensureRoundHistoryChild(section, {
+      id: "round-history-replay",
+      className: "round-history-replay",
+      afterId: "round-history-list",
+      addHiddenOnCreate: true
+    });
+  }
+
+  function ensureRoundHistoryChild(section, options) {
+    const opts = options || {};
+    const id = String(opts.id || "").trim();
+    if (!id) return null;
+    let node = section.querySelector(`#${id}`);
+    const className = String(opts.className || "").trim();
+    const classNames = className ? className.split(/\s+/).filter(Boolean) : [];
+    if (!node) {
+      node = document.createElement("div");
+      node.id = id;
+      classNames.forEach((name) => node.classList.add(name));
+      if (opts.addHiddenOnCreate) node.classList.add("hidden");
+
+      const beforeId = String(opts.beforeId || "").trim();
+      const afterId = String(opts.afterId || "").trim();
+      const beforeNode = beforeId ? section.querySelector(`#${beforeId}`) : null;
+      const afterNode = afterId ? section.querySelector(`#${afterId}`) : null;
+      if (beforeNode && beforeNode.parentNode === section) {
+        section.insertBefore(node, beforeNode);
+      } else if (afterNode && afterNode.parentNode === section) {
+        if (afterNode.nextSibling) {
+          section.insertBefore(node, afterNode.nextSibling);
+        } else {
+          section.appendChild(node);
+        }
+      } else {
+        section.appendChild(node);
+      }
+      return node;
+    }
+
+    classNames.forEach((name) => {
+      if (!node.classList.contains(name)) node.classList.add(name);
+    });
+    return node;
   }
 
   function onRoundHistorySectionClick(event) {
@@ -667,11 +731,21 @@
   function renderRoundHistorySection() {
     const section = ensureRoundHistorySection();
     if (!section) return;
-    const historyList = document.getElementById("round-history-list");
+    const insightsWrap = document.getElementById("round-history-insights");
     const statsWrap = document.getElementById("round-history-player-stats");
+    const historyList = document.getElementById("round-history-list");
     const replayWrap = document.getElementById("round-history-replay");
-    if (!historyList || !statsWrap || !replayWrap) return;
+    if (!insightsWrap || !statsWrap || !historyList || !replayWrap) {
+      const missingNodes = [];
+      if (!insightsWrap) missingNodes.push("round-history-insights");
+      if (!statsWrap) missingNodes.push("round-history-player-stats");
+      if (!historyList) missingNodes.push("round-history-list");
+      if (!replayWrap) missingNodes.push("round-history-replay");
+      console.warn("Round history mount contract incomplete. Missing nodes:", missingNodes.join(", "));
+      return;
+    }
     window.PocketCaddyRender.renderRoundHistory({
+      insightsWrap: insightsWrap,
       historyList: historyList,
       statsWrap: statsWrap,
       replayWrap: replayWrap,
@@ -4478,10 +4552,4 @@
   window.PocketCaddyAppRuntimeLegacy = {
     boot: boot
   };
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot, { once: true });
-  } else {
-    boot();
-  }
 })();
