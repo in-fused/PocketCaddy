@@ -214,19 +214,53 @@
     };
   }
 
-  function sanitizeExportFilenamePart(value, fallback) {
-    const base = String(value == null ? "" : value).trim() || String(fallback || "Unavailable");
-    return base
+  function sanitizeExportFilenamePart(value, fallback, options) {
+    const opts = options || {};
+    const allowEmpty = Boolean(opts.allowEmpty);
+    const fallbackText = String(fallback == null ? "" : fallback).trim();
+    const rawBase = String(value == null ? "" : value).trim();
+    const source = rawBase || fallbackText;
+    const normalized = source && typeof source.normalize === "function"
+      ? source.normalize("NFKD")
+      : source;
+    const cleaned = String(normalized || "")
+      .replace(/[\u0300-\u036f]/g, "")
       .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-")
-      .replace(/\s+/g, "-")
+      .replace(/[^\w.\s-]/g, "-")
+      .replace(/[.\s]+/g, "-")
       .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 80) || String(fallback || "Unavailable");
+      .replace(/^[-_.]+|[-_.]+$/g, "")
+      .slice(0, 60);
+    if (cleaned) return cleaned;
+    if (allowEmpty) return "";
+    return fallbackText || "Unavailable";
+  }
+
+  function buildExportDateStamp(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}${month}${day}`;
   }
 
   function buildExportFilename(extension, payload) {
-    const safeRoundId = sanitizeExportFilenamePart(payload && payload.roundId, "Unavailable");
-    return `pocketcaddy-round-${safeRoundId}.${extension}`;
+    const safeExtension = String(extension == null ? "" : extension).trim().toLowerCase() || "txt";
+    const safeRoundId = sanitizeExportFilenamePart(payload && payload.roundId, "", { allowEmpty: true });
+    const safeRoundName = sanitizeExportFilenamePart(payload && payload.roundName, "round");
+    const safeCourseName = sanitizeExportFilenamePart(payload && payload.courseName, "course");
+    const safeDate = sanitizeExportFilenamePart(buildExportDateStamp(payload && payload.date), "", { allowEmpty: true });
+    const parts = ["pocketcaddy", safeRoundName];
+    if (safeCourseName && safeCourseName !== safeRoundName) parts.push(safeCourseName);
+    if (safeRoundId) {
+      parts.push(safeRoundId);
+    } else if (safeDate) {
+      parts.push(safeDate);
+    } else {
+      parts.push("no-round-id");
+    }
+    return `${parts.join("-")}.${safeExtension}`;
   }
 
   function downloadBlob(filename, content, mimeType) {
@@ -688,7 +722,8 @@
     }
 
     historyList.innerHTML = history.map((entry) => {
-      const roundId = String(entry.roundId);
+      const roundId = String(entry && entry.roundId != null ? entry.roundId : "").trim();
+      const hasRoundId = roundId.length > 0;
       const isExpanded = String(state.roundHistoryExpandedRoundId) === roundId;
       const isReplay = String(state.roundHistoryReplayRoundId) === roundId;
       const winnerNames = winnerResolver(entry);
@@ -712,22 +747,35 @@
           </button>
           <div class="round-history-detail ${isExpanded ? "" : "hidden"}">
             <p class="round-history-meta">${summaryMeta || "Round summary unavailable"}</p>
-            <div class="actions round-history-actions">
-              <button
-                type="button"
-                class="btn btn-secondary"
-                data-action="replay-history-round"
-                data-round-id="${htmlEscaper(roundId)}">${isReplay ? "Hide Replay" : "View Replay"}</button>
-              <button
-                type="button"
-                class="btn btn-secondary round-history-export-btn"
-                data-action="export-history-json"
-                data-round-id="${htmlEscaper(roundId)}">Export JSON</button>
-              <button
-                type="button"
-                class="btn btn-secondary round-history-export-btn"
-                data-action="export-history-csv"
-                data-round-id="${htmlEscaper(roundId)}">Export CSV</button>
+            <div class="round-history-actions">
+              <div class="round-history-action-group round-history-action-group-replay">
+                <button
+                  type="button"
+                  class="btn btn-secondary round-history-replay-btn"
+                  data-action="replay-history-round"
+                  data-round-id="${htmlEscaper(roundId)}"
+                  ${hasRoundId ? "" : "disabled"}
+                  aria-disabled="${hasRoundId ? "false" : "true"}">${isReplay ? "Hide Replay" : "View Replay"}</button>
+              </div>
+              <div class="round-history-action-group round-history-action-group-export" role="group" aria-label="Export round history">
+                <p class="round-history-action-label">Export</p>
+                <div class="round-history-export-actions">
+                  <button
+                    type="button"
+                    class="btn btn-secondary round-history-export-btn"
+                    data-action="export-history-json"
+                    data-round-id="${htmlEscaper(roundId)}"
+                    ${hasRoundId ? "" : "disabled"}
+                    aria-disabled="${hasRoundId ? "false" : "true"}">JSON</button>
+                  <button
+                    type="button"
+                    class="btn btn-secondary round-history-export-btn"
+                    data-action="export-history-csv"
+                    data-round-id="${htmlEscaper(roundId)}"
+                    ${hasRoundId ? "" : "disabled"}
+                    aria-disabled="${hasRoundId ? "false" : "true"}">CSV</button>
+                </div>
+              </div>
             </div>
           </div>
         </article>
@@ -737,13 +785,13 @@
     const replayEntry = history.find((entry) => String(entry.roundId) === String(state.roundHistoryReplayRoundId));
     if (!replayEntry) {
       replayWrap.classList.remove("hidden");
-      replayWrap.innerHTML = '<p class="muted tiny round-history-replay-empty">No replay selected. Choose "View Replay" on a saved round.</p>';
+      replayWrap.innerHTML = '<p class="muted tiny round-history-replay-empty">No replay selected yet. Tap View Replay on a saved round.</p>';
       return;
     }
     const replayCompletion = completionBuilder(replayEntry);
     if (!replayCompletion) {
       replayWrap.classList.remove("hidden");
-      replayWrap.innerHTML = '<p class="muted tiny round-history-replay-empty">Replay unavailable for this round.</p>';
+      replayWrap.innerHTML = '<p class="muted tiny round-history-replay-empty">Replay data is unavailable for this round.</p>';
       return;
     }
     replayWrap.classList.remove("hidden");

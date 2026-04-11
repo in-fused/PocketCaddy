@@ -7,6 +7,8 @@
   const WEATHER_FETCH_TIMEOUT_MS = 4500;
   const INTEL_UNAVAILABLE = "Unavailable";
   const INTEL_LOADING = "Loading...";
+  const ROUND_HISTORY_EXPORT_COOLDOWN_MS = 850;
+  const ROUND_HISTORY_ACTION_FEEDBACK_COOLDOWN_MS = 900;
   const CLOSE_FINISH_MARGIN = 2;
   const BLOWOUT_MARGIN = 8;
   const BACK_NINE_COMEBACK_SWING = 2;
@@ -206,6 +208,11 @@
     roundHistoryExpandedRoundId: null,
     roundHistoryReplayRoundId: null,
     roundHistoryExportCooldownByKey: {},
+    roundHistoryActionFeedback: {
+      message: "",
+      type: "",
+      at: 0
+    },
     roundHistoryPersistFingerprint: null,
     shareImageLoaderPromise: null,
     shareImageBlob: null,
@@ -349,41 +356,54 @@
   }
 
   function onRoundHistorySectionClick(event) {
-    const exportJsonBtn = event.target.closest("[data-action='export-history-json']");
-    if (exportJsonBtn) {
+    const actionNode = event.target.closest("[data-action]");
+    if (actionNode) {
+      const action = String(actionNode.getAttribute("data-action") || "").trim();
+      const roundId = String(actionNode.getAttribute("data-round-id") || "").trim();
       event.preventDefault();
       event.stopPropagation();
-      const roundId = exportJsonBtn.getAttribute("data-round-id");
-      triggerRoundHistoryExport("json", roundId);
-      return;
+
+      if (action === "export-history-json") {
+        triggerRoundHistoryExport("json", roundId);
+        return;
+      }
+      if (action === "export-history-csv") {
+        triggerRoundHistoryExport("csv", roundId);
+        return;
+      }
+      if (action === "toggle-history-row") {
+        if (!roundId) {
+          showRoundHistoryActionFeedback("This history row is unavailable.", "error");
+          return;
+        }
+        const entry = findRoundHistoryEntry(roundId);
+        if (!entry) {
+          showRoundHistoryActionFeedback("This history row is unavailable.", "error");
+          return;
+        }
+        const normalizedRoundId = String(entry.roundId).trim();
+        state.roundHistoryExpandedRoundId = String(state.roundHistoryExpandedRoundId) === normalizedRoundId ? null : normalizedRoundId;
+        renderRoundHistorySection();
+        return;
+      }
+      if (action === "replay-history-round") {
+        if (!roundId) {
+          showRoundHistoryActionFeedback("Replay unavailable for this round.", "error");
+          return;
+        }
+        const entry = findRoundHistoryEntry(roundId);
+        if (!entry) {
+          showRoundHistoryActionFeedback("Replay unavailable for this round.", "error");
+          return;
+        }
+        const normalizedRoundId = String(entry.roundId).trim();
+        state.roundHistoryReplayRoundId = String(state.roundHistoryReplayRoundId) === normalizedRoundId ? null : normalizedRoundId;
+        state.roundSummaryReplayExpandedPlayerId = null;
+        renderRoundHistorySection();
+        return;
+      }
     }
 
-    const exportCsvBtn = event.target.closest("[data-action='export-history-csv']");
-    if (exportCsvBtn) {
-      event.preventDefault();
-      event.stopPropagation();
-      const roundId = exportCsvBtn.getAttribute("data-round-id");
-      triggerRoundHistoryExport("csv", roundId);
-      return;
-    }
-
-    const rowBtn = event.target.closest("[data-action='toggle-history-row']");
-    if (rowBtn) {
-      const roundId = rowBtn.getAttribute("data-round-id");
-      if (!roundId) return;
-      state.roundHistoryExpandedRoundId = String(state.roundHistoryExpandedRoundId) === String(roundId) ? null : roundId;
-      renderRoundHistorySection();
-      return;
-    }
-    const replayBtn = event.target.closest("[data-action='replay-history-round']");
-    if (replayBtn) {
-      const roundId = replayBtn.getAttribute("data-round-id");
-      if (!roundId) return;
-      state.roundHistoryReplayRoundId = String(state.roundHistoryReplayRoundId) === String(roundId) ? null : roundId;
-      state.roundSummaryReplayExpandedPlayerId = null;
-      renderRoundHistorySection();
-      return;
-    }
     const replayPlayerBtn = event.target.closest(".round-history-replay .round-summary-row[data-player-id]");
     if (replayPlayerBtn) {
       const playerId = replayPlayerBtn.getAttribute("data-player-id");
@@ -400,6 +420,28 @@
     return history.find((entry) => String(entry && entry.roundId).trim() === normalizedRoundId) || null;
   }
 
+  function showRoundHistoryActionFeedback(message, type) {
+    const safeMessage = String(message == null ? "" : message).trim();
+    if (!safeMessage) return;
+    const safeType = String(type == null ? "neutral" : type).trim().toLowerCase() || "neutral";
+    const now = Date.now();
+    const previous = state.roundHistoryActionFeedback || { message: "", type: "", at: 0 };
+    if (
+      previous &&
+      previous.message === safeMessage &&
+      previous.type === safeType &&
+      now - Number(previous.at || 0) < ROUND_HISTORY_ACTION_FEEDBACK_COOLDOWN_MS
+    ) {
+      return;
+    }
+    state.roundHistoryActionFeedback = {
+      message: safeMessage,
+      type: safeType,
+      at: now
+    };
+    showFeedback(safeMessage, safeType);
+  }
+
   function canTriggerRoundHistoryExport(type, roundId) {
     const normalizedType = String(type == null ? "" : type).trim().toLowerCase();
     const normalizedRoundId = String(roundId == null ? "" : roundId).trim();
@@ -407,7 +449,7 @@
     const key = `${normalizedType}:${normalizedRoundId}`;
     const now = Date.now();
     const previous = Number(state.roundHistoryExportCooldownByKey[key] || 0);
-    if (now - previous < 650) return false;
+    if (now - previous < ROUND_HISTORY_EXPORT_COOLDOWN_MS) return false;
     state.roundHistoryExportCooldownByKey[key] = now;
     return true;
   }
@@ -415,38 +457,42 @@
   function triggerRoundHistoryExport(type, roundId) {
     const normalizedType = String(type == null ? "" : type).trim().toLowerCase();
     const normalizedRoundId = String(roundId == null ? "" : roundId).trim();
+    if (normalizedType !== "json" && normalizedType !== "csv") {
+      showRoundHistoryActionFeedback("Unsupported export format.", "error");
+      return;
+    }
     if (!normalizedRoundId) {
-      showFeedback("Export unavailable for this round.", "error");
+      showRoundHistoryActionFeedback("Export unavailable for this round.", "error");
       return;
     }
     if (!canTriggerRoundHistoryExport(normalizedType, normalizedRoundId)) return;
 
     const entry = findRoundHistoryEntry(normalizedRoundId);
     if (!entry) {
-      showFeedback("Export unavailable for this round.", "error");
+      showRoundHistoryActionFeedback("Export unavailable for this round.", "error");
       return;
     }
     const renderApi = window.PocketCaddyRender;
     if (!renderApi) {
-      showFeedback("Export unavailable right now.", "error");
+      showRoundHistoryActionFeedback("Export unavailable right now.", "error");
       return;
     }
 
     try {
       if (normalizedType === "json") {
         renderApi.downloadRoundAsJSON(entry);
-        showFeedback("Exported JSON.", "success");
+        showRoundHistoryActionFeedback("JSON downloaded.", "success");
         return;
       }
       if (normalizedType === "csv") {
         renderApi.downloadRoundAsCSV(entry);
-        showFeedback("Exported CSV.", "success");
+        showRoundHistoryActionFeedback("CSV downloaded.", "success");
         return;
       }
-      showFeedback("Unsupported export format.", "error");
+      showRoundHistoryActionFeedback("Unsupported export format.", "error");
     } catch (err) {
       console.error("Round history export failed:", err);
-      showFeedback("Export failed. Please try again.", "error");
+      showRoundHistoryActionFeedback("Export failed. Try again.", "error");
     }
   }
 

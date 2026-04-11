@@ -1086,7 +1086,7 @@ h2, h3, h4, p { margin: 0; }
 
 .round-history-detail {
   border-top: 1px solid #dbe8df;
-  padding: 8px 10px 9px;
+  padding: 9px 10px 11px;
   background: linear-gradient(180deg, #fbfefc 0%, #f2f8f4 100%);
   transition: background-color 160ms ease;
 }
@@ -1099,20 +1099,54 @@ h2, h3, h4, p { margin: 0; }
 }
 
 .round-history-actions {
-  margin-top: 7px;
+  margin-top: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.round-history-action-group {
+  border: 1px solid #cfddd5;
+  border-radius: 11px;
+  background: linear-gradient(180deg, #ffffff 0%, #f5faf7 100%);
+  padding: 7px;
+  display: grid;
+  gap: 6px;
+}
+
+.round-history-action-group-replay .btn {
+  width: 100%;
+}
+
+.round-history-action-label {
+  margin: 0;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #446150;
+  font-weight: 800;
+}
+
+.round-history-export-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .round-history-actions .btn {
-  min-height: 34px;
-  padding: 7px 10px;
-  font-size: 0.84rem;
+  min-height: 40px;
+  padding: 8px 10px;
+  font-size: 0.83rem;
+}
+
+.round-history-actions .btn:disabled {
+  opacity: 0.62;
 }
 
 .round-history-replay {
-  margin-top: 8px;
+  margin-top: 10px;
   border: 1px solid #c5d7cb;
   border-radius: 12px;
-  padding: 9px 10px;
+  padding: 10px;
   background: radial-gradient(circle at 88% 10%, rgba(151, 203, 170, 0.2) 0%, rgba(151, 203, 170, 0) 46%), linear-gradient(180deg, #f7fcf9 0%, #edf6f1 100%);
   box-shadow: 0 7px 16px rgba(12, 40, 22, 0.08);
 }
@@ -3695,9 +3729,19 @@ input:focus, select:focus {
   .round-history-meta {
     font-size: 0.72rem;
   }
+  .round-history-action-group {
+    padding: 6px;
+  }
+  .round-history-export-actions {
+    grid-template-columns: 1fr;
+  }
+  .round-history-actions .btn {
+    min-height: 42px;
+    font-size: 0.82rem;
+  }
   .round-history-replay {
     padding: 9px;
-    margin-top: 8px;
+    margin-top: 10px;
   }
   .course-search-list {
     max-height: 260px;
