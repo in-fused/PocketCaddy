@@ -5,12 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>PocketCaddy</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="src/css/branding.css">
 </head>
 <body>
   <div class="app">
     <header class="card section app-header">
-      <h1>PocketCaddy</h1>
-      <p>Create, join, and score rounds in real time.</p>
+      <div class="app-brand-row">
+        <div id="app-logo-slot" class="app-logo-slot hidden" aria-hidden="true">
+          <img id="app-logo-image" class="app-logo-image" alt="">
+        </div>
+        <div class="app-brand-copy">
+          <h1 id="app-display-name">PocketCaddy</h1>
+          <p id="app-brand-subtitle">Create, join, and score rounds in real time.</p>
+        </div>
+      </div>
     </header>
 
     <main>
@@ -21,7 +29,7 @@
           <p id="home-tagline" class="home-tagline">Create a new round, join one already in play, or continue saved progress from this device.</p>
           <p id="home-next-action-note" class="home-next-action-note muted tiny">Next best action: Create a round to start scoring.</p>
           <section class="home-status-strip" aria-label="Dashboard status">
-            <h3 class="home-status-title">PocketCaddy Status</h3>
+            <h3 id="home-status-title" class="home-status-title">PocketCaddy Status</h3>
             <div class="home-status-grid">
               <article class="home-status-item">
                 <p class="home-status-label">Active Round</p>
@@ -452,6 +460,7 @@
   <script src="src/js/core/state.js"></script>
   <script src="src/js/core/roundLifecycle.js"></script>
   <script src="src/js/ui/render.js"></script>
+  <script src="src/js/ui/branding.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

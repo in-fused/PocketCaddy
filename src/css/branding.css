@@ -1,0 +1,149 @@
+:root {
+  --pc-accent: #1f7a3e;
+  --pc-accent-strong: #155f30;
+  --pc-accent-soft: #d9ecdf;
+  --pc-brand-surface: #f5faf6;
+  --pc-brand-ink: #17231a;
+  --brand: var(--pc-accent);
+  --brand-dark: var(--pc-accent-strong);
+  --focus-soft: var(--pc-accent-soft);
+  --focus-strong: var(--pc-accent-strong);
+}
+
+.app-header {
+  border-color: var(--pc-accent-soft);
+}
+
+.app-header h1 {
+  color: var(--pc-brand-ink);
+}
+
+.app-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-brand-copy {
+  min-width: 0;
+}
+
+.app-logo-slot {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid var(--pc-accent-soft);
+  background: linear-gradient(180deg, #ffffff 0%, var(--pc-brand-surface) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84), 0 2px 6px rgba(14, 37, 23, 0.12);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.app-logo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+#home-view {
+  background: radial-gradient(circle at 86% -10%, var(--pc-accent-soft) 0%, rgba(54, 138, 84, 0) 58%), linear-gradient(180deg, #f9fcfa 0%, #f2f7f4 100%);
+}
+
+#home-view::before {
+  background: radial-gradient(circle at center, var(--pc-accent-soft), rgba(26, 108, 57, 0));
+}
+
+#home-view::after {
+  background: radial-gradient(circle at center, var(--pc-accent-soft), rgba(45, 124, 73, 0));
+}
+
+#home-view > .card-sub::before {
+  background: linear-gradient(90deg, var(--pc-accent), var(--pc-accent-soft));
+}
+
+#home-view > .home-hero.card-sub {
+  background: radial-gradient(circle at 92% 12%, var(--pc-accent-soft) 0%, rgba(112, 191, 138, 0) 42%), linear-gradient(148deg, var(--pc-accent-strong) 0%, var(--pc-accent) 46%, var(--pc-accent) 100%);
+}
+
+.home-hero-actions .btn.home-secondary-focus {
+  background: linear-gradient(180deg, #f6faf7 0%, var(--pc-brand-surface) 100%);
+  border-color: var(--pc-accent-soft);
+}
+
+.home-hero-actions .btn.home-core-path {
+  border-color: var(--pc-accent-soft);
+}
+
+.home-hub-tab:hover,
+.home-hub-tab:focus-visible {
+  border-color: var(--pc-accent);
+}
+
+.home-hub-tab:focus-visible {
+  outline-color: var(--pc-accent-soft);
+}
+
+#home-view.home-mode-home .home-hub-tab[data-home-mode="home"],
+#home-view.home-mode-operations .home-hub-tab[data-home-mode="operations"],
+#home-view.home-mode-history .home-hub-tab[data-home-mode="history"],
+#home-view.home-mode-golf .home-hub-tab[data-home-mode="golf"] {
+  border-color: var(--pc-accent-strong);
+  background: linear-gradient(180deg, var(--pc-accent) 0%, var(--pc-accent-strong) 100%);
+}
+
+.btn-primary {
+  border-color: var(--brand-dark);
+}
+
+.btn:focus-visible {
+  outline-color: var(--pc-accent-soft);
+}
+
+.share-ready-note {
+  color: var(--pc-accent-strong);
+  border-color: var(--pc-accent-soft);
+  background: linear-gradient(180deg, #f9fcfa 0%, var(--pc-brand-surface) 100%);
+}
+
+.leaderboard-state-badge {
+  border-color: var(--pc-accent-soft);
+  background: linear-gradient(180deg, #f5fbf7 0%, var(--pc-brand-surface) 100%);
+  color: var(--pc-accent-strong);
+}
+
+.round-summary-panel {
+  border-color: var(--pc-accent-soft);
+  background: linear-gradient(180deg, #fbfefc 0%, var(--pc-brand-surface) 100%);
+}
+
+.round-summary-kicker,
+.round-share-kicker,
+.round-share-top3-label {
+  color: var(--pc-accent-strong);
+}
+
+.round-share-card {
+  border-color: var(--pc-accent-soft);
+  background: linear-gradient(160deg, #f8fdf9 0%, var(--pc-brand-surface) 45%, #fef8e6 100%);
+}
+
+.leader-row {
+  background: linear-gradient(180deg, #f8fef9 0%, var(--pc-accent-soft) 100%);
+  box-shadow: inset 4px 0 0 var(--pc-accent), inset 0 0 0 1px var(--pc-accent-soft), 0 3px 10px rgba(30, 98, 54, 0.18);
+}
+
+.leader-row td {
+  background-image: linear-gradient(180deg, rgba(248, 254, 249, 0.88) 0%, rgba(217, 236, 223, 0.36) 100%);
+}
+
+@media (max-width: 520px) {
+  .app-logo-slot {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+  }
+}
