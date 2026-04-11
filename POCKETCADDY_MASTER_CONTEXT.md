@@ -26,35 +26,18 @@ Any new session MUST:
 Every cycle must:
 
 1. Review the submitted/attached files first.
-2. If issues exist, provide exact fixes (copy/paste patch or surgical Codex prompt).
+2. If issues exist, provide exact fixes as a copy/paste-ready surgical Codex prompt.
 3. If clean, explicitly approve for commit.
-4. Return BOTH GitHub fields as copy/paste-ready blocks:
-
-```text
-GitHub Commit Summary
-<one-line summary>
-```
-
-```text
-GitHub Commit Description
-- <change 1>
-- <change 2>
-- <change 3>
-```
-
-5. Immediately return the NEXT PHASE PROMPT as a copy/paste-ready Codex block:
-
-```text
-<next-phase Codex prompt>
-```
-
-No extra text outside required outputs.
+4. Return BOTH GitHub fields as copy/paste-ready blocks.
+5. Immediately return the NEXT PHASE PROMPT as a copy/paste-ready block.
+6. NEVER make the user ask again for commit blocks or next phase prompt.
 
 ### 3. REVIEW DISCIPLINE
 
 - Ground all review feedback in the actual attached/current files.
 - Do not speculate about code that is not present.
 - Keep fixes surgical and regression-safe.
+- User commits directly to `main`, so approvals must be accurate.
 
 ### 4. CODING STYLE REQUIREMENTS
 
@@ -70,7 +53,7 @@ No extra text outside required outputs.
 
 - NO mock data.
 - If data is unavailable, UI must show `Unavailable`.
-- Integrations must stay real, lightweight, and free-tier friendly where possible.
+- Integrations must stay real, lightweight, and maintainable.
 
 ### 6. SESSION / STATE RULES
 
@@ -79,65 +62,107 @@ No extra text outside required outputs.
 - Never delete shared round data from a local-only action.
 - Always clean localStorage/session state to avoid ghost identities.
 
+### 7. COPY/PASTE BLOCK REQUIREMENT
+
+- ALL outputs must be single clean copy/paste blocks when requested.
+- No broken formatting.
+- No split outputs across multiple blocks when one is expected.
+- Codex prompts MUST be one continuous block.
+- Docs MUST be one continuous block.
+
 ---
 
 ## CURRENT PROJECT STATUS
 
 ### Completed Milestones (Compressed)
 
-- Realtime multiplayer scoring platform is live: create/join by link or ID, identity locking, live sync, per-hole entry, leaderboard, and tie-aware ranking.
-- Scoring intelligence is live: par-by-hole, relative-to-par scoring, birdie/eagle-style outcome detection, hole intelligence strip, and shot intelligence surfaces.
-- Course intelligence stack is live: searchable courses, metadata persistence, weather/wind display, static preview map, and Overpass enrichment (greens/bunkers/fairways/tees) with unavailable-state handling.
-- Home/hub system has been fully built and polished: hero + next-best-action framing, quick actions, create/join sections, saved-session card, resume/remove local session flow, and improved navigation clarity.
-- Local history and replay flow is live: completed round snapshots, player progression stats, expandable history rows, replay panel, and device-local history persistence limits.
-- Share system buildout is live: share link UX, native share integration when available, generated round results image card, save image flow, summary copy fallback, and completion gating.
-- Payout/pot controls and lock behavior are integrated into round flow and sync safely with scoring state.
+- Realtime multiplayer scoring (create/join/link/ID, live sync, leaderboard, ranking)
+- Scoring intelligence (par logic, relative scoring, outcomes, hole intel)
+- Course intelligence (search, weather, Overpass enrichment, map preview)
+- Local history + replay system
+- Share system (image generation, native share, fallback summary)
+- Payout + pot controls integrated
+
+### Home / Hub Status
+
+- Fully panel-based hub system implemented
+- Navigation unified in app.js
+- Inline navigation removed from index.html
+- No scrollIntoView or anchor-based navigation in hub
+- Modes:
+  - Home
+  - Operations
+  - History
+  - Golf
+
+Core flows preserved:
+- Create Round
+- Join Round
+- Resume Session
+- Remove local session
+- History + Replay
 
 ### Current UI/Product State
 
-- PocketCaddy now operates as a polished home-first app with a strong create/join/resume/history entry experience and a full live scoring workspace.
-- Original early-phase roadmap goals are largely implemented in production form.
-
-### Active Focus (Now)
-
-- Productization pass on the home/hub into a stronger dashboard/welcome screen while preserving existing core flows.
-- Continue tightening reliability and clarity in edge states (`Unavailable`, partial data, and fallback behavior) without regressions.
+- Home-first app with real hub navigation
+- Stable production-level scoring system
+- Dashboard direction actively evolving
 
 ---
 
-## NEXT PRIORITIES (REAL ORDER)
+## ACTIVE FOCUS
 
-1. Homepage/Hub Dashboard Productization
-- Elevate the current home hub into a true dashboard/welcome surface.
-- Improve hierarchy of "resume vs create vs join" decisions and contextual guidance.
-- Keep startup actions fast and obvious on iPhone first, desktop polished second.
+- Homepage / Hub dashboard productization
+- Operations panel structure refinement
+- UX clarity improvements without regression
+- Stability of all core flows
 
-2. Real Golf Content Surfaces
-- Add practical content entry points on the home/dashboard for golf relevance (graphics modules, useful links, articles, live tournament/livestream/news gateways).
-- Integrate only lightweight, maintainable, real-data sources; show `Unavailable` when feeds are missing.
-- Ensure content surfaces complement core round actions rather than distracting from them.
+---
 
-3. Core Flow Protection During Expansion
-- Preserve and continuously verify create/join/resume/history and live scoring integrity while dashboard/content work expands.
-- No regressions in identity handling, realtime sync, score accuracy, or share output.
+## NEXT PRIORITIES
 
-4. Targeted UX/Resilience Cleanup
-- Continue small, high-impact polish in feedback states, fallback messaging, and interaction speed.
-- Prioritize fixes that reduce user confusion and session friction.
+1. Homepage/Hub Dashboard Productization  
+- Strengthen dashboard feel and hierarchy  
+- Improve decision clarity (resume vs create vs join)  
 
-5. Deferred Structural Refactor (Still Deferred)
-- `POCKETCADDY_REFACTOR_PLAN.md` remains defined but not active.
-- Do not execute repo-wide refactor until explicitly triggered.
+2. Operations Panel Structure  
+- Separate:
+  - Start Round
+  - Continue
+  - Quick Actions  
+- Improve layout clarity without changing logic  
+
+3. Real Golf Content Surfaces  
+- Add real links/resources/modules  
+- Show `Unavailable` when no data  
+- Keep lightweight and maintainable  
+
+4. Core Flow Protection  
+- No regressions in:
+  - create/join/resume  
+  - scoring  
+  - realtime sync  
+  - identity  
+  - history/replay  
+
+5. UX / Resilience Polish  
+- Improve feedback states  
+- Reduce friction  
+- Clean edge cases  
+
+6. Deferred Refactor  
+- `POCKETCADDY_REFACTOR_PLAN.md` remains deferred  
+- DO NOT execute until explicitly triggered  
 
 ---
 
 ## UX PRINCIPLES
 
-- Fast over fancy.
-- Clear over clever.
-- Real data over fake data.
-- Mobile first always.
-- Desktop is enhancement, not a separate product.
+- Fast over fancy  
+- Clear over clever  
+- Real data over fake data  
+- Mobile first  
+- App-like navigation, not webpage behavior  
 
 ---
 
@@ -145,14 +170,14 @@ No extra text outside required outputs.
 
 PocketCaddy must always:
 
-- Work on iPhone reliably.
-- Keep create/join/resume/history flows unbroken.
-- Keep live scoring and leaderboard flows unbroken.
-- Have no dead buttons.
-- Use no mock data.
-- Preserve realtime integrity.
-- Preserve identity integrity.
-- Preserve score accuracy.
+- Work on iPhone reliably  
+- Keep all flows unbroken  
+- Have no dead buttons  
+- Use no mock data  
+- Preserve realtime integrity  
+- Preserve identity integrity  
+- Preserve score accuracy  
+- Preserve hub navigation system  
 
 ---
 
@@ -160,13 +185,26 @@ PocketCaddy must always:
 
 When a new session begins:
 
-1. User provides this document.
-2. Assistant confirms understanding, summarizes current state, and identifies active focus.
-3. User says `continue`.
-4. Assistant returns `NEXT PHASE PROMPT` only (copy/paste-ready).
+1. User provides this document  
+2. Assistant confirms understanding  
+3. Assistant summarizes:
+   - current state  
+   - active focus  
+   - refactor status (must say deferred)  
+4. User says `continue`  
+5. Assistant returns NEXT PHASE PROMPT only (single block)  
 
-No deviation.
+NO deviation.
 
 ---
 
 ## END
+
+
+GitHub Commit Summary
+Docs: Update master context for unified hub navigation and current priorities
+
+GitHub Commit Description
+- Updated master context to reflect panel-based home hub system and unified navigation
+- Added current product state, active focus, and operations panel priority
+- Enforced strict single-block output formatting and workflow rules
