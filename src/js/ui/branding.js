@@ -1,6 +1,8 @@
 (function () {
   "use strict";
 
+  const BRANDING_UPDATE_EVENT = "pocketcaddy:branding-update";
+
   const DEFAULT_BRANDING = Object.freeze({
     displayName: "PocketCaddy",
     subtitle: "Create, join, and score rounds in real time.",
@@ -12,7 +14,15 @@
     inkColor: "#17231a"
   });
 
-  function getBrandingSource() {
+  const state = {
+    runtimeBranding: null
+  };
+
+  function isObject(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function getBaseBrandingSource() {
     const projectConfig = window.PocketCaddyProjectConfig;
     if (projectConfig && typeof projectConfig === "object" && projectConfig.branding && typeof projectConfig.branding === "object") {
       return projectConfig.branding;
@@ -26,6 +36,14 @@
       return direct;
     }
     return null;
+  }
+
+  function getBrandingSource() {
+    const base = getBaseBrandingSource();
+    if (!state.runtimeBranding || !Object.keys(state.runtimeBranding).length) {
+      return base;
+    }
+    return Object.assign({}, base || {}, state.runtimeBranding);
   }
 
   function normalizeText(value, fallback) {
@@ -180,6 +198,50 @@
     return `rgba(${clampChannel(rgb.r)}, ${clampChannel(rgb.g)}, ${clampChannel(rgb.b)}, ${safeAlpha})`;
   }
 
+  function sanitizeRuntimeBranding(input) {
+    if (!isObject(input)) return {};
+    const next = {};
+
+    if (Object.prototype.hasOwnProperty.call(input, "displayName")) {
+      next.displayName = String(input.displayName == null ? "" : input.displayName);
+    }
+    if (Object.prototype.hasOwnProperty.call(input, "subtitle")) {
+      next.subtitle = String(input.subtitle == null ? "" : input.subtitle);
+    }
+    if (Object.prototype.hasOwnProperty.call(input, "logoPath")) {
+      next.logoPath = String(input.logoPath == null ? "" : input.logoPath).trim();
+    }
+
+    const accentCandidate = Object.prototype.hasOwnProperty.call(input, "accentColor")
+      ? input.accentColor
+      : (Object.prototype.hasOwnProperty.call(input, "accent") ? input.accent : input.brandColor);
+    if (isValidCssColor(accentCandidate)) {
+      next.accentColor = String(accentCandidate).trim();
+    }
+
+    if (isValidCssColor(input.accentStrongColor)) {
+      next.accentStrongColor = String(input.accentStrongColor).trim();
+    } else if (isValidCssColor(input.brandStrongColor)) {
+      next.accentStrongColor = String(input.brandStrongColor).trim();
+    }
+
+    if (isValidCssColor(input.accentSoftColor)) {
+      next.accentSoftColor = String(input.accentSoftColor).trim();
+    } else if (isValidCssColor(input.brandSoftColor)) {
+      next.accentSoftColor = String(input.brandSoftColor).trim();
+    }
+
+    if (isValidCssColor(input.surfaceTint)) {
+      next.surfaceTint = String(input.surfaceTint).trim();
+    }
+
+    if (isValidCssColor(input.inkColor)) {
+      next.inkColor = String(input.inkColor).trim();
+    }
+
+    return next;
+  }
+
   function resolveBranding() {
     const source = getBrandingSource();
     const displayName = normalizeText(source && source.displayName, DEFAULT_BRANDING.displayName);
@@ -235,7 +297,7 @@
       root.style.setProperty("--pc-brand-surface", branding.surfaceTint || DEFAULT_BRANDING.surfaceTint);
       root.style.setProperty("--pc-brand-ink", branding.inkColor || DEFAULT_BRANDING.inkColor);
       root.style.setProperty("--pc-brand-logo-url", "none");
-      root.classList.toggle("pc-has-logo", Boolean(branding.logoPath));
+      root.classList.remove("pc-has-logo");
     }
 
     const displayNameNode = document.getElementById("app-display-name");
@@ -256,34 +318,62 @@
 
     const logoSlot = document.getElementById("app-logo-slot");
     const logoImage = document.getElementById("app-logo-image");
-    if (!logoSlot || !logoImage) return;
+    if (!logoSlot || !logoImage) return branding;
 
     if (!branding.logoPath) {
+      logoImage.onload = null;
+      logoImage.onerror = null;
       logoImage.removeAttribute("src");
       logoImage.alt = "";
       logoSlot.classList.add("hidden");
       if (root && root.classList) root.classList.remove("pc-has-logo");
-      return;
+      return branding;
     }
 
     logoImage.alt = `${branding.displayName || DEFAULT_BRANDING.displayName} logo`;
-    logoImage.addEventListener("error", () => {
+    logoImage.onerror = () => {
       logoImage.removeAttribute("src");
       logoImage.alt = "";
       logoSlot.classList.add("hidden");
       if (root && root.style) root.style.setProperty("--pc-brand-logo-url", "none");
       if (root && root.classList) root.classList.remove("pc-has-logo");
-    }, { once: true });
+    };
+    logoImage.onload = () => {
+      if (root && root.classList) root.classList.add("pc-has-logo");
+    };
     if (root && root.style) {
       root.style.setProperty("--pc-brand-logo-url", `url("${escapeForCssUrl(branding.logoPath)}")`);
+      root.classList.add("pc-has-logo");
     }
     logoImage.src = branding.logoPath;
     logoSlot.classList.remove("hidden");
+    return branding;
+  }
+
+  function updateBranding(newBranding) {
+    state.runtimeBranding = sanitizeRuntimeBranding(newBranding);
+    return applyBranding();
+  }
+
+  function onBrandingUpdateEvent(event) {
+    const payload = event && isObject(event.detail) ? event.detail : {};
+    updateBranding(payload);
+  }
+
+  window.PocketCaddyBrandingAPI = {
+    applyBranding: applyBranding,
+    updateBranding: updateBranding
+  };
+
+  window.addEventListener(BRANDING_UPDATE_EVENT, onBrandingUpdateEvent);
+
+  function initializeBranding() {
+    applyBranding();
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", applyBranding, { once: true });
+    document.addEventListener("DOMContentLoaded", initializeBranding, { once: true });
   } else {
-    applyBranding();
+    initializeBranding();
   }
 })();

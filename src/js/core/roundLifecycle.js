@@ -1,6 +1,38 @@
 (function () {
+  function isObject(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function extractSessionBranding(round) {
+    if (!isObject(round)) return null;
+    const candidates = [
+      round.sessionBranding,
+      round.session_branding,
+      round.branding,
+      round.branding_payload,
+      round.brandingPayload,
+      isObject(round.metadata) ? round.metadata.branding : null,
+      isObject(round.sessionMetadata) ? round.sessionMetadata.branding : null,
+      isObject(round.session_metadata) ? round.session_metadata.branding : null
+    ];
+    for (let i = 0; i < candidates.length; i += 1) {
+      if (isObject(candidates[i])) return candidates[i];
+    }
+    return null;
+  }
+
+  function applySessionBrandingIfAvailable(deps) {
+    if (!deps || !deps.state || !deps.state.round) return;
+    const api = window.PocketCaddyBrandingAPI;
+    if (!api || typeof api.updateBranding !== "function") return;
+    const branding = extractSessionBranding(deps.state.round);
+    if (!branding) return;
+    api.updateBranding(branding);
+  }
+
   async function joinRoundById(roundId, deps) {
     await deps.loadRound(roundId);
+    applySessionBrandingIfAvailable(deps);
     deps.saveSession({ roundId: roundId });
     deps.updateUrlRoundParam(roundId);
     deps.showView("score");
