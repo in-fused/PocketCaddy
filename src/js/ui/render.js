@@ -1,6 +1,305 @@
 (function () {
   "use strict";
 
+  function toExportText(value) {
+    const text = value == null ? "" : String(value).trim();
+    return text || "Unavailable";
+  }
+
+  function toExportNumberOrFallback(value) {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : "Unavailable";
+  }
+
+  function inferHoleCount(roundEntry) {
+    const declared = Number(roundEntry && roundEntry.holes);
+    if (Number.isInteger(declared) && declared > 0) return declared;
+    const scoreRows = Array.isArray(roundEntry && roundEntry.scores) ? roundEntry.scores : [];
+    const standings = Array.isArray(roundEntry && roundEntry.standings) ? roundEntry.standings : [];
+    let longest = 0;
+    scoreRows.forEach((row) => {
+      const length = Array.isArray(row && row.holeScores) ? row.holeScores.length : 0;
+      if (length > longest) longest = length;
+    });
+    standings.forEach((row) => {
+      const length = Array.isArray(row && row.holeScores) ? row.holeScores.length : 0;
+      if (length > longest) longest = length;
+    });
+    return longest > 0 ? longest : 18;
+  }
+
+  function getStandingsRankValue(row, index) {
+    const rawRank = row && row.rank != null ? String(row.rank).trim() : "";
+    if (!rawRank || rawRank === "-") return String(index + 1);
+    return rawRank;
+  }
+
+  function normalizeWinners(roundEntry, standings) {
+    const winnerNames = Array.isArray(roundEntry && roundEntry.winnerNames)
+      ? roundEntry.winnerNames.map((name) => String(name || "").trim()).filter(Boolean)
+      : [];
+    if (winnerNames.length) return winnerNames;
+
+    const winnerIds = new Set(Array.isArray(roundEntry && roundEntry.winnerIds)
+      ? roundEntry.winnerIds.map((id) => String(id || "").trim()).filter(Boolean)
+      : []);
+    if (winnerIds.size) {
+      const byId = standings
+        .filter((row) => winnerIds.has(String(row.playerId)))
+        .map((row) => row.playerName);
+      if (byId.length) return byId;
+    }
+
+    const numericTotals = standings
+      .map((row) => ({ name: row.playerName, total: Number(row.total) }))
+      .filter((row) => Number.isFinite(row.total));
+    if (!numericTotals.length) return ["Unavailable"];
+    const best = Math.min(...numericTotals.map((row) => row.total));
+    const derived = numericTotals.filter((row) => row.total === best).map((row) => row.name);
+    return derived.length ? derived : ["Unavailable"];
+  }
+
+  function buildRoundExportData(roundEntry) {
+    const entry = roundEntry || {};
+    const holeCount = inferHoleCount(entry);
+    const players = Array.isArray(entry.players) ? entry.players : [];
+    const scores = Array.isArray(entry.scores) ? entry.scores : [];
+    const standingsSource = Array.isArray(entry.standings) ? entry.standings : [];
+
+    const playerRows = players.map((player, index) => ({
+      playerId: toExportText(player && player.id ? player.id : `player-${index + 1}`),
+      playerName: toExportText(player && player.name)
+    }));
+
+    const scoreRowsById = new Map();
+    scores.forEach((scoreRow, index) => {
+      const playerId = toExportText(scoreRow && scoreRow.playerId ? scoreRow.playerId : `score-${index + 1}`);
+      const sourceScores = Array.isArray(scoreRow && scoreRow.holeScores) ? scoreRow.holeScores : [];
+      const holeScores = [];
+      for (let hole = 1; hole <= holeCount; hole += 1) {
+        const value = sourceScores[hole - 1];
+        holeScores.push({
+          hole: hole,
+          score: Number.isFinite(Number(value)) ? Number(value) : "Unavailable"
+        });
+      }
+      scoreRowsById.set(playerId, {
+        playerId: playerId,
+        playerName: toExportText(scoreRow && scoreRow.playerName),
+        holeScores: holeScores
+      });
+    });
+
+    const standingsRows = standingsSource.map((row, index) => {
+      const playerId = toExportText(row && row.id ? row.id : `standing-${index + 1}`);
+      return {
+        rank: getStandingsRankValue(row, index),
+        playerId: playerId,
+        playerName: toExportText(row && row.name),
+        total: toExportNumberOrFallback(row && row.total),
+        front9: toExportNumberOrFallback(row && row.front),
+        back9: toExportNumberOrFallback(row && row.back),
+        relativeToPar: toExportNumberOrFallback(row && row.relative)
+      };
+    });
+
+    const standingIds = new Set(standingsRows.map((row) => row.playerId));
+    standingsRows.forEach((row) => {
+      if (!scoreRowsById.has(row.playerId)) {
+        const standingSource = standingsSource.find((standing) => toExportText(standing && standing.id) === row.playerId) || null;
+        const sourceScores = Array.isArray(standingSource && standingSource.holeScores) ? standingSource.holeScores : [];
+        const holeScores = [];
+        for (let hole = 1; hole <= holeCount; hole += 1) {
+          const value = sourceScores[hole - 1];
+          holeScores.push({
+            hole: hole,
+            score: Number.isFinite(Number(value)) ? Number(value) : "Unavailable"
+          });
+        }
+        scoreRowsById.set(row.playerId, {
+          playerId: row.playerId,
+          playerName: row.playerName,
+          holeScores: holeScores
+        });
+      }
+    });
+
+    playerRows.forEach((row) => {
+      if (!scoreRowsById.has(row.playerId)) {
+        const holeScores = [];
+        for (let hole = 1; hole <= holeCount; hole += 1) {
+          holeScores.push({ hole: hole, score: "Unavailable" });
+        }
+        scoreRowsById.set(row.playerId, {
+          playerId: row.playerId,
+          playerName: row.playerName,
+          holeScores: holeScores
+        });
+      }
+    });
+
+    scoreRowsById.forEach((scoreRow, playerId) => {
+      if (!playerRows.find((player) => player.playerId === playerId)) {
+        playerRows.push({
+          playerId: playerId,
+          playerName: toExportText(scoreRow.playerName)
+        });
+      }
+    });
+
+    const totalsRows = playerRows.map((player) => {
+      const standing = standingsRows.find((row) => row.playerId === player.playerId);
+      const scoreRow = scoreRowsById.get(player.playerId);
+      const numericScores = scoreRow
+        ? scoreRow.holeScores.map((hole) => Number(hole.score)).filter((value) => Number.isFinite(value))
+        : [];
+      const computedTotal = numericScores.length ? numericScores.reduce((sum, value) => sum + value, 0) : "Unavailable";
+      const frontCutoff = Math.min(9, holeCount);
+      const computedFrontScores = scoreRow
+        ? scoreRow.holeScores
+            .slice(0, frontCutoff)
+            .map((hole) => Number(hole.score))
+            .filter((value) => Number.isFinite(value))
+        : [];
+      const computedBackScores = scoreRow
+        ? scoreRow.holeScores
+            .slice(frontCutoff, holeCount)
+            .map((hole) => Number(hole.score))
+            .filter((value) => Number.isFinite(value))
+        : [];
+      return {
+        playerId: player.playerId,
+        playerName: player.playerName,
+        front9: standing ? standing.front9 : (computedFrontScores.length ? computedFrontScores.reduce((sum, value) => sum + value, 0) : "Unavailable"),
+        back9: standing ? standing.back9 : (computedBackScores.length ? computedBackScores.reduce((sum, value) => sum + value, 0) : "Unavailable"),
+        total: standing ? standing.total : computedTotal,
+        relativeToPar: standing ? standing.relativeToPar : "Unavailable"
+      };
+    });
+
+    const winners = normalizeWinners(entry, standingsRows);
+    const winnerLabel = toExportText(entry && entry.winnerLabel ? entry.winnerLabel : (winners.length > 1 ? "Winners" : "Winner"));
+
+    return {
+      roundId: toExportText(entry && entry.roundId),
+      roundName: toExportText(entry && entry.roundName),
+      courseName: toExportText(entry && entry.courseName),
+      date: toExportText(entry && entry.date),
+      players: playerRows,
+      perHoleScores: playerRows.map((player) => {
+        const scoresByPlayer = scoreRowsById.get(player.playerId);
+        return {
+          playerId: player.playerId,
+          playerName: player.playerName,
+          holeScores: scoresByPlayer
+            ? scoresByPlayer.holeScores
+            : Array.from({ length: holeCount }, (_, index) => ({ hole: index + 1, score: "Unavailable" }))
+        };
+      }),
+      totals: totalsRows,
+      standings: playerRows.map((player, index) => {
+        const standing = standingsRows.find((row) => row.playerId === player.playerId);
+        return {
+          rank: standing ? standing.rank : String(index + 1),
+          playerId: player.playerId,
+          playerName: player.playerName,
+          total: standing ? standing.total : "Unavailable",
+          relativeToPar: standing ? standing.relativeToPar : "Unavailable"
+        };
+      }),
+      winners: {
+        label: winnerLabel,
+        names: winners.length ? winners : ["Unavailable"]
+      }
+    };
+  }
+
+  function downloadBlob(filename, content, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.style.display = "none";
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 0);
+  }
+
+  function escapeCsvCell(value) {
+    const text = value == null ? "" : String(value);
+    const escaped = text.replace(/"/g, "\"\"");
+    return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
+  }
+
+  function downloadRoundAsJSON(roundEntry) {
+    const payload = buildRoundExportData(roundEntry);
+    const roundId = toExportText(payload.roundId);
+    const filename = `pocketcaddy-round-${roundId}.json`;
+    const content = JSON.stringify(payload, null, 2);
+    downloadBlob(filename, content, "application/json;charset=utf-8");
+  }
+
+  function downloadRoundAsCSV(roundEntry) {
+    const payload = buildRoundExportData(roundEntry);
+    const roundId = toExportText(payload.roundId);
+    const filename = `pocketcaddy-round-${roundId}.csv`;
+    const holeCount = payload.perHoleScores.reduce((max, row) => {
+      const count = Array.isArray(row && row.holeScores) ? row.holeScores.length : 0;
+      return count > max ? count : max;
+    }, 0);
+    const headers = [
+      "Round ID",
+      "Round Name",
+      "Course Name",
+      "Date",
+      "Player ID",
+      "Player Name",
+      "Rank"
+    ];
+    for (let hole = 1; hole <= holeCount; hole += 1) {
+      headers.push(`Hole ${hole}`);
+    }
+    headers.push("Front 9");
+    headers.push("Back 9");
+    headers.push("Total");
+    headers.push("Relative To Par");
+    headers.push("Winner");
+
+    const rows = [headers];
+    payload.players.forEach((player) => {
+      const standing = payload.standings.find((row) => row.playerId === player.playerId) || null;
+      const totals = payload.totals.find((row) => row.playerId === player.playerId) || null;
+      const scoreRow = payload.perHoleScores.find((row) => row.playerId === player.playerId) || null;
+      const winnerSet = new Set(Array.isArray(payload.winners && payload.winners.names) ? payload.winners.names : []);
+      const row = [
+        payload.roundId,
+        payload.roundName,
+        payload.courseName,
+        payload.date,
+        player.playerId,
+        player.playerName,
+        standing ? standing.rank : "Unavailable"
+      ];
+      for (let hole = 1; hole <= holeCount; hole += 1) {
+        const holeCell = scoreRow && Array.isArray(scoreRow.holeScores) ? scoreRow.holeScores[hole - 1] : null;
+        row.push(holeCell && holeCell.score != null ? holeCell.score : "Unavailable");
+      }
+      row.push(totals ? totals.front9 : "Unavailable");
+      row.push(totals ? totals.back9 : "Unavailable");
+      row.push(totals ? totals.total : "Unavailable");
+      row.push(totals ? totals.relativeToPar : "Unavailable");
+      row.push(winnerSet.has(player.playerName) ? "Yes" : "No");
+      rows.push(row);
+    });
+
+    const csv = rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
+    downloadBlob(filename, csv, "text/csv;charset=utf-8");
+  }
+
   function showError(options) {
     const opts = options || {};
     const node = opts.node;
@@ -297,7 +596,32 @@
     const buildRoundSummaryPanelMarkup = opts.buildRoundSummaryPanelMarkup;
     if (!historyList || !statsWrap || !replayWrap || !state) return;
 
-    const history = capRoundHistory(Array.isArray(state.roundHistory) ? state.roundHistory : []);
+    const capHistory = typeof capRoundHistory === "function"
+      ? capRoundHistory
+      : (items) => (Array.isArray(items) ? items : []);
+    const computeStats = typeof computePlayerProgressionStats === "function"
+      ? computePlayerProgressionStats
+      : () => [];
+    const winnerResolver = typeof getWinnerNamesFromHistory === "function"
+      ? getWinnerNamesFromHistory
+      : () => [];
+    const historyDateFormatter = typeof formatHistoryDate === "function"
+      ? formatHistoryDate
+      : () => "Unavailable";
+    const htmlEscaper = typeof escapeHtml === "function"
+      ? escapeHtml
+      : (value) => String(value == null ? "" : value);
+    const decimalFormatter = typeof formatDecimal === "function"
+      ? formatDecimal
+      : (value) => String(value == null ? "-" : value);
+    const completionBuilder = typeof buildCompletionFromHistoryEntry === "function"
+      ? buildCompletionFromHistoryEntry
+      : () => null;
+    const summaryPanelBuilder = typeof buildRoundSummaryPanelMarkup === "function"
+      ? buildRoundSummaryPanelMarkup
+      : () => "";
+
+    const history = capHistory(Array.isArray(state.roundHistory) ? state.roundHistory : []);
     state.roundHistory = history;
 
     if (!history.length) {
@@ -308,7 +632,7 @@
       return;
     }
 
-    const stats = computePlayerProgressionStats(history);
+    const stats = computeStats(history);
     if (!stats.length) {
       statsWrap.innerHTML = '<p class="muted tiny round-history-empty-state">No player trends available for these saved rounds yet.</p>';
     } else {
@@ -316,10 +640,10 @@
         const avgScore = item.scoredRounds > 0 ? (item.scoreSum / item.scoredRounds) : null;
         return `
           <div class="progression-chip">
-            <p class="progression-name">${escapeHtml(item.name)}</p>
+            <p class="progression-name">${htmlEscaper(item.name)}</p>
             <p class="progression-metric">Rounds ${item.roundsPlayed}</p>
             <p class="progression-metric">Wins ${item.wins}</p>
-            <p class="progression-metric">Avg ${avgScore == null ? "-" : formatDecimal(avgScore, 1)}</p>
+            <p class="progression-metric">Avg ${avgScore == null ? "-" : decimalFormatter(avgScore, 1)}</p>
             <p class="progression-metric">Best ${item.bestRound == null ? "-" : item.bestRound}</p>
           </div>
         `;
@@ -330,12 +654,12 @@
       const roundId = String(entry.roundId);
       const isExpanded = String(state.roundHistoryExpandedRoundId) === roundId;
       const isReplay = String(state.roundHistoryReplayRoundId) === roundId;
-      const winnerNames = getWinnerNamesFromHistory(entry);
-      const winnerText = winnerNames.length ? winnerNames.map((name) => escapeHtml(name)).join(", ") : "-";
+      const winnerNames = winnerResolver(entry);
+      const winnerText = winnerNames.length ? winnerNames.map((name) => htmlEscaper(name)).join(", ") : "-";
       const summaryMeta = [
-        entry.roundName ? escapeHtml(entry.roundName) : null,
-        entry.courseName ? escapeHtml(entry.courseName) : null,
-        entry.tee ? `Tee ${escapeHtml(entry.tee)}` : null,
+        entry.roundName ? htmlEscaper(entry.roundName) : null,
+        entry.courseName ? htmlEscaper(entry.courseName) : null,
+        entry.tee ? `Tee ${htmlEscaper(entry.tee)}` : null,
         entry.holes ? `${entry.holes} holes` : null
       ].filter(Boolean).join(" • ");
       return `
@@ -344,10 +668,10 @@
             type="button"
             class="round-history-toggle"
             data-action="toggle-history-row"
-            data-round-id="${escapeHtml(roundId)}"
+            data-round-id="${htmlEscaper(roundId)}"
             aria-expanded="${isExpanded ? "true" : "false"}">
-            <span class="round-history-date">${escapeHtml(formatHistoryDate(entry.date))}</span>
-            <span class="round-history-winner">${escapeHtml(entry.winnerLabel || "Winner")}: ${winnerText}</span>
+            <span class="round-history-date">${htmlEscaper(historyDateFormatter(entry.date))}</span>
+            <span class="round-history-winner">${htmlEscaper(entry.winnerLabel || "Winner")}: ${winnerText}</span>
           </button>
           <div class="round-history-detail ${isExpanded ? "" : "hidden"}">
             <p class="round-history-meta">${summaryMeta || "Round summary unavailable"}</p>
@@ -356,12 +680,46 @@
                 type="button"
                 class="btn btn-secondary"
                 data-action="replay-history-round"
-                data-round-id="${escapeHtml(roundId)}">${isReplay ? "Hide Replay" : "View Replay"}</button>
+                data-round-id="${htmlEscaper(roundId)}">${isReplay ? "Hide Replay" : "View Replay"}</button>
+              <button
+                type="button"
+                class="btn btn-secondary round-history-export-btn"
+                data-action="export-history-json"
+                data-round-id="${htmlEscaper(roundId)}">Export JSON</button>
+              <button
+                type="button"
+                class="btn btn-secondary round-history-export-btn"
+                data-action="export-history-csv"
+                data-round-id="${htmlEscaper(roundId)}">Export CSV</button>
             </div>
           </div>
         </article>
       `;
     }).join("");
+
+    historyList.querySelectorAll("[data-action='export-history-json']").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const roundId = btn.getAttribute("data-round-id");
+        if (!roundId) return;
+        const roundEntry = history.find((entry) => String(entry.roundId) === String(roundId));
+        if (!roundEntry) return;
+        downloadRoundAsJSON(roundEntry);
+      });
+    });
+
+    historyList.querySelectorAll("[data-action='export-history-csv']").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const roundId = btn.getAttribute("data-round-id");
+        if (!roundId) return;
+        const roundEntry = history.find((entry) => String(entry.roundId) === String(roundId));
+        if (!roundEntry) return;
+        downloadRoundAsCSV(roundEntry);
+      });
+    });
 
     const replayEntry = history.find((entry) => String(entry.roundId) === String(state.roundHistoryReplayRoundId));
     if (!replayEntry) {
@@ -369,7 +727,7 @@
       replayWrap.innerHTML = '<p class="muted tiny round-history-replay-empty">No replay selected. Choose "View Replay" on a saved round.</p>';
       return;
     }
-    const replayCompletion = buildCompletionFromHistoryEntry(replayEntry);
+    const replayCompletion = completionBuilder(replayEntry);
     if (!replayCompletion) {
       replayWrap.classList.remove("hidden");
       replayWrap.innerHTML = '<p class="muted tiny round-history-replay-empty">Replay unavailable for this round.</p>';
@@ -382,9 +740,9 @@
         <span class="round-history-context-pill replay">Replayed Round</span>
         <span class="round-history-context-pill live">Live Round Above</span>
       </div>
-      <p class="muted tiny">${escapeHtml(formatHistoryDate(replayEntry.date))} • ${escapeHtml(replayEntry.roundName || "Round")}</p>
+      <p class="muted tiny">${htmlEscaper(historyDateFormatter(replayEntry.date))} • ${htmlEscaper(replayEntry.roundName || "Round")}</p>
       <div class="round-summary-panel complete round-summary-replay-panel">
-        ${buildRoundSummaryPanelMarkup(replayCompletion, {
+        ${summaryPanelBuilder(replayCompletion, {
           expandedPlayerId: state.roundSummaryReplayExpandedPlayerId,
           interactive: true
         })}
@@ -635,6 +993,9 @@
     renderSelectedCourseCard,
     setCourseSearchStatus,
     updateUIStatus,
+    buildRoundExportData,
+    downloadRoundAsJSON,
+    downloadRoundAsCSV,
     showError,
     showFeedback
   };
