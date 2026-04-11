@@ -5,190 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>PocketCaddy</title>
   <link rel="stylesheet" href="styles.css">
-  <style>
-    #home-view > .home-hero.card-sub {
-      margin-top: 0;
-      padding: 17px 15px 15px;
-      border-color: #a9c4b0;
-      background: radial-gradient(circle at 92% 12%, rgba(112, 191, 138, 0.26), rgba(112, 191, 138, 0) 42%), linear-gradient(148deg, #1a5c33 0%, #215f38 46%, #2b7546 100%);
-      box-shadow: 0 16px 32px rgba(12, 44, 24, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.18);
-      isolation: isolate;
-      animation: heroAmbientDrift 16s ease-in-out infinite alternate;
-    }
-    #home-view > .home-hero.card-sub::before {
-      background: linear-gradient(90deg, rgba(225, 246, 234, 0.9), rgba(225, 246, 234, 0.2));
-    }
-    #home-view > .home-hero.card-sub::after {
-      content: "";
-      position: absolute;
-      right: -26px;
-      top: -18px;
-      width: 180px;
-      height: 180px;
-      border-radius: 50%;
-      background: radial-gradient(circle at center, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0));
-      z-index: 0;
-      opacity: 0.56;
-      pointer-events: none;
-    }
-    #home-view > .home-hero.card-sub > * {
-      position: relative;
-      z-index: 1;
-    }
-    .home-continuity {
-      border-color: #b9cfbf;
-      background: linear-gradient(180deg, #fbfefc 0%, #eef7f1 100%);
-      display: grid;
-      gap: 8px;
-    }
-    .home-continuity-grid {
-      display: grid;
-      gap: 7px;
-    }
-    .continuity-tile {
-      border: 1px solid #ccdcd1;
-      border-radius: 11px;
-      padding: 8px 9px;
-      background: linear-gradient(180deg, #ffffff 0%, #f6fbf8 100%);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    }
-    .continuity-label {
-      margin: 0;
-      font-size: 0.72rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #2f5f44;
-      font-weight: 800;
-    }
-    .continuity-text {
-      margin-top: 4px;
-      font-size: 0.82rem;
-      color: #264637;
-      line-height: 1.35;
-    }
-    .home-continuity-actions {
-      margin-top: 0;
-    }
-    .home-continuity-actions .btn {
-      min-height: 38px;
-      padding: 8px 12px;
-      font-size: 0.84rem;
-      text-decoration: none;
-    }
-    .home-golf-dashboard {
-      border-color: #b6cdbd;
-      background: radial-gradient(circle at 88% 12%, rgba(167, 213, 184, 0.2) 0%, rgba(167, 213, 184, 0) 44%), linear-gradient(180deg, #fbfefc 0%, #edf7f1 100%);
-      display: grid;
-      gap: 9px;
-    }
-    .golf-dashboard-status-grid {
-      display: grid;
-      gap: 7px;
-    }
-    .golf-status-card {
-      border: 1px solid #c8d9ce;
-      border-radius: 11px;
-      padding: 8px 9px;
-      background: linear-gradient(180deg, #ffffff 0%, #f6fbf8 100%);
-      box-shadow: 0 4px 10px rgba(12, 38, 22, 0.05);
-    }
-    .golf-status-kicker {
-      margin: 0;
-      font-size: 0.7rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #315f46;
-      font-weight: 800;
-    }
-    .golf-status-value {
-      margin-top: 3px;
-      font-size: 0.9rem;
-      color: #173728;
-      font-weight: 800;
-    }
-    .golf-resource-links h4 {
-      margin: 0;
-      font-size: 0.9rem;
-      color: #1f432f;
-    }
-    .golf-link-grid {
-      margin-top: 6px;
-      display: grid;
-      gap: 7px;
-    }
-    .golf-link-tile {
-      border: 1px solid #c7d9cd;
-      border-radius: 11px;
-      padding: 8px 9px;
-      background: linear-gradient(180deg, #ffffff 0%, #f5faf7 100%);
-      text-decoration: none;
-      color: inherit;
-      box-shadow: 0 4px 10px rgba(12, 37, 21, 0.05);
-      transition: transform 140ms ease, box-shadow 160ms ease, border-color 140ms ease;
-    }
-    .golf-link-tile:hover,
-    .golf-link-tile:focus-visible {
-      transform: translateY(-1px);
-      border-color: #a6c2af;
-      box-shadow: 0 9px 16px rgba(14, 44, 25, 0.1);
-    }
-    .golf-link-title {
-      margin: 0;
-      font-size: 0.78rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: #265039;
-      font-weight: 800;
-    }
-    .golf-link-copy {
-      margin-top: 4px;
-      font-size: 0.8rem;
-      color: #355646;
-      line-height: 1.35;
-    }
-    @media (max-width: 560px) {
-      .golf-status-value {
-        font-size: 0.86rem;
-      }
-      .golf-link-title {
-        font-size: 0.74rem;
-      }
-      .golf-link-copy,
-      .continuity-text {
-        font-size: 0.78rem;
-      }
-    }
-    @media (min-width: 760px) {
-      #home-view .home-continuity {
-        grid-column: 1 / 8;
-        align-self: start;
-      }
-      #home-view .home-golf-dashboard {
-        grid-column: 8 / -1;
-        align-self: start;
-      }
-      #home-view .home-quick {
-        grid-column: 1 / -1;
-      }
-      .home-continuity-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-      .golf-link-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-    @media (min-width: 1024px) {
-      #home-view .home-continuity {
-        grid-column: 1 / 9;
-      }
-      #home-view .home-golf-dashboard {
-        grid-column: 9 / -1;
-      }
-      #home-view .home-quick {
-        grid-column: 1 / -1;
-      }
-    }
-  </style>
 </head>
 <body>
   <div class="app">
@@ -202,12 +18,13 @@
         <section class="home-hero card-sub">
           <p class="home-kicker">Dashboard</p>
           <h2 id="home-title" class="home-title">Start or Rejoin a Round</h2>
-          <p id="home-tagline" class="home-tagline">Create a new round, join an existing one, or continue saved progress from this device.</p>
+          <p id="home-tagline" class="home-tagline">Create a new round, join one already in play, or continue saved progress from this device.</p>
           <p id="home-next-action-note" class="home-next-action-note muted tiny">Next best action: Create a round to start scoring.</p>
           <div class="actions home-hero-actions">
             <button id="hub-create-btn" class="btn btn-primary" type="button">Create Round</button>
             <button id="hub-join-btn" class="btn btn-secondary" type="button">Join Round</button>
           </div>
+          <p class="home-hero-guidance muted tiny">Use continuity and quick actions below to resume, review history, or jump into a new scorecard.</p>
         </section>
 
         <section id="home-saved-session-card" class="home-saved-session card-sub hidden">
@@ -225,10 +42,10 @@
           <p class="muted tiny home-saved-session-note">Removing this only clears saved progress on this device. Shared round data stays available.</p>
         </section>
 
-        <section class="home-continuity card-sub">
+        <section class="home-continuity card-sub home-hub-panel">
           <div class="home-section-head">
             <h3>Personal Continuity</h3>
-            <p class="muted tiny">Resume play fast and jump straight to saved round context on this device.</p>
+            <p class="muted tiny">Pick up where you left off and keep your round history one tap away.</p>
           </div>
           <div class="home-continuity-grid">
             <article class="continuity-tile">
@@ -245,30 +62,34 @@
           </div>
         </section>
 
-        <section class="home-golf-dashboard card-sub" aria-label="Golf dashboard resources">
+        <section class="home-golf-dashboard card-sub home-hub-panel" aria-label="Golf dashboard resources">
           <div class="home-section-head">
             <h3>Golf Dashboard</h3>
-            <p class="muted tiny">Useful golf resources, live follow entry points, and watch/news shortcuts.</p>
+            <p class="muted tiny">At-a-glance module status plus trusted links you can use right now.</p>
           </div>
-          <div class="golf-dashboard-status-grid">
-            <article class="golf-status-card">
-              <p class="golf-status-kicker">Live Scoring Feed</p>
-              <p class="golf-status-value">Unavailable</p>
-              <p class="muted tiny">PocketCaddy live pro-feed integration is not connected in this release.</p>
-            </article>
-            <article class="golf-status-card">
-              <p class="golf-status-kicker">Latest Golf News</p>
-              <p class="golf-status-value">Unavailable</p>
-              <p class="muted tiny">News feed integration is not connected in this release.</p>
-            </article>
-            <article class="golf-status-card">
-              <p class="golf-status-kicker">Watch / Broadcast</p>
-              <p class="golf-status-value">Unavailable</p>
-              <p class="muted tiny">Live watch schedule integration is not connected in this release.</p>
-            </article>
-          </div>
-          <section class="golf-resource-links">
-            <h4>Latest Golf Resources</h4>
+          <section class="golf-dashboard-block golf-dashboard-status">
+            <h4 class="golf-dashboard-subhead">Module Status</h4>
+            <p class="muted tiny">Modules not connected in this release are marked as <strong>Unavailable</strong>.</p>
+            <div class="golf-dashboard-status-grid">
+              <article class="golf-status-card">
+                <p class="golf-status-kicker">Live Scoring Feed</p>
+                <p class="golf-status-value is-unavailable">Unavailable</p>
+                <p class="muted tiny">PocketCaddy live pro-feed integration is not connected in this release.</p>
+              </article>
+              <article class="golf-status-card">
+                <p class="golf-status-kicker">Latest Golf News</p>
+                <p class="golf-status-value is-unavailable">Unavailable</p>
+                <p class="muted tiny">News feed integration is not connected in this release.</p>
+              </article>
+              <article class="golf-status-card">
+                <p class="golf-status-kicker">Watch / Broadcast</p>
+                <p class="golf-status-value is-unavailable">Unavailable</p>
+                <p class="muted tiny">Live watch schedule integration is not connected in this release.</p>
+              </article>
+            </div>
+          </section>
+          <section class="golf-dashboard-block golf-resource-links">
+            <h4 class="golf-dashboard-subhead">Ready-To-Use Golf Links</h4>
             <div class="golf-link-grid">
               <a class="golf-link-tile" href="https://www.pgatour.com/" target="_blank" rel="noopener noreferrer">
                 <p class="golf-link-title">PGA TOUR</p>
@@ -291,8 +112,8 @@
         </section>
 
         <section class="home-quick card-sub">
-          <h3>Quick Actions</h3>
-          <p class="muted tiny home-quick-helper">Use these to start a new round or join one in progress.</p>
+          <h3>What To Do Now</h3>
+          <p class="muted tiny home-quick-helper">Start a new round or jump into one already in progress.</p>
           <div class="home-quick-grid">
             <button id="quick-create-btn" class="btn btn-primary" type="button">Start New Round</button>
             <button id="quick-join-btn" class="btn btn-secondary" type="button">Join Existing Round</button>
