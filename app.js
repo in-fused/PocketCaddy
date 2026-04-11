@@ -5,13 +5,17 @@
     runtimeBootQueued: false,
     runtimeBooted: false,
     eventsWired: false,
-    globalGuardsWired: false
+    globalGuardsWired: false,
+    exportUtilsLoadAttempted: false,
+    exportUtils: null,
+    exportEventsWired: false
   };
 
   // INIT
   function init() {
     wireGlobalErrorGuards();
     wireEvents();
+    loadExportUtils();
     queueRuntimeBoot();
   }
 
@@ -37,7 +41,120 @@
 
   // HANDLERS
   function onRuntimeReady() {
+    wireExportEventsIfReady();
     queueRuntimeBoot();
+  }
+
+  function loadExportUtils() {
+    if (state.exportUtilsLoadAttempted) return;
+    state.exportUtilsLoadAttempted = true;
+    try {
+      import("./src/js/export/exportUtils.js")
+        .then(function (moduleApi) {
+          if (!moduleApi || typeof moduleApi !== "object") return;
+          state.exportUtils = moduleApi;
+          wireExportEventsIfReady();
+        })
+        .catch(function (err) {
+          console.error("Export utilities failed to load:", err);
+        });
+    } catch (err) {
+      console.error("Export utilities import failed:", err);
+    }
+  }
+
+  function wireExportEventsIfReady() {
+    if (state.exportEventsWired) return;
+    if (!state.exportUtils) return;
+    state.exportEventsWired = true;
+    try {
+      document.addEventListener("click", onExportClickCapture, true);
+    } catch (err) {
+      console.error("Export event wiring failed:", err);
+    }
+  }
+
+  function onExportClickCapture(event) {
+    try {
+      if (!event || !event.target || typeof event.target.closest !== "function") return;
+      const target = event.target.closest(
+        "#export-json-btn, #export-csv-btn, [data-action='export-json'], [data-action='export-csv'], [data-action='export-history-json'], [data-action='export-history-csv']"
+      );
+      if (!target) return;
+
+      const isJson = target.matches("#export-json-btn, [data-action='export-json'], [data-action='export-history-json']");
+      const format = isJson ? "json" : "csv";
+      const exported = handleRoundExport(target, format);
+      if (exported) {
+        event.preventDefault();
+        if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+        event.stopPropagation();
+      }
+    } catch (err) {
+      console.error("Export click handling failed:", err);
+    }
+  }
+
+  function handleRoundExport(button, format) {
+    try {
+      const exportUtils = state.exportUtils;
+      if (!exportUtils) return false;
+      const roundData = resolveRoundDataForExport(button);
+      const players = Array.isArray(roundData && roundData.players) ? roundData.players : [];
+      if (!roundData || players.length === 0) {
+        window.alert("No round data available");
+        return false;
+      }
+
+      const roundId = String(roundData.roundId || "round").trim() || "round";
+      const extension = format === "json" ? "json" : "csv";
+      const mimeType = format === "json" ? "application/json;charset=utf-8" : "text/csv;charset=utf-8";
+      const filename = `pocketcaddy-${sanitizeFilename(roundId)}.${extension}`;
+      const content = format === "json"
+        ? exportUtils.generateRoundJSON(roundData)
+        : exportUtils.generateRoundCSV(roundData);
+      return Boolean(exportUtils.downloadFile(filename, content, mimeType));
+    } catch (err) {
+      console.error("Round export failed:", err);
+      return false;
+    }
+  }
+
+  function resolveRoundDataForExport(button) {
+    try {
+      const stateApi = window.PocketCaddyState || {};
+      const history = typeof stateApi.readRoundHistoryFromStorage === "function"
+        ? stateApi.readRoundHistoryFromStorage()
+        : [];
+      const safeHistory = Array.isArray(history) ? history : [];
+      const roundIdFromButton = String(button && button.getAttribute("data-round-id") || "").trim();
+
+      if (roundIdFromButton) {
+        const byButtonRoundId = safeHistory.find(function (entry) {
+          return String(entry && entry.roundId || "").trim() === roundIdFromButton;
+        });
+        if (byButtonRoundId) return byButtonRoundId;
+      }
+
+      const session = typeof stateApi.getSession === "function" ? stateApi.getSession() : null;
+      const sessionRoundId = String(session && session.roundId || "").trim();
+      if (sessionRoundId) {
+        const bySessionRoundId = safeHistory.find(function (entry) {
+          return String(entry && entry.roundId || "").trim() === sessionRoundId;
+        });
+        if (bySessionRoundId) return bySessionRoundId;
+      }
+
+      return safeHistory[0] || null;
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  function sanitizeFilename(value) {
+    const text = String(value == null ? "" : value).trim().toLowerCase();
+    const normalized = text.replace(/[^a-z0-9_-]+/g, "-").replace(/-{2,}/g, "-").replace(/^-+|-+$/g, "");
+    return normalized || "round";
   }
 
   // ROUTING HELPERS
