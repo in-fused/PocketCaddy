@@ -5,7 +5,6 @@
   const ROUND_HISTORY_KEY = "pocketCaddy_round_history";
   const ROUND_HISTORY_LIMIT = 50;
   const IDENTITY_KEY_PREFIX = "pocketcaddy_identity_";
-
   function safeClone(obj) {
     try {
       return JSON.parse(JSON.stringify(obj));
@@ -24,8 +23,90 @@
     }
   }
 
+  function isObject(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function isValidCssColor(value) {
+    const text = typeof value === "string" ? value.trim() : "";
+    if (!text) return false;
+    if (typeof CSS !== "undefined" && CSS && typeof CSS.supports === "function") {
+      return CSS.supports("color", text);
+    }
+    return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(text);
+  }
+
+  function sanitizeSessionBranding(branding) {
+    if (!isObject(branding)) return null;
+    const next = {};
+
+    if (Object.prototype.hasOwnProperty.call(branding, "displayName")) {
+      next.displayName = String(branding.displayName == null ? "" : branding.displayName);
+    }
+    if (Object.prototype.hasOwnProperty.call(branding, "subtitle")) {
+      next.subtitle = String(branding.subtitle == null ? "" : branding.subtitle);
+    }
+    if (Object.prototype.hasOwnProperty.call(branding, "logoPath")) {
+      next.logoPath = String(branding.logoPath == null ? "" : branding.logoPath).trim();
+    }
+
+    const colorKeys = ["accentColor", "accentStrongColor", "accentSoftColor", "surfaceTint", "inkColor"];
+    for (let i = 0; i < colorKeys.length; i += 1) {
+      const key = colorKeys[i];
+      if (!Object.prototype.hasOwnProperty.call(branding, key)) continue;
+      if (isValidCssColor(branding[key])) next[key] = String(branding[key]).trim();
+    }
+
+    return Object.keys(next).length ? next : null;
+  }
+
   function saveSession(session) {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    if (!isObject(session)) return;
+    const existing = getSession();
+    const merged = {
+      ...(isObject(existing) ? existing : {}),
+      ...session
+    };
+    const incomingRoundId = session.roundId == null ? null : String(session.roundId);
+    const previousRoundId = existing && existing.roundId != null ? String(existing.roundId) : null;
+    if (incomingRoundId && previousRoundId && incomingRoundId !== previousRoundId) {
+      delete merged.roundName;
+      delete merged.playersCount;
+      delete merged.holesTotal;
+      delete merged.holesComplete;
+      if (!Object.prototype.hasOwnProperty.call(session, "branding")) {
+        delete merged.branding;
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(session, "branding")) {
+      const sanitizedBranding = sanitizeSessionBranding(session.branding);
+      if (sanitizedBranding) {
+        merged.branding = sanitizedBranding;
+      } else {
+        delete merged.branding;
+      }
+    }
+    localStorage.setItem(SESSION_KEY, JSON.stringify(merged));
+  }
+
+  function getSessionBranding(session) {
+    const source = isObject(session) ? session : getSession();
+    if (!isObject(source)) return null;
+    return sanitizeSessionBranding(source.branding);
+  }
+
+  function persistSessionBranding(branding, roundId) {
+    const sanitizedBranding = sanitizeSessionBranding(branding);
+    if (!sanitizedBranding) return;
+    const existing = getSession();
+    const resolvedRoundId = roundId != null
+      ? String(roundId)
+      : (existing && existing.roundId != null ? String(existing.roundId) : null);
+    if (!resolvedRoundId) return;
+    saveSession({
+      roundId: resolvedRoundId,
+      branding: sanitizedBranding
+    });
   }
 
   function clearSession() {
@@ -181,6 +262,8 @@
     safeClone,
     getSession,
     saveSession,
+    getSessionBranding,
+    persistSessionBranding,
     clearLocalSavedSessionState,
     persistSessionSnapshot,
     identityKey,

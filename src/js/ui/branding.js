@@ -242,6 +242,45 @@
     return next;
   }
 
+  function getStateApi() {
+    const api = window.PocketCaddyState;
+    return isObject(api) ? api : null;
+  }
+
+  function persistBrandingToSession(branding) {
+    const stateApi = getStateApi();
+    if (!stateApi || typeof stateApi.getSession !== "function") return;
+    const session = stateApi.getSession();
+    if (!session || !session.roundId) return;
+
+    if (isObject(branding) && Object.keys(branding).length) {
+      if (typeof stateApi.persistSessionBranding === "function") {
+        stateApi.persistSessionBranding(branding, session.roundId);
+      } else if (typeof stateApi.saveSession === "function") {
+        stateApi.saveSession({
+          roundId: session.roundId,
+          branding: branding
+        });
+      }
+      return;
+    }
+
+    if (typeof stateApi.saveSession === "function") {
+      stateApi.saveSession({
+        roundId: session.roundId,
+        branding: null
+      });
+    }
+  }
+
+  function restoreRuntimeBrandingFromSession() {
+    const stateApi = getStateApi();
+    if (!stateApi || typeof stateApi.getSessionBranding !== "function") return;
+    const stored = stateApi.getSessionBranding();
+    if (!stored || !isObject(stored)) return;
+    state.runtimeBranding = sanitizeRuntimeBranding(stored);
+  }
+
   function resolveBranding() {
     const source = getBrandingSource();
     const displayName = normalizeText(source && source.displayName, DEFAULT_BRANDING.displayName);
@@ -352,7 +391,12 @@
 
   function updateBranding(newBranding) {
     state.runtimeBranding = sanitizeRuntimeBranding(newBranding);
+    persistBrandingToSession(state.runtimeBranding);
     return applyBranding();
+  }
+
+  function getRuntimeBranding() {
+    return Object.assign({}, state.runtimeBranding || {});
   }
 
   function onBrandingUpdateEvent(event) {
@@ -362,12 +406,14 @@
 
   window.PocketCaddyBrandingAPI = {
     applyBranding: applyBranding,
-    updateBranding: updateBranding
+    updateBranding: updateBranding,
+    getRuntimeBranding: getRuntimeBranding
   };
 
   window.addEventListener(BRANDING_UPDATE_EVENT, onBrandingUpdateEvent);
 
   function initializeBranding() {
+    restoreRuntimeBrandingFromSession();
     applyBranding();
   }
 

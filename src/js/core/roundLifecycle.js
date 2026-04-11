@@ -30,10 +30,34 @@
     api.updateBranding(branding);
   }
 
+  function applyStoredSessionBranding(session) {
+    if (!isObject(session) || !isObject(session.branding)) return;
+    const api = window.PocketCaddyBrandingAPI;
+    if (!api || typeof api.updateBranding !== "function") return;
+    api.updateBranding(session.branding);
+  }
+
+  function injectBrandingIntoCreateInput(input) {
+    if (!isObject(input)) return input;
+    const brandingApi = window.PocketCaddyBrandingAPI;
+    if (!brandingApi || typeof brandingApi.getRuntimeBranding !== "function") return input;
+    const payload = brandingApi.getRuntimeBranding();
+    if (!isObject(payload) || !Object.keys(payload).length) return input;
+
+    if (isObject(input.sessionMetadata)) {
+      input.sessionMetadata.branding = { ...payload };
+    } else if (isObject(input.session_metadata)) {
+      input.session_metadata.branding = { ...payload };
+    } else if (isObject(input.metadata)) {
+      input.metadata.branding = { ...payload };
+    }
+    return input;
+  }
+
   async function joinRoundById(roundId, deps) {
     await deps.loadRound(roundId);
-    applySessionBrandingIfAvailable(deps);
     deps.saveSession({ roundId: roundId });
+    applySessionBrandingIfAvailable(deps);
     deps.updateUrlRoundParam(roundId);
     deps.showView("score");
   }
@@ -47,7 +71,7 @@
     deps.dom.createRoundBtn.disabled = true;
     deps.showError(deps.dom.homeError, "");
     try {
-      const created = await deps.createRoundWithPlayers(input);
+      const created = await deps.createRoundWithPlayers(injectBrandingIntoCreateInput(input));
       await joinRoundById(created.round.id, deps);
     } catch (err) {
       deps.showError(deps.dom.homeError, "Could not create round. Please try again.");
@@ -88,6 +112,7 @@
       return;
     }
     try {
+      applyStoredSessionBranding(session);
       await joinRoundById(session.roundId, deps);
     } catch (err) {
       deps.clearLocalSavedSessionState(session.roundId);
