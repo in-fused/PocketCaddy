@@ -219,7 +219,28 @@
   };
 
   function init() {
-    window.PocketCaddyRoundLifecycle.initializeAppFlow(buildRoundLifecycleDeps());
+    console.log("PocketCaddy v1 live");
+    wireEvents();
+    ensureRoundHistorySection();
+    state.roundHistory = loadRoundHistoryFromStorage();
+    renderSetupPlayers();
+    renderSelectedCourseCard();
+    renderCourseSuggestions([]);
+    ensureShareActionButtons();
+    renderRoundHistorySection();
+
+    const fromUrl = getRoundIdFromUrl();
+    if (fromUrl) {
+      joinRoundById(fromUrl).catch((err) => {
+        showError(dom.homeError, "Could not open that shared round link.");
+        showFeedback("Unable to open round from link.", true);
+        showView("home");
+        console.error(err);
+      });
+      return;
+    }
+
+    showView("home");
   }
 
   function wireEvents() {
@@ -734,7 +755,21 @@
   }
 
   function cancelSavedRoundSession() {
-    window.PocketCaddyRoundLifecycle.cancelSession(buildRoundLifecycleDeps());
+    const session = getSession();
+    if (!session || !session.roundId) {
+      updateHomeQuickActions();
+      return;
+    }
+    const ok = window.confirm("Remove this saved round from this device? The shared round will still exist for anyone with the link.");
+    if (!ok) return;
+    clearLocalSavedSessionState(session.roundId);
+updateHomeQuickActions();
+
+showFeedback("Saved round removed from this device.");
+
+if (!dom.homeView.classList.contains("hidden")) {
+  showError(dom.homeError, "");
+}
   }
 
   function initializeHomeHubNavigation() {
@@ -1071,40 +1106,57 @@
     };
   }
 
-  function buildRoundLifecycleDeps() {
-    return {
-      dom: dom,
-      state: state,
-      validateCreateInputs: validateCreateInputs,
-      createRoundWithPlayers: window.SupabaseAPI.createRoundWithPlayers,
-      findRoundByCodeOrLink: window.SupabaseAPI.findRoundByCodeOrLink,
-      loadRound: loadRound,
-      saveSession: saveSession,
-      updateUrlRoundParam: updateUrlRoundParam,
-      showView: showView,
-      showError: showError,
-      getSession: getSession,
-      clearLocalSavedSessionState: clearLocalSavedSessionState,
-      updateHomeQuickActions: updateHomeQuickActions,
-      showFeedback: showFeedback,
-      wireEvents: wireEvents,
-      ensureRoundHistorySection: ensureRoundHistorySection,
-      loadRoundHistoryFromStorage: loadRoundHistoryFromStorage,
-      renderSetupPlayers: renderSetupPlayers,
-      renderSelectedCourseCard: renderSelectedCourseCard,
-      renderCourseSuggestions: renderCourseSuggestions,
-      ensureShareActionButtons: ensureShareActionButtons,
-      renderRoundHistorySection: renderRoundHistorySection,
-      getRoundIdFromUrl: getRoundIdFromUrl
-    };
-  }
-
   async function createRound() {
-    return window.PocketCaddyRoundLifecycle.createRound(buildRoundLifecycleDeps());
+    const input = validateCreateInputs();
+    if (input.error) {
+      showError(dom.homeError, input.error);
+      return;
+    }
+    dom.createRoundBtn.disabled = true;
+    showError(dom.homeError, "");
+    try {
+      const created = await window.SupabaseAPI.createRoundWithPlayers(input);
+      await loadRound(created.round.id);
+      saveSession({ roundId: created.round.id });
+      updateUrlRoundParam(created.round.id);
+      showView("score");
+    } catch (err) {
+      showError(dom.homeError, "Could not create round. Please try again.");
+      console.error(err);
+    } finally {
+      dom.createRoundBtn.disabled = false;
+    }
   }
 
   async function joinFromInput() {
-    return window.PocketCaddyRoundLifecycle.joinRound(buildRoundLifecycleDeps());
+    const text = dom.joinInput.value.trim();
+    dom.joinInput.value = text;
+    if (!text) {
+      showError(dom.joinError, "Enter a Round Link or Full Round ID.");
+      return;
+    }
+    dom.joinRoundBtn.disabled = true;
+    showError(dom.joinError, "");
+    try {
+      const round = await window.SupabaseAPI.findRoundByCodeOrLink(text);
+      if (!round) {
+        showError(dom.joinError, "Round not found.");
+        return;
+      }
+      await joinRoundById(round.id);
+    } catch (err) {
+      showError(dom.joinError, "Could not join that round.");
+      console.error(err);
+    } finally {
+      dom.joinRoundBtn.disabled = false;
+    }
+  }
+
+  async function joinRoundById(roundId) {
+    await loadRound(roundId);
+    saveSession({ roundId: roundId });
+    updateUrlRoundParam(roundId);
+    showView("score");
   }
 
   async function loadRound(roundId) {
@@ -3477,7 +3529,19 @@
   }
 
   async function resumeSession() {
-    return window.PocketCaddyRoundLifecycle.resumeSession(buildRoundLifecycleDeps());
+    const session = getSession();
+    if (!session || !session.roundId) {
+      showView("home");
+      return;
+    }
+    try {
+      await joinRoundById(session.roundId);
+    } catch (err) {
+      clearLocalSavedSessionState(session.roundId);
+      showView("home");
+      showError(dom.homeError, "Could not resume saved session.");
+      console.error(err);
+    }
   }
 
   function startNewRound() {
