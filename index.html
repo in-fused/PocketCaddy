@@ -20,7 +20,29 @@
           <h2 id="home-title" class="home-title">Start or Rejoin a Round</h2>
           <p id="home-tagline" class="home-tagline">Create a new round, join one already in play, or continue saved progress from this device.</p>
           <p id="home-next-action-note" class="home-next-action-note muted tiny">Next best action: Create a round to start scoring.</p>
+          <section class="home-status-strip" aria-label="Dashboard status">
+            <h3 class="home-status-title">PocketCaddy Status</h3>
+            <div class="home-status-grid">
+              <article class="home-status-item">
+                <p class="home-status-label">Active Round</p>
+                <p id="home-status-active-round" class="home-status-value">Unavailable</p>
+              </article>
+              <article class="home-status-item">
+                <p class="home-status-label">Local Session</p>
+                <p id="home-status-local-session" class="home-status-value">Unavailable</p>
+              </article>
+              <article class="home-status-item">
+                <p class="home-status-label">History</p>
+                <p id="home-status-history" class="home-status-value">Unavailable</p>
+              </article>
+              <article class="home-status-item">
+                <p class="home-status-label">Sync</p>
+                <p id="home-status-sync" class="home-status-value">Ready</p>
+              </article>
+            </div>
+          </section>
           <div class="actions home-hero-actions">
+            <button id="hub-resume-btn" class="btn btn-primary hidden" type="button">Resume Session</button>
             <button id="hub-create-btn" class="btn btn-primary" type="button">Create Round</button>
             <button id="hub-join-btn" class="btn btn-secondary" type="button">Join Round</button>
           </div>
@@ -56,21 +78,22 @@
 
         <section class="home-continuity card-sub home-hub-panel">
           <div class="home-section-head">
-            <h3>Personal Continuity</h3>
-            <p class="muted tiny">Pick up where you left off and keep your round history one tap away.</p>
+            <h3>Dashboard Previews</h3>
+            <p class="muted tiny">Open key dashboard destinations with clear context before you jump in.</p>
           </div>
           <div class="home-continuity-grid">
-            <article class="continuity-tile">
-              <p class="continuity-label">Saved Session</p>
-              <p class="continuity-text">Use <strong>Resume Saved Round</strong> to continue score entry exactly where you left off.</p>
+            <article class="continuity-tile dashboard-preview-card">
+              <p class="continuity-label">History</p>
+              <p class="continuity-text">Replay completed rounds and review saved sessions from this device.</p>
+              <p class="continuity-status-row"><span class="continuity-status-label">Status</span><span id="home-history-preview-status" class="continuity-status-value">Unavailable</span></p>
+              <button id="continuity-history-btn" class="btn btn-secondary" type="button">Open History</button>
             </article>
-            <article class="continuity-tile">
-              <p class="continuity-label">Round History</p>
-              <p class="continuity-text">Review completed rounds and replay snapshots from local history.</p>
+            <article class="continuity-tile dashboard-preview-card">
+              <p class="continuity-label">Golf</p>
+              <p class="continuity-text">Access golf resources, module status, and quick links from one panel.</p>
+              <p class="continuity-status-row"><span class="continuity-status-label">Status</span><span id="home-golf-preview-status" class="continuity-status-value">Unavailable</span></p>
+              <button class="btn btn-secondary" type="button" data-home-mode="golf" data-focus-target="home-golf-dashboard">Open Golf</button>
             </article>
-          </div>
-          <div class="actions home-continuity-actions">
-            <button id="continuity-history-btn" class="btn btn-secondary" type="button">Review History</button>
           </div>
         </section>
 
@@ -141,12 +164,27 @@
         </section>
 
         <section id="home-operations-section" class="home-quick card-sub">
-          <h3>Round Operations</h3>
-          <p class="muted tiny home-quick-helper">Start here for active round workflows, then use history for replay and review.</p>
-          <div class="home-quick-grid">
-            <button id="quick-create-btn" class="btn btn-primary" type="button">Start New Round</button>
-            <button id="quick-join-btn" class="btn btn-secondary" type="button">Join Existing Round</button>
-            <button id="quick-history-btn" class="btn btn-secondary home-quick-link" type="button">Open Round History</button>
+          <h3>Operations Preview</h3>
+          <p class="muted tiny home-quick-helper">Use Operations for setup and in-progress flow control without leaving the Home hub.</p>
+          <div class="home-operations-preview-list">
+            <article class="home-operations-preview-item">
+              <p class="home-operations-preview-label">Start Round</p>
+              <p class="home-operations-preview-copy">Create a round, add players, and launch scoring.</p>
+            </article>
+            <article class="home-operations-preview-item">
+              <p class="home-operations-preview-label">Continue</p>
+              <p class="home-operations-preview-copy">Resume local progress when a saved session is available.</p>
+            </article>
+            <article class="home-operations-preview-item">
+              <p class="home-operations-preview-label">Quick Actions</p>
+              <p class="home-operations-preview-copy">Open create/join flows, then route to history when needed.</p>
+            </article>
+          </div>
+          <div class="home-quick-grid home-operations-actions">
+            <button id="quick-create-btn" class="btn btn-primary" type="button">Create Round</button>
+            <button id="quick-join-btn" class="btn btn-secondary" type="button">Join Round</button>
+            <button id="home-operations-panel-btn" class="btn btn-secondary home-quick-link" type="button" data-home-mode="operations" data-focus-target="home-operations-section">Open Operations Panel</button>
+            <button id="quick-history-btn" class="btn btn-secondary home-quick-link" type="button">Open History</button>
           </div>
         </section>
 

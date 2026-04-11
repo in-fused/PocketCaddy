@@ -20,6 +20,12 @@
     homeTitle: document.getElementById("home-title"),
     homeTagline: document.getElementById("home-tagline"),
     homeNextActionNote: document.getElementById("home-next-action-note"),
+    homeStatusActiveRound: document.getElementById("home-status-active-round"),
+    homeStatusLocalSession: document.getElementById("home-status-local-session"),
+    homeStatusHistory: document.getElementById("home-status-history"),
+    homeStatusSync: document.getElementById("home-status-sync"),
+    homeHistoryPreviewStatus: document.getElementById("home-history-preview-status"),
+    homeGolfPreviewStatus: document.getElementById("home-golf-preview-status"),
     homeSavedSessionCard: document.getElementById("home-saved-session-card"),
     homeSavedSessionCopy: document.getElementById("home-saved-session-copy"),
     homeSavedSessionProgress: document.getElementById("home-saved-session-progress"),
@@ -43,6 +49,7 @@
     joinInput: document.getElementById("join-input"),
     joinRoundBtn: document.getElementById("join-round-btn"),
     joinError: document.getElementById("join-error"),
+    hubResumeBtn: document.getElementById("hub-resume-btn"),
     hubCreateBtn: document.getElementById("hub-create-btn"),
     hubJoinBtn: document.getElementById("hub-join-btn"),
     quickCreateBtn: document.getElementById("quick-create-btn"),
@@ -262,6 +269,9 @@
     dom.joinRoundBtn.addEventListener("click", joinFromInput);
     if (dom.homeView) {
       dom.homeView.addEventListener("click", onHomeViewClick);
+    }
+    if (dom.hubResumeBtn) {
+      dom.hubResumeBtn.addEventListener("click", resumeSession);
     }
     if (dom.quickResumeBtn) {
       dom.quickResumeBtn.addEventListener("click", resumeSession);
@@ -765,6 +775,15 @@
     const holesCompleteRaw = session && Number.isFinite(Number(session.holesComplete)) ? Math.max(0, Number(session.holesComplete)) : 0;
     const holesComplete = holesTotal != null && holesTotal > 0 ? Math.min(holesCompleteRaw, holesTotal) : holesCompleteRaw;
     const hasProgressSnapshot = Boolean(roundName) || playersCount != null || (holesTotal != null && holesTotal > 0);
+    const activeRoundLabel = state.round && state.round.id
+      ? (String(state.round.name || "").trim() || `ID ${String(state.round.id).slice(0, 8)}...`)
+      : "Unavailable";
+    const historyCount = Array.isArray(state.roundHistory) ? state.roundHistory.length : 0;
+    const historyStatus = historyCount > 0
+      ? `${historyCount} ${historyCount === 1 ? "entry" : "entries"}`
+      : "Unavailable";
+    const syncStatus = state.round && state.channel ? "Connected" : "Ready";
+
     if (dom.homeSavedSessionCard) {
       dom.homeSavedSessionCard.classList.toggle("hidden", !hasSavedRound);
     }
@@ -793,6 +812,10 @@
       dom.quickResumeBtn.classList.toggle("hidden", !hasSavedRound);
       dom.quickResumeBtn.disabled = !hasSavedRound;
     }
+    if (dom.hubResumeBtn) {
+      dom.hubResumeBtn.classList.toggle("hidden", !hasSavedRound);
+      dom.hubResumeBtn.disabled = !hasSavedRound;
+    }
     if (dom.quickCancelSavedBtn) {
       dom.quickCancelSavedBtn.classList.toggle("hidden", !hasSavedRound);
       dom.quickCancelSavedBtn.disabled = !hasSavedRound;
@@ -813,6 +836,41 @@
       dom.homeNextActionNote.textContent = hasSavedRound
         ? "Next best action: Resume Saved Round to continue where you left off."
         : "Next best action: Create Round to launch a new scorecard.";
+    }
+    if (dom.homeStatusActiveRound) {
+      dom.homeStatusActiveRound.textContent = activeRoundLabel;
+      dom.homeStatusActiveRound.classList.toggle("is-unavailable", activeRoundLabel === "Unavailable");
+    }
+    if (dom.homeStatusLocalSession) {
+      dom.homeStatusLocalSession.textContent = hasSavedRound ? "Available" : "Unavailable";
+      dom.homeStatusLocalSession.classList.toggle("is-unavailable", !hasSavedRound);
+    }
+    if (dom.homeStatusHistory) {
+      dom.homeStatusHistory.textContent = historyStatus;
+      dom.homeStatusHistory.classList.toggle("is-unavailable", historyStatus === "Unavailable");
+    }
+    if (dom.homeStatusSync) {
+      dom.homeStatusSync.textContent = syncStatus;
+      dom.homeStatusSync.classList.toggle("is-unavailable", false);
+    }
+    if (dom.homeHistoryPreviewStatus) {
+      dom.homeHistoryPreviewStatus.textContent = historyStatus;
+      dom.homeHistoryPreviewStatus.classList.toggle("is-unavailable", historyStatus === "Unavailable");
+    }
+    if (dom.homeGolfPreviewStatus) {
+      dom.homeGolfPreviewStatus.textContent = "Resources Ready";
+      dom.homeGolfPreviewStatus.classList.toggle("is-unavailable", false);
+    }
+    if (dom.hubCreateBtn) {
+      dom.hubCreateBtn.classList.toggle("home-primary-focus", !hasSavedRound);
+      dom.hubCreateBtn.classList.toggle("home-secondary-focus", hasSavedRound);
+    }
+    if (dom.hubJoinBtn) {
+      dom.hubJoinBtn.classList.add("home-core-path");
+    }
+    if (dom.hubResumeBtn) {
+      dom.hubResumeBtn.classList.toggle("home-primary-focus", hasSavedRound);
+      dom.hubResumeBtn.classList.toggle("home-secondary-focus", !hasSavedRound);
     }
   }
 
