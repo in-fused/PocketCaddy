@@ -4,16 +4,27 @@
   const MAX_PLAYERS = 30;
   const MIN_SCORE = 1;
   const MAX_SCORE = 15;
-  const SESSION_KEY = "pocketcaddy_live_session_v2";
-  const ROUND_HISTORY_KEY = "pocketCaddy_round_history";
-  const ROUND_HISTORY_LIMIT = 50;
-  const IDENTITY_KEY_PREFIX = "pocketcaddy_identity_";
   const WEATHER_FETCH_TIMEOUT_MS = 4500;
   const INTEL_UNAVAILABLE = "Unavailable";
   const INTEL_LOADING = "Loading...";
   const CLOSE_FINISH_MARGIN = 2;
   const BLOWOUT_MARGIN = 8;
   const BACK_NINE_COMEBACK_SWING = 2;
+  const stateHelpers = window.PocketCaddyState || {};
+  const {
+    safeClone,
+    getSession,
+    saveSession,
+    clearLocalSavedSessionState,
+    persistSessionSnapshot,
+    identityKey,
+    readRoundHistoryFromStorage,
+    writeRoundHistoryToStorage,
+    loadRoundHistoryFromStorage,
+    capRoundHistory,
+    ROUND_HISTORY_LIMIT
+  } = stateHelpers;
+  const ROUND_HISTORY_MAX = Number.isInteger(ROUND_HISTORY_LIMIT) ? ROUND_HISTORY_LIMIT : 50;
 
   const dom = {
     homeView: document.getElementById("home-view"),
@@ -207,19 +218,11 @@
     eventsWired: false
   };
 
-  function safeClone(obj) {
-    try {
-      return JSON.parse(JSON.stringify(obj));
-    } catch (_err) {
-      return obj == null ? obj : Array.isArray(obj) ? obj.slice() : { ...obj };
-    }
-  }
-
   function init() {
     console.log("PocketCaddy v1 live");
     wireEvents();
     ensureRoundHistorySection();
-    loadRoundHistoryFromStorage();
+    state.roundHistory = loadRoundHistoryFromStorage();
     renderSetupPlayers();
     renderSelectedCourseCard();
     renderCourseSuggestions([]);
@@ -325,7 +328,7 @@
       section.className = "home-history card-sub";
       section.innerHTML = `
         <h3>Round History</h3>
-        <p class="muted tiny">Saved on this device only (last ${ROUND_HISTORY_LIMIT} rounds).</p>
+        <p class="muted tiny">Saved on this device only (last ${ROUND_HISTORY_MAX} rounds).</p>
         <div id="round-history-player-stats" class="round-history-player-stats"></div>
         <div id="round-history-list" class="round-history-list"></div>
         <div id="round-history-replay" class="round-history-replay hidden"></div>
@@ -369,114 +372,6 @@
       state.roundSummaryReplayExpandedPlayerId = String(state.roundSummaryReplayExpandedPlayerId) === String(playerId) ? null : playerId;
       renderRoundHistorySection();
     }
-  }
-
-  function readRoundHistoryFromStorage() {
-    let raw = null;
-    try {
-      raw = localStorage.getItem(ROUND_HISTORY_KEY);
-    } catch (_err) {
-      return [];
-    }
-    if (!raw) return [];
-    try {
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-      return parsed.map(normalizeRoundHistoryEntry).filter(Boolean);
-    } catch (_err) {
-      return [];
-    }
-  }
-
-  function writeRoundHistoryToStorage(history) {
-    try {
-      localStorage.setItem(ROUND_HISTORY_KEY, JSON.stringify(history));
-    } catch (_err) {
-      // localStorage can be unavailable; rendering still uses in-memory history
-    }
-  }
-
-  function getHistoryDateSortValue(entry) {
-    if (!entry) return 0;
-    const raw = entry.date || entry.completedAt || entry.savedAt;
-    const time = Date.parse(raw || "");
-    return Number.isFinite(time) ? time : 0;
-  }
-
-  function capRoundHistory(history) {
-    return (Array.isArray(history) ? history : [])
-      .slice()
-      .sort((a, b) => getHistoryDateSortValue(b) - getHistoryDateSortValue(a))
-      .slice(0, ROUND_HISTORY_LIMIT);
-  }
-
-  function loadRoundHistoryFromStorage() {
-    state.roundHistory = capRoundHistory(readRoundHistoryFromStorage());
-  }
-
-  function normalizeRoundHistoryEntry(entry) {
-    if (!entry || typeof entry !== "object") return null;
-    const roundId = entry.roundId == null ? null : String(entry.roundId);
-    if (!roundId) return null;
-    const date = entry.date || entry.completedAt || entry.savedAt || new Date(0).toISOString();
-    const standingsSource = Array.isArray(entry.standings) ? entry.standings : [];
-    const standings = standingsSource.map((row) => ({
-      id: row && row.id != null ? String(row.id) : "",
-      name: row && row.name != null ? String(row.name) : "Player",
-      rank: row && row.rank != null ? String(row.rank) : "-",
-      total: Number.isFinite(Number(row && row.total)) ? Number(row.total) : null,
-      front: Number.isFinite(Number(row && row.front)) ? Number(row.front) : null,
-      back: Number.isFinite(Number(row && row.back)) ? Number(row.back) : null,
-      relative: Number.isFinite(Number(row && row.relative)) ? Number(row.relative) : null,
-      holeScores: Array.isArray(row && row.holeScores)
-        ? row.holeScores.map((value) => (Number.isInteger(value) ? value : null))
-        : []
-    }));
-    const winnerNames = Array.isArray(entry.winnerNames)
-      ? entry.winnerNames.map((name) => String(name)).filter((name) => name.trim().length > 0)
-      : [];
-    return {
-      roundId: roundId,
-      roundName: String(entry.roundName || ""),
-      courseName: String(entry.courseName || ""),
-      tee: String(entry.tee || ""),
-      holes: Number(entry.holes) === 9 ? 9 : 18,
-      date: date,
-      players: Array.isArray(entry.players)
-        ? entry.players.map((player) => ({
-            id: player && player.id != null ? String(player.id) : "",
-            name: player && player.name != null ? String(player.name) : "Player"
-          }))
-        : standings.map((row) => ({ id: row.id, name: row.name })),
-      scores: Array.isArray(entry.scores)
-        ? entry.scores.map((score) => ({
-            playerId: score && score.playerId != null ? String(score.playerId) : "",
-            playerName: score && score.playerName != null ? String(score.playerName) : "Player",
-            holeScores: Array.isArray(score && score.holeScores)
-              ? score.holeScores.map((value) => (Number.isInteger(value) ? value : null))
-              : [],
-            total: Number.isFinite(Number(score && score.total)) ? Number(score.total) : null
-          }))
-        : standings.map((row) => ({
-            playerId: row.id,
-            playerName: row.name,
-            holeScores: Array.isArray(row.holeScores) ? row.holeScores.slice() : [],
-            total: row.total
-          })),
-      standings: standings,
-      winnerLabel: String(entry.winnerLabel || "Winner"),
-      winnerNames: winnerNames,
-      winnerIds: Array.isArray(entry.winnerIds) ? entry.winnerIds.map((id) => String(id)) : [],
-      highlights: entry.highlights && typeof entry.highlights === "object" ? safeClone(entry.highlights) : {},
-      insights: entry.insights && typeof entry.insights === "object" ? safeClone(entry.insights) : {},
-      competitiveTags: Array.isArray(entry.competitiveTags)
-        ? entry.competitiveTags.map((tag) => ({
-            key: String((tag && tag.key) || ""),
-            label: String((tag && tag.label) || ""),
-            detail: String((tag && tag.detail) || "")
-          }))
-        : []
-    };
   }
 
   function formatHistoryDate(isoDate) {
@@ -1898,7 +1793,15 @@ if (!dom.homeView.classList.contains("hidden")) {
     renderScoreTable(completion.standings);
     maybeShowScoreTooltipOnce();
     if (opts.scrollToIdentity) scheduleScrollToIdentityRow(Boolean(opts.forceScroll));
-    persistSessionSnapshot(state.round.id);
+    const holesTotal = Number(state.round && state.round.holes) === 9 ? 9 : 18;
+    persistSessionSnapshot({
+      roundId: String(state.round.id),
+      roundName: String((state.round && state.round.name) || "").trim(),
+      playersCount: Array.isArray(state.players) ? state.players.length : 0,
+      holesTotal: holesTotal,
+      holesComplete: getThroughHoleCount(holesTotal),
+      updatedAt: new Date().toISOString()
+    });
   }
 
   function getCourseIntelRoundKey(round) {
@@ -4748,77 +4651,6 @@ if (!dom.homeView.classList.contains("hidden")) {
       through = hole;
     }
     return through;
-  }
-
-  function buildSessionSnapshot(roundId) {
-    if (!state.round || !roundId) return null;
-    const holesTotal = Number(state.round.holes) === 9 ? 9 : 18;
-    const playersCount = Array.isArray(state.players) ? state.players.length : 0;
-    return {
-      roundId: String(roundId),
-      roundName: String(state.round.name || "").trim(),
-      playersCount: playersCount,
-      holesTotal: holesTotal,
-      holesComplete: getThroughHoleCount(holesTotal),
-      updatedAt: new Date().toISOString()
-    };
-  }
-
-  function shouldUpdateSessionSnapshot(existing, next) {
-    if (!next || !next.roundId) return false;
-    if (!existing || typeof existing !== "object") return true;
-    return String(existing.roundId || "") !== String(next.roundId || "")
-      || String(existing.roundName || "") !== String(next.roundName || "")
-      || Number(existing.playersCount) !== Number(next.playersCount)
-      || Number(existing.holesTotal) !== Number(next.holesTotal)
-      || Number(existing.holesComplete) !== Number(next.holesComplete);
-  }
-
-  function persistSessionSnapshot(roundId) {
-    if (!roundId) return;
-    const next = buildSessionSnapshot(roundId);
-    if (!next) return;
-    const existing = getSession();
-    if (!shouldUpdateSessionSnapshot(existing, next)) return;
-    const merged = {
-      ...(existing && typeof existing === "object" ? existing : {}),
-      ...next
-    };
-    saveSession(merged);
-  }
-
-  function saveSession(session) {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  }
-
-  function getSession() {
-    const raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    try {
-      return JSON.parse(raw);
-    } catch (_err) {
-      return null;
-    }
-  }
-
-  function clearSession() {
-    localStorage.removeItem(SESSION_KEY);
-  }
-
-  function clearLocalSavedSessionState(roundId) {
-    const session = getSession();
-    const resolvedRoundId = roundId || (session && session.roundId) || null;
-    clearSession();
-    if (!resolvedRoundId) return;
-    try {
-      localStorage.removeItem(identityKey(resolvedRoundId));
-    } catch (_err) {
-      // localStorage may be unavailable; session clear is still the primary action
-    }
-  }
-
-  function identityKey(roundId) {
-    return `${IDENTITY_KEY_PREFIX}${roundId}`;
   }
 
   function display(v) {
