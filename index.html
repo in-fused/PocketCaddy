@@ -25,6 +25,10 @@
             <button id="hub-join-btn" class="btn btn-secondary" type="button">Join Round</button>
           </div>
           <p class="home-hero-guidance muted tiny">Use continuity and quick actions below to resume, review history, or jump into a new scorecard.</p>
+          <div class="home-hero-path">
+            <a class="home-hero-path-link" href="#home-golf-dashboard">Explore Featured Golf Surface</a>
+            <a class="home-hero-path-link" href="#home-operations-section">Go to Round Operations</a>
+          </div>
         </section>
 
         <section id="home-saved-session-card" class="home-saved-session card-sub hidden">
@@ -62,61 +66,79 @@
           </div>
         </section>
 
-        <section class="home-golf-dashboard card-sub home-hub-panel" aria-label="Golf dashboard resources">
-          <div class="home-section-head">
+        <section id="home-golf-dashboard" class="home-golf-dashboard card-sub home-hub-panel" aria-label="Golf dashboard resources">
+          <div class="home-section-head home-golf-head">
             <h3>Golf Dashboard</h3>
-            <p class="muted tiny">At-a-glance module status plus trusted links you can use right now.</p>
+            <p class="muted tiny">Featured golf surface plus at-a-glance module status and trusted links you can use right now.</p>
           </div>
-          <section class="golf-dashboard-block golf-dashboard-status">
-            <h4 class="golf-dashboard-subhead">Module Status</h4>
-            <p class="muted tiny">Modules not connected in this release are marked as <strong>Unavailable</strong>.</p>
-            <div class="golf-dashboard-status-grid">
-              <article class="golf-status-card">
-                <p class="golf-status-kicker">Live Scoring Feed</p>
-                <p class="golf-status-value is-unavailable">Unavailable</p>
-                <p class="muted tiny">PocketCaddy live pro-feed integration is not connected in this release.</p>
-              </article>
-              <article class="golf-status-card">
-                <p class="golf-status-kicker">Latest Golf News</p>
-                <p class="golf-status-value is-unavailable">Unavailable</p>
-                <p class="muted tiny">News feed integration is not connected in this release.</p>
-              </article>
-              <article class="golf-status-card">
-                <p class="golf-status-kicker">Watch / Broadcast</p>
-                <p class="golf-status-value is-unavailable">Unavailable</p>
-                <p class="muted tiny">Live watch schedule integration is not connected in this release.</p>
-              </article>
+          <section class="golf-dashboard-featured" aria-label="Featured golf spotlight">
+            <p class="golf-dashboard-subhead">Featured Surface</p>
+            <h4 class="golf-featured-title">Live Tour Hub</h4>
+            <p class="golf-featured-copy">Stay in golf mode while running your round. Follow official tours, check live event context, and keep scoring momentum.</p>
+            <div class="golf-featured-status-row">
+              <p class="golf-status-kicker">PocketCaddy Live Tour Module</p>
+              <p class="golf-status-value is-unavailable">Unavailable</p>
+            </div>
+            <p class="muted tiny">Live tournament feed integration is not connected in this release. Use official resources below.</p>
+            <div class="golf-featured-links">
+              <a class="golf-featured-link" href="https://www.pgatour.com/" target="_blank" rel="noopener noreferrer">Follow PGA TOUR</a>
+              <a class="golf-featured-link" href="https://www.lpga.com/" target="_blank" rel="noopener noreferrer">Follow LPGA</a>
+              <a class="golf-featured-link" href="https://www.europeantour.com/dpworld-tour/" target="_blank" rel="noopener noreferrer">Follow DP World Tour</a>
             </div>
           </section>
-          <section class="golf-dashboard-block golf-resource-links">
-            <h4 class="golf-dashboard-subhead">Ready-To-Use Golf Links</h4>
-            <div class="golf-link-grid">
-              <a class="golf-link-tile" href="https://www.pgatour.com/" target="_blank" rel="noopener noreferrer">
-                <p class="golf-link-title">PGA TOUR</p>
-                <p class="golf-link-copy">Tour leaderboard, schedules, and event coverage.</p>
-              </a>
-              <a class="golf-link-tile" href="https://www.lpga.com/" target="_blank" rel="noopener noreferrer">
-                <p class="golf-link-title">LPGA</p>
-                <p class="golf-link-copy">Women’s tour schedules, standings, and updates.</p>
-              </a>
-              <a class="golf-link-tile" href="https://www.usga.org/" target="_blank" rel="noopener noreferrer">
-                <p class="golf-link-title">USGA</p>
-                <p class="golf-link-copy">Rules, handicapping, and national golf resources.</p>
-              </a>
-              <a class="golf-link-tile" href="https://www.randa.org/" target="_blank" rel="noopener noreferrer">
-                <p class="golf-link-title">The R&amp;A</p>
-                <p class="golf-link-copy">Rules, governance, and global game guidance.</p>
-              </a>
-            </div>
-          </section>
+          <div class="golf-dashboard-secondary-grid">
+            <section class="golf-dashboard-block golf-dashboard-status">
+              <h4 class="golf-dashboard-subhead">Module Status</h4>
+              <p class="muted tiny">Modules not connected in this release are marked as <strong>Unavailable</strong>.</p>
+              <div class="golf-dashboard-status-grid">
+                <article class="golf-status-card">
+                  <p class="golf-status-kicker">Live Scoring Feed</p>
+                  <p class="golf-status-value is-unavailable">Unavailable</p>
+                  <p class="muted tiny">PocketCaddy live pro-feed integration is not connected in this release.</p>
+                </article>
+                <article class="golf-status-card">
+                  <p class="golf-status-kicker">Latest Golf News</p>
+                  <p class="golf-status-value is-unavailable">Unavailable</p>
+                  <p class="muted tiny">News feed integration is not connected in this release.</p>
+                </article>
+                <article class="golf-status-card">
+                  <p class="golf-status-kicker">Watch / Broadcast</p>
+                  <p class="golf-status-value is-unavailable">Unavailable</p>
+                  <p class="muted tiny">Live watch schedule integration is not connected in this release.</p>
+                </article>
+              </div>
+            </section>
+            <section class="golf-dashboard-block golf-resource-links">
+              <h4 class="golf-dashboard-subhead">Ready-To-Use Golf Links</h4>
+              <div class="golf-link-grid">
+                <a class="golf-link-tile" href="https://www.pgatour.com/" target="_blank" rel="noopener noreferrer">
+                  <p class="golf-link-title">PGA TOUR</p>
+                  <p class="golf-link-copy">Tour leaderboard, schedules, and event coverage.</p>
+                </a>
+                <a class="golf-link-tile" href="https://www.lpga.com/" target="_blank" rel="noopener noreferrer">
+                  <p class="golf-link-title">LPGA</p>
+                  <p class="golf-link-copy">Women’s tour schedules, standings, and updates.</p>
+                </a>
+                <a class="golf-link-tile" href="https://www.usga.org/" target="_blank" rel="noopener noreferrer">
+                  <p class="golf-link-title">USGA</p>
+                  <p class="golf-link-copy">Rules, handicapping, and national golf resources.</p>
+                </a>
+                <a class="golf-link-tile" href="https://www.randa.org/" target="_blank" rel="noopener noreferrer">
+                  <p class="golf-link-title">The R&amp;A</p>
+                  <p class="golf-link-copy">Rules, governance, and global game guidance.</p>
+                </a>
+              </div>
+            </section>
+          </div>
         </section>
 
-        <section class="home-quick card-sub">
-          <h3>What To Do Now</h3>
-          <p class="muted tiny home-quick-helper">Start a new round or jump into one already in progress.</p>
+        <section id="home-operations-section" class="home-quick card-sub">
+          <h3>Round Operations</h3>
+          <p class="muted tiny home-quick-helper">Start here for active round workflows, then use history for replay and review.</p>
           <div class="home-quick-grid">
             <button id="quick-create-btn" class="btn btn-primary" type="button">Start New Round</button>
             <button id="quick-join-btn" class="btn btn-secondary" type="button">Join Existing Round</button>
+            <a class="btn btn-secondary home-quick-link" href="#round-history-section">Open Round History</a>
           </div>
         </section>
 
