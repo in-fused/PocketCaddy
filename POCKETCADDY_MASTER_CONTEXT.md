@@ -26,11 +26,54 @@ Any new session MUST:
 Every cycle must:
 
 1. Review the submitted/attached files first.
-2. If issues exist, provide exact fixes as a copy/paste-ready surgical Codex prompt.
+2. If issues exist, provide exact fixes as one single copy/paste-ready surgical Codex prompt.
 3. If clean, explicitly approve for commit.
-4. Return BOTH GitHub fields as copy/paste-ready blocks.
-5. Immediately return the NEXT PHASE PROMPT as a copy/paste-ready block.
-6. NEVER make the user ask again for commit blocks or next phase prompt.
+4. Return GitHub Commit Summary as its own standalone fenced code block.
+5. Return GitHub Commit Description as its own standalone fenced code block.
+6. Return Next Phase Prompt as its own standalone fenced code block.
+7. NEVER combine any of those three outputs into the same fenced block.
+8. NEVER allow one fenced block to bleed into the next section.
+9. NEVER place GitHub Commit Description inside the Next Phase Prompt block.
+10. NEVER place Next Phase Prompt inside the GitHub Commit Description block.
+11. NEVER make the user ask again for commit summary, commit description, or next phase prompt.
+
+Required approved output shape:
+
+APPROVED
+
+GitHub Commit Summary
+
+```text
+<one-line summary>
+```
+
+GitHub Commit Description
+
+```text
+- <change>
+- <change>
+- <change>
+```
+
+Next Phase Prompt
+
+```text
+<full next phase codex prompt>
+```
+
+If not approved, output must remain:
+
+NOT APPROVED
+
+What is wrong:
+- <issue>
+- <issue>
+
+Fix Prompt
+
+```text
+<full copy/paste codex prompt>
+```
 
 ### 3. REVIEW DISCIPLINE
 
@@ -64,12 +107,18 @@ Every cycle must:
 
 ### 7. COPY/PASTE BLOCK REQUIREMENT
 
-- ALL outputs must be single clean copy/paste blocks when requested.
+- ALL requested outputs must be one-click copy/paste ready.
+- GitHub Commit Summary must always be its own full fenced block.
+- GitHub Commit Description must always be its own full fenced block.
+- Next Phase Prompt must always be its own full fenced block.
+- Never nest fenced blocks.
+- Never leave an opening or closing fence ambiguous.
+- Never let one block absorb the next section.
 - No broken formatting.
-- No split outputs across multiple blocks when one is expected.
+- No mixed output.
+- No split prompts when one block is expected.
 - Codex prompts MUST be one continuous block.
 - Docs MUST be one continuous block.
-
 ---
 
 ## CURRENT PROJECT STATUS
@@ -199,12 +248,3 @@ NO deviation.
 ---
 
 ## END
-
-
-GitHub Commit Summary
-Docs: Update master context for unified hub navigation and current priorities
-
-GitHub Commit Description
-- Updated master context to reflect panel-based home hub system and unified navigation
-- Added current product state, active focus, and operations panel priority
-- Enforced strict single-block output formatting and workflow rules
