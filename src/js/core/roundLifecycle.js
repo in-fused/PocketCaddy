@@ -141,15 +141,55 @@
   function initializeAppFlow(deps) {
     console.log("PocketCaddy v1 live");
     deps.wireEvents();
-    deps.ensureRoundHistorySection();
+    if (typeof deps.ensureRoundHistorySection === "function") {
+      try {
+        deps.ensureRoundHistorySection();
+      } catch (err) {
+        console.error("ensureRoundHistorySection failed:", err);
+      }
+    }
     deps.state.roundHistory = deps.loadRoundHistoryFromStorage();
     deps.renderSetupPlayers();
-    deps.renderSelectedCourseCard();
-    deps.renderCourseSuggestions([]);
-    deps.ensureShareActionButtons();
-    deps.renderRoundHistorySection();
+    if (typeof deps.renderSelectedCourseCard === "function") {
+      try {
+        deps.renderSelectedCourseCard();
+      } catch (err) {
+        console.error("renderSelectedCourseCard failed:", err);
+      }
+    }
+    if (typeof deps.renderCourseSuggestions === "function") {
+      try {
+        deps.renderCourseSuggestions([]);
+      } catch (err) {
+        console.error("renderCourseSuggestions failed:", err);
+      }
+    }
+    if (typeof deps.ensureShareActionButtons === "function") {
+      try {
+        deps.ensureShareActionButtons();
+      } catch (err) {
+        console.error("ensureShareActionButtons failed:", err);
+      }
+    }
+    if (typeof deps.renderRoundHistorySection === "function") {
+      try {
+        deps.renderRoundHistorySection();
+      } catch (err) {
+        console.error("renderRoundHistorySection failed:", err);
+      }
+    }
 
-    const fromUrl = deps.getRoundIdFromUrl();
+    deps.showView("home");
+
+    let fromUrl = null;
+    try {
+      fromUrl = deps.getRoundIdFromUrl();
+    } catch (err) {
+      deps.showError(deps.dom.homeError, "Could not read the shared round link.");
+      console.error(err);
+      return;
+    }
+
     if (fromUrl) {
       joinRoundById(fromUrl, deps).catch((err) => {
         deps.showError(deps.dom.homeError, "Could not open that shared round link.");
@@ -157,10 +197,7 @@
         deps.showView("home");
         console.error(err);
       });
-      return;
     }
-
-    deps.showView("home");
   }
 
   window.PocketCaddyRoundLifecycle = {
