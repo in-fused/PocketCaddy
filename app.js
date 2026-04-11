@@ -267,9 +267,7 @@
 
     dom.createRoundBtn.addEventListener("click", createRound);
     dom.joinRoundBtn.addEventListener("click", joinFromInput);
-    if (dom.homeView) {
-      dom.homeView.addEventListener("click", onHomeViewClick);
-    }
+    initializeHomeHubNavigation();
     if (dom.hubResumeBtn) {
       dom.hubResumeBtn.addEventListener("click", resumeSession);
     }
@@ -316,19 +314,6 @@
 
     const leaderboardSection = dom.leaderboardBody && dom.leaderboardBody.closest("section");
     if (leaderboardSection) leaderboardSection.addEventListener("click", onRoundSummaryPanelClick);
-
-    window.PocketCaddyHomeHub = {
-      setMode: function (mode, options) {
-        setHomeMode(mode, options);
-      }
-    };
-    window.addEventListener("pocketcaddy:home-mode", (event) => {
-      const detail = event && event.detail && typeof event.detail === "object" ? event.detail : {};
-      setHomeMode(detail.mode, {
-        focusTarget: detail.focusTarget || null,
-        skipFocus: Boolean(detail.skipFocus)
-      });
-    });
   }
 
   function ensureRoundHistorySection() {
@@ -892,59 +877,24 @@ if (!dom.homeView.classList.contains("hidden")) {
 }
   }
 
-  function focusById(id) {
-    const node = document.getElementById(id);
-    if (!node || typeof node.focus !== "function") return;
-    try {
-      node.focus({ preventScroll: true });
-    } catch (_err) {
-      node.focus();
-    }
+  function initializeHomeHubNavigation() {
+    const hubModule = window.PocketCaddyHomeHubModule;
+    if (!hubModule || typeof hubModule.initializeHomeHub !== "function") return;
+    hubModule.initializeHomeHub({
+      homeView: dom.homeView,
+      onModeChange: function (mode) {
+        state.homeMode = mode;
+      }
+    });
   }
 
   function setHomeMode(mode, options) {
-    if (!dom.homeView) return;
-    const opts = options && typeof options === "object" ? options : {};
-    const safeMode = mode === "operations" || mode === "history" || mode === "golf" ? mode : "home";
-    state.homeMode = safeMode;
-    dom.homeView.classList.remove("home-mode-home", "home-mode-operations", "home-mode-history", "home-mode-golf");
-    dom.homeView.classList.add(`home-mode-${safeMode}`);
-    if (opts.focusTarget && !opts.skipFocus) {
-      focusById(String(opts.focusTarget));
+    const hubApi = window.PocketCaddyHomeHub || window.PocketCaddyHomeHubModule;
+    if (!hubApi || typeof hubApi.setMode !== "function") return;
+    hubApi.setMode(mode, options);
+    if (typeof hubApi.getMode === "function") {
+      state.homeMode = hubApi.getMode();
     }
-  }
-
-  function onHomeViewClick(event) {
-    const trigger = event.target.closest("[data-home-mode], #hub-create-btn, #hub-join-btn, #quick-create-btn, #quick-join-btn, #quick-history-btn, #continuity-history-btn");
-    if (!trigger) return;
-
-    const triggerId = trigger.id || "";
-    if (triggerId === "hub-create-btn" || triggerId === "quick-create-btn") {
-      event.preventDefault();
-      setHomeMode("operations", { focusTarget: "home-operations-section", skipFocus: true });
-      window.setTimeout(() => {
-        focusById("round-name");
-      }, 40);
-      return;
-    }
-    if (triggerId === "hub-join-btn" || triggerId === "quick-join-btn") {
-      event.preventDefault();
-      setHomeMode("operations", { focusTarget: "home-operations-section", skipFocus: true });
-      window.setTimeout(() => {
-        focusById("join-input");
-      }, 40);
-      return;
-    }
-    if (triggerId === "quick-history-btn" || triggerId === "continuity-history-btn") {
-      event.preventDefault();
-      setHomeMode("history", { focusTarget: "round-history-section" });
-      return;
-    }
-
-    const mode = String(trigger.getAttribute("data-home-mode") || "").trim();
-    if (!mode) return;
-    const focusTarget = String(trigger.getAttribute("data-focus-target") || "").trim();
-    setHomeMode(mode, { focusTarget: focusTarget || null });
   }
 
   function addSetupPlayer() {
