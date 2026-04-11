@@ -38,6 +38,18 @@
     return String(options.focusTarget || "").trim();
   }
 
+  function updateHubTabState(mode) {
+    if (!state.homeView) return;
+    const safeMode = normalizeMode(mode);
+    const tabs = state.homeView.querySelectorAll(".home-hub-tab[data-home-mode]");
+    tabs.forEach((tab) => {
+      const tabMode = normalizeMode(String(tab.getAttribute("data-home-mode") || ""));
+      const isActive = tabMode === safeMode;
+      tab.setAttribute("aria-current", isActive ? "page" : "false");
+      tab.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+  }
+
   function setMode(mode, options) {
     if (!state.homeView) return;
     const safeMode = normalizeMode(mode);
@@ -46,6 +58,7 @@
     state.mode = safeMode;
     state.homeView.classList.remove.apply(state.homeView.classList, HOME_MODE_CLASSES);
     state.homeView.classList.add(`home-mode-${safeMode}`);
+    updateHubTabState(safeMode);
     if (typeof state.onModeChange === "function") {
       state.onModeChange(safeMode);
     }
@@ -124,6 +137,8 @@
       setMode: setMode,
       getMode: getMode
     };
+
+    updateHubTabState(state.mode);
   }
 
   window.PocketCaddyHomeHubModule = {

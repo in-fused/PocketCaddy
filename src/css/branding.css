@@ -317,3 +317,315 @@
     margin-right: 5px;
   }
 }
+
+/* Phase 60 bundled polish layer: home hub + active score/history surfaces */
+#home-view {
+  row-gap: 12px;
+}
+
+#home-view > .card-sub {
+  padding: 14px;
+}
+
+#home-view > .home-hero.card-sub {
+  padding: 20px 18px 17px;
+}
+
+.home-title {
+  max-width: 19ch;
+}
+
+.home-tagline,
+.home-hero-guidance {
+  max-width: 56ch;
+}
+
+.home-status-strip {
+  margin-top: 12px;
+  padding: 11px 12px;
+}
+
+.home-status-grid {
+  margin-top: 8px;
+  gap: 9px;
+}
+
+.home-status-item {
+  padding: 8px 9px;
+  min-height: 62px;
+}
+
+.home-hero-actions {
+  margin-top: 12px;
+  gap: 9px;
+}
+
+.home-hero-actions .btn {
+  min-height: 46px;
+}
+
+.home-hero-path {
+  margin-top: 12px;
+  gap: 8px;
+}
+
+.home-saved-session {
+  padding: 14px;
+}
+
+.home-saved-session-progress {
+  margin-top: 10px;
+  padding: 10px;
+}
+
+.home-saved-session-actions {
+  margin-top: 11px;
+}
+
+.home-hub-nav {
+  position: sticky;
+  top: 8px;
+  z-index: 3;
+  padding: 10px;
+  border-radius: 13px;
+  border: 1px solid var(--pc-accent-soft);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(246, 251, 248, 0.96) 100%);
+  box-shadow: 0 10px 18px rgba(12, 37, 20, 0.07);
+  backdrop-filter: saturate(125%) blur(5px);
+}
+
+.home-hub-tab {
+  min-height: 42px;
+}
+
+.home-hub-tab[aria-current="page"],
+.home-hub-tab[aria-pressed="true"] {
+  border-color: var(--pc-accent-strong);
+  background: linear-gradient(180deg, var(--pc-accent) 0%, var(--pc-accent-strong) 100%);
+  color: #f4fff7;
+  box-shadow: 0 10px 18px rgba(14, 61, 33, 0.21);
+}
+
+.home-continuity,
+.home-quick,
+#home-golf-dashboard,
+#home-operations-section,
+#create-round-section,
+#join-round-section,
+#round-history-section {
+  padding: 14px;
+}
+
+.home-continuity-grid,
+.home-operations-preview-list {
+  gap: 9px;
+}
+
+.continuity-tile,
+.home-operations-preview-item {
+  padding: 10px 11px;
+}
+
+.home-quick-grid {
+  gap: 8px;
+}
+
+.home-quick-grid .btn {
+  min-height: 46px;
+}
+
+.round-history-player-stats {
+  gap: 8px;
+}
+
+.progression-chip {
+  padding: 10px 11px;
+}
+
+.round-history-insights {
+  padding: 10px;
+  gap: 8px;
+}
+
+.round-history-insight-strip {
+  gap: 7px;
+}
+
+.round-history-insight-card,
+.round-history-snapshot-card {
+  padding: 9px 10px;
+}
+
+.round-history-list {
+  gap: 9px;
+}
+
+.round-history-toggle {
+  min-height: 52px;
+  padding: 11px 12px;
+}
+
+.round-history-detail {
+  padding: 11px 12px;
+}
+
+.round-history-actions {
+  gap: 8px;
+}
+
+.round-history-action-group {
+  padding: 8px;
+}
+
+.round-history-export-actions {
+  gap: 7px;
+}
+
+.round-history-actions .btn {
+  min-height: 42px;
+}
+
+.round-history-replay {
+  margin-top: 12px;
+  padding: 12px;
+}
+
+#score-view > .top-sticky {
+  display: grid;
+  gap: 10px;
+}
+
+#score-view > .top-sticky > .card.section {
+  padding: 15px;
+}
+
+.meta-grid {
+  row-gap: 7px;
+}
+
+.identity-line {
+  margin-top: 10px;
+}
+
+.share-wrap {
+  gap: 10px;
+  margin-top: 11px;
+  padding: 10px;
+}
+
+.share-fields label {
+  gap: 5px;
+}
+
+.round-summary-panel,
+.round-share-card {
+  margin-top: 10px;
+}
+
+.round-summary-panel {
+  padding: 11px;
+}
+
+.round-share-card {
+  padding: 11px;
+}
+
+.hole-intelligence-section,
+.shot-intelligence-section,
+.hole-detail-editor-section,
+.par-section {
+  padding: 14px;
+}
+
+.score-scroll {
+  margin-top: 8px;
+}
+
+@media (max-width: 560px) {
+  #home-view {
+    row-gap: 8px;
+  }
+
+  #home-view > .card-sub,
+  .home-saved-session,
+  .home-continuity,
+  .home-quick,
+  #home-golf-dashboard,
+  #home-operations-section,
+  #create-round-section,
+  #join-round-section,
+  #round-history-section {
+    padding: 11px;
+  }
+
+  #home-view > .home-hero.card-sub {
+    padding: 15px 12px 13px;
+  }
+
+  .home-status-strip {
+    padding: 9px;
+  }
+
+  .home-status-grid {
+    gap: 6px;
+  }
+
+  .home-status-item {
+    min-height: 54px;
+    padding: 7px;
+  }
+
+  .home-hero-actions {
+    gap: 7px;
+  }
+
+  .home-hero-actions .btn,
+  .home-quick-grid .btn,
+  .round-history-actions .btn {
+    min-height: 44px;
+  }
+
+  .home-hub-nav {
+    position: static;
+    padding: 8px;
+    border-radius: 12px;
+    box-shadow: 0 6px 12px rgba(12, 37, 20, 0.08);
+    backdrop-filter: none;
+  }
+
+  .home-hub-tab {
+    min-height: 40px;
+  }
+
+  .round-history-toggle {
+    min-height: 48px;
+    padding: 9px 10px;
+  }
+
+  .round-history-detail,
+  .round-history-action-group,
+  .round-history-replay {
+    padding: 9px;
+  }
+
+  .round-history-actions,
+  .round-history-export-actions {
+    gap: 6px;
+  }
+
+  #score-view > .top-sticky > .card.section,
+  .round-summary-panel,
+  .round-share-card,
+  .hole-intelligence-section,
+  .shot-intelligence-section,
+  .hole-detail-editor-section,
+  .par-section {
+    padding: 10px;
+  }
+
+  .share-wrap {
+    margin-top: 9px;
+    padding: 8px;
+    gap: 8px;
+  }
+}
