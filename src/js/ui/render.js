@@ -1404,11 +1404,11 @@
     setCourseSearchStatus,
     updateUIStatus,
     buildRoundExportData,
-    buildHistorySummaryExportData,
     downloadRoundAsJSON,
     downloadRoundAsCSV,
     downloadHistorySummaryAsJSON,
     downloadHistorySummaryAsCSV,
+    buildHistorySummaryExportData,
     showError,
     showFeedback
   };

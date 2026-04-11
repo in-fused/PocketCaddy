@@ -1,19 +1,11 @@
 (function () {
   "use strict";
 
-  const RUNTIME_SCRIPT_PATHS = [
-    "src/js/core/appRuntimeLegacy.js",
-    "./src/js/core/appRuntimeLegacy.js"
-  ];
-
   const state = {
-    runtimeLoaded: false,
-    runtimeLoading: false,
     runtimeBootQueued: false,
+    runtimeBooted: false,
     eventsWired: false,
-    globalGuardsWired: false,
-    runtimePathIndex: 0,
-    runtimeScriptEl: null
+    globalGuardsWired: false
   };
 
   // INIT
@@ -55,7 +47,7 @@
       waitForRenderThenBoot();
       return;
     }
-    loadRuntimeScript();
+    revealHomeFallback("PocketCaddy could not finish loading. Please refresh and try again.");
   }
 
   function isRuntimeAvailable() {
@@ -65,58 +57,14 @@
     );
   }
 
-  function loadRuntimeScript() {
-    if (state.runtimeLoaded || state.runtimeLoading) return;
-    if (state.runtimePathIndex >= RUNTIME_SCRIPT_PATHS.length) {
-      onRuntimeScriptExhausted();
-      return;
-    }
-    state.runtimeLoading = true;
-
-    const script = document.createElement("script");
-    script.src = RUNTIME_SCRIPT_PATHS[state.runtimePathIndex];
-    script.async = true;
-    script.addEventListener("load", onRuntimeScriptLoaded, { once: true });
-    script.addEventListener("error", onRuntimeScriptError, { once: true });
-    state.runtimeScriptEl = script;
-    document.head.appendChild(script);
-  }
-
-  function onRuntimeScriptLoaded() {
-    state.runtimeLoaded = true;
-    state.runtimeLoading = false;
-    state.runtimeScriptEl = null;
-    state.runtimeBootQueued = true;
-
-    if (isRuntimeAvailable()) {
-      waitForRenderThenBoot();
-      return;
-    }
-
-    console.error("PocketCaddy runtime script loaded but runtime API was unavailable.");
-    onRuntimeScriptExhausted();
-  }
-
-  function onRuntimeScriptError() {
-    state.runtimeLoading = false;
-    if (state.runtimeScriptEl && state.runtimeScriptEl.parentNode) {
-      state.runtimeScriptEl.parentNode.removeChild(state.runtimeScriptEl);
-    }
-    state.runtimeScriptEl = null;
-    state.runtimePathIndex += 1;
-    if (state.runtimePathIndex < RUNTIME_SCRIPT_PATHS.length) {
-      loadRuntimeScript();
-      return;
-    }
-    onRuntimeScriptExhausted();
-  }
-
   function safeBootRuntime() {
-    if (!state.runtimeBootQueued || !isRuntimeAvailable()) return;
+    if (state.runtimeBooted || !state.runtimeBootQueued || !isRuntimeAvailable()) return;
     state.runtimeBootQueued = false;
+    state.runtimeBooted = true;
     try {
       window.PocketCaddyAppRuntimeLegacy.boot();
     } catch (err) {
+      state.runtimeBooted = false;
       console.error("PocketCaddy runtime boot failed:", err);
       revealHomeFallback("PocketCaddy failed to start. Please refresh and try again.");
     }
@@ -124,12 +72,12 @@
 
   function waitForRenderThenBoot() {
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 40;
 
     function attempt() {
       if (!state.runtimeBootQueued) return;
       if (!isRuntimeAvailable()) {
-        loadRuntimeScript();
+        revealHomeFallback("PocketCaddy could not finish loading. Please refresh and try again.");
         return;
       }
 
@@ -149,18 +97,6 @@
     }
 
     attempt();
-  }
-
-  function onRuntimeScriptExhausted() {
-    state.runtimeBootQueued = false;
-    state.runtimeLoading = false;
-    state.runtimeLoaded = false;
-    if (state.runtimeScriptEl && state.runtimeScriptEl.parentNode) {
-      state.runtimeScriptEl.parentNode.removeChild(state.runtimeScriptEl);
-    }
-    state.runtimeScriptEl = null;
-    console.error("PocketCaddy runtime failed to load.");
-    revealHomeFallback("PocketCaddy could not finish loading. Please refresh and try again.");
   }
 
   function revealHomeFallback(message) {
