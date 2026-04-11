@@ -226,11 +226,29 @@ h2, h3, h4, p { margin: 0; }
   min-height: 48px;
   border-radius: 12px;
   padding: 11px 16px;
+  transition: transform 130ms ease, box-shadow 160ms ease, background-position 180ms ease, filter 150ms ease;
 }
 
 .home-hero-actions .btn-secondary {
   border-color: rgba(209, 229, 216, 0.64);
   background: rgba(245, 251, 247, 0.9);
+}
+
+.home-hero-actions .btn-primary {
+  box-shadow: 0 8px 18px rgba(14, 66, 34, 0.3);
+  background-size: 125% 125%;
+}
+
+.home-hero-actions .btn-primary:hover:not(:disabled),
+.home-hero-actions .btn-primary:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 11px 22px rgba(15, 74, 39, 0.34);
+  filter: brightness(1.02);
+}
+
+.home-hero-actions .btn-primary:active:not(:disabled) {
+  animation: heroTapRipple 240ms ease-out;
+  transform: translateY(1px) scale(0.99);
 }
 
 .home-saved-session h3,
@@ -377,6 +395,7 @@ h2, h3, h4, p { margin: 0; }
   justify-content: flex-start;
   text-align: left;
   font-size: 0.9rem;
+  transition: transform 135ms ease, box-shadow 170ms ease, border-color 150ms ease, background-position 180ms ease;
 }
 
 .home-quick-grid .btn-primary {
@@ -384,6 +403,34 @@ h2, h3, h4, p { margin: 0; }
   color: #fff;
   border-color: #176634;
   box-shadow: 0 7px 14px rgba(23, 84, 44, 0.22);
+}
+
+.home-quick-grid .btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(118deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.22) 44%, rgba(255, 255, 255, 0) 78%);
+  transform: translateX(-42%);
+  opacity: 0;
+  transition: transform 220ms ease, opacity 170ms ease;
+}
+
+.home-quick-grid .btn:hover:not(:disabled),
+.home-quick-grid .btn:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 20px rgba(12, 43, 24, 0.14);
+}
+
+.home-quick-grid .btn:hover:not(:disabled)::after,
+.home-quick-grid .btn:focus-visible::after {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.home-quick-grid .btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.99);
+  box-shadow: 0 6px 12px rgba(12, 36, 20, 0.14);
 }
 
 .home-history-kicker {
@@ -503,10 +550,20 @@ h2, h3, h4, p { margin: 0; }
   display: grid;
   gap: 3px;
   transition: background-color 150ms ease, color 150ms ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .round-history-toggle:hover {
   background: #f3f9f5;
+}
+
+.round-history-toggle:active {
+  background: #eaf4ee;
+}
+
+.round-history-toggle:focus-visible {
+  outline: 3px solid #c8dece;
+  outline-offset: -2px;
 }
 
 .round-history-date {
@@ -778,7 +835,30 @@ input:focus, select:focus {
   justify-content: center;
   gap: 6px;
   position: relative;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
   transition: transform 120ms ease, background-color 120ms ease, border-color 120ms ease, box-shadow 140ms ease, color 120ms ease, filter 120ms ease;
+}
+
+.btn::before {
+  content: "";
+  position: absolute;
+  top: -45%;
+  bottom: -45%;
+  left: -68%;
+  width: 44%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0));
+  transform: translateX(0) rotate(14deg);
+  opacity: 0;
+  transition: transform 240ms ease, opacity 220ms ease;
+  pointer-events: none;
+}
+
+.btn:hover:not(:disabled)::before,
+.btn:focus-visible::before {
+  opacity: 0.6;
+  transform: translateX(240%) rotate(14deg);
 }
 
 .btn:active:not(:disabled) { transform: translateY(1px); }
@@ -880,8 +960,25 @@ input:focus, select:focus {
   animation: viewEnter 170ms ease-out;
 }
 
+#home-view:not(.hidden) > .card-sub {
+  opacity: 0;
+  transform: translateY(3px);
+  animation: homeCardReveal 210ms ease-out forwards;
+}
+
+#home-view:not(.hidden) > .card-sub:nth-of-type(1) { animation-delay: 0ms; }
+#home-view:not(.hidden) > .card-sub:nth-of-type(2) { animation-delay: 24ms; }
+#home-view:not(.hidden) > .card-sub:nth-of-type(3) { animation-delay: 48ms; }
+#home-view:not(.hidden) > .card-sub:nth-of-type(4) { animation-delay: 72ms; }
+#home-view:not(.hidden) > .card-sub:nth-of-type(5) { animation-delay: 96ms; }
+#home-view:not(.hidden) > .card-sub:nth-of-type(6) { animation-delay: 120ms; }
+
 #score-view:not(.hidden) {
-  animation: viewEnter 170ms ease-out, viewReward 190ms ease-out;
+  animation: viewEnter 170ms ease-out, viewReward 190ms ease-out, scoreArrivalFlash 240ms ease-out;
+}
+
+#score-view:not(.hidden) > .top-sticky > .card.section:first-of-type {
+  animation: successPulseStrong 240ms ease-out;
 }
 
 #home-saved-session-card:not(.hidden) {
@@ -906,6 +1003,10 @@ input:focus, select:focus {
 
 .ui-success-pulse {
   animation: successPulse 190ms ease-out;
+}
+
+.home-hero {
+  animation: heroAmbientDrift 16s ease-in-out infinite alternate;
 }
 
 .error {
@@ -2488,6 +2589,40 @@ input:focus, select:focus {
   to { transform: rotate(360deg); }
 }
 
+@keyframes homeCardReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+    filter: saturate(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: saturate(1);
+  }
+}
+
+@keyframes heroAmbientDrift {
+  0% { background-position: 0% 0%, 0% 0%; }
+  100% { background-position: 5% 3%, 0% 0%; }
+}
+
+@keyframes heroTapRipple {
+  0% { box-shadow: 0 8px 18px rgba(14, 66, 34, 0.3), 0 0 0 0 rgba(182, 232, 198, 0.34); }
+  100% { box-shadow: 0 8px 18px rgba(14, 66, 34, 0.3), 0 0 0 9px rgba(182, 232, 198, 0); }
+}
+
+@keyframes scoreArrivalFlash {
+  0% { box-shadow: 0 0 0 0 rgba(43, 128, 73, 0.22); }
+  100% { box-shadow: 0 0 0 12px rgba(43, 128, 73, 0); }
+}
+
+@keyframes successPulseStrong {
+  0% { box-shadow: 0 0 0 0 rgba(34, 115, 61, 0.28); filter: saturate(1); }
+  60% { box-shadow: 0 0 0 10px rgba(34, 115, 61, 0); filter: saturate(1.06); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 115, 61, 0); filter: saturate(1); }
+}
+
 .leader-relative {
   display: inline-block;
   margin-left: 6px;
@@ -2565,8 +2700,20 @@ input:focus, select:focus {
   .view-reward,
   .ui-reveal-pop,
   .ui-success-pulse,
-  .btn.is-busy::after {
+  .btn.is-busy::after,
+  #home-view:not(.hidden) > .card-sub,
+  #score-view:not(.hidden),
+  #score-view:not(.hidden) > .top-sticky > .card.section:first-of-type,
+  .home-hero,
+  .home-hero-actions .btn-primary:active:not(:disabled) {
     animation: none !important;
+  }
+
+  .btn::before,
+  .home-quick-grid .btn::after {
+    transition: none !important;
+    opacity: 0 !important;
+    transform: none !important;
   }
 }
 
