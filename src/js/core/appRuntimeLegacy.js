@@ -371,6 +371,14 @@
         triggerRoundHistoryExport("csv", roundId);
         return;
       }
+      if (action === "export-history-summary-json") {
+        triggerRoundHistorySummaryExport("json");
+        return;
+      }
+      if (action === "export-history-summary-csv") {
+        triggerRoundHistorySummaryExport("csv");
+        return;
+      }
       if (action === "toggle-history-row") {
         if (!roundId) {
           showRoundHistoryActionFeedback("This history row is unavailable.", "error");
@@ -444,9 +452,9 @@
 
   function canTriggerRoundHistoryExport(type, roundId) {
     const normalizedType = String(type == null ? "" : type).trim().toLowerCase();
-    const normalizedRoundId = String(roundId == null ? "" : roundId).trim();
-    if (!normalizedType || !normalizedRoundId) return false;
-    const key = `${normalizedType}:${normalizedRoundId}`;
+    const normalizedScope = String(roundId == null ? "" : roundId).trim();
+    if (!normalizedType || !normalizedScope) return false;
+    const key = `${normalizedType}:${normalizedScope}`;
     const now = Date.now();
     const previous = Number(state.roundHistoryExportCooldownByKey[key] || 0);
     if (now - previous < ROUND_HISTORY_EXPORT_COOLDOWN_MS) return false;
@@ -493,6 +501,45 @@
     } catch (err) {
       console.error("Round history export failed:", err);
       showRoundHistoryActionFeedback("Export failed. Try again.", "error");
+    }
+  }
+
+  function triggerRoundHistorySummaryExport(type) {
+    const normalizedType = String(type == null ? "" : type).trim().toLowerCase();
+    if (normalizedType !== "json" && normalizedType !== "csv") {
+      showRoundHistoryActionFeedback("Unsupported export format.", "error");
+      return;
+    }
+    if (!canTriggerRoundHistoryExport(normalizedType, "history-summary")) return;
+
+    const history = capRoundHistory(Array.isArray(state.roundHistory) ? state.roundHistory : []);
+    state.roundHistory = history;
+    if (!history.length) {
+      showRoundHistoryActionFeedback("History export unavailable. No saved rounds yet.", "neutral");
+      return;
+    }
+
+    const renderApi = window.PocketCaddyRender;
+    if (!renderApi) {
+      showRoundHistoryActionFeedback("Export unavailable right now.", "error");
+      return;
+    }
+
+    try {
+      if (normalizedType === "json") {
+        renderApi.downloadHistorySummaryAsJSON(history);
+        showRoundHistoryActionFeedback("History JSON downloaded.", "success");
+        return;
+      }
+      if (normalizedType === "csv") {
+        renderApi.downloadHistorySummaryAsCSV(history);
+        showRoundHistoryActionFeedback("History CSV downloaded.", "success");
+        return;
+      }
+      showRoundHistoryActionFeedback("Unsupported export format.", "error");
+    } catch (err) {
+      console.error("Round history summary export failed:", err);
+      showRoundHistoryActionFeedback("History export failed. Try again.", "error");
     }
   }
 

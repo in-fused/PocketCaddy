@@ -214,6 +214,97 @@
     };
   }
 
+  function normalizeHistoryEntryWinnerNames(entry) {
+    const winnerNames = Array.isArray(entry && entry.winnerNames)
+      ? entry.winnerNames.map((name) => toExportText(name)).filter((name) => name !== "Unavailable")
+      : [];
+    if (winnerNames.length) return winnerNames;
+
+    const winnerIds = new Set(Array.isArray(entry && entry.winnerIds)
+      ? entry.winnerIds.map((id) => String(id || "").trim()).filter(Boolean)
+      : []);
+    if (winnerIds.size) {
+      const standings = Array.isArray(entry && entry.standings) ? entry.standings : [];
+      const resolved = standings
+        .filter((row) => winnerIds.has(String(row && row.id != null ? row.id : "")))
+        .map((row) => toExportText(row && row.name))
+        .filter((name) => name !== "Unavailable");
+      if (resolved.length) return resolved;
+    }
+    return ["Unavailable"];
+  }
+
+  function buildHistorySummaryRoundMetadata(historyEntries) {
+    const entries = Array.isArray(historyEntries) ? historyEntries : [];
+    return entries.map((entry) => ({
+      roundId: toExportText(entry && entry.roundId),
+      roundName: toExportText(entry && entry.roundName),
+      courseName: toExportText(entry && entry.courseName),
+      date: toExportText(entry && entry.date),
+      holes: toExportNumberOrFallback(entry && entry.holes),
+      winnerNames: normalizeHistoryEntryWinnerNames(entry)
+    }));
+  }
+
+  function buildHistorySummaryPlayerProgression(historyEntries) {
+    const entries = Array.isArray(historyEntries) ? historyEntries : [];
+    const statsByName = new Map();
+    entries.forEach((entry) => {
+      const standings = Array.isArray(entry && entry.standings) ? entry.standings : [];
+      const winnerIds = new Set(Array.isArray(entry && entry.winnerIds)
+        ? entry.winnerIds.map((id) => String(id || "").trim()).filter(Boolean)
+        : []);
+      standings.forEach((row) => {
+        const rawName = String(row && row.name != null ? row.name : "").trim();
+        const playerName = rawName || "Unavailable";
+        const key = playerName.toLowerCase();
+        if (!statsByName.has(key)) {
+          statsByName.set(key, {
+            playerName: playerName,
+            roundsPlayed: 0,
+            wins: 0,
+            scoreSum: 0,
+            scoredRounds: 0,
+            bestRound: null
+          });
+        }
+        const stat = statsByName.get(key);
+        stat.playerName = playerName;
+        stat.roundsPlayed += 1;
+        if (winnerIds.has(String(row && row.id != null ? row.id : ""))) stat.wins += 1;
+        const total = Number(row && row.total);
+        if (Number.isFinite(total)) {
+          stat.scoreSum += total;
+          stat.scoredRounds += 1;
+          if (stat.bestRound == null || total < stat.bestRound) stat.bestRound = total;
+        }
+      });
+    });
+
+    return Array.from(statsByName.values())
+      .sort((a, b) => a.playerName.localeCompare(b.playerName))
+      .map((stat) => ({
+        playerName: toExportText(stat.playerName),
+        roundsPlayed: Number.isFinite(Number(stat.roundsPlayed)) ? Number(stat.roundsPlayed) : "Unavailable",
+        wins: Number.isFinite(Number(stat.wins)) ? Number(stat.wins) : "Unavailable",
+        averageScore: stat.scoredRounds > 0 ? Number((stat.scoreSum / stat.scoredRounds).toFixed(2)) : "Unavailable",
+        bestRound: stat.bestRound == null ? "Unavailable" : stat.bestRound
+      }));
+  }
+
+  function buildHistorySummaryExportData(roundHistory) {
+    const history = Array.isArray(roundHistory)
+      ? roundHistory.filter((entry) => entry && typeof entry === "object")
+      : [];
+    const rounds = buildHistorySummaryRoundMetadata(history);
+    const playerProgression = buildHistorySummaryPlayerProgression(history);
+    return {
+      totalRoundsSaved: history.length,
+      rounds: rounds,
+      playerProgression: playerProgression
+    };
+  }
+
   function sanitizeExportFilenamePart(value, fallback, options) {
     const opts = options || {};
     const allowEmpty = Boolean(opts.allowEmpty);
@@ -261,6 +352,11 @@
       parts.push("no-round-id");
     }
     return `${parts.join("-")}.${safeExtension}`;
+  }
+
+  function buildHistorySummaryFilename(extension) {
+    const safeExtension = String(extension == null ? "" : extension).trim().toLowerCase() || "txt";
+    return `pocketcaddy-history-summary.${safeExtension}`;
   }
 
   function downloadBlob(filename, content, mimeType) {
@@ -365,6 +461,73 @@
       row.push(totals ? totals.relativeToPar : "Unavailable");
       row.push(winnerSet.has(player.playerName) ? "Yes" : "No");
       rows.push(row);
+    });
+
+    const csv = rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
+    downloadBlob(filename, csv, "text/csv;charset=utf-8");
+  }
+
+  function downloadHistorySummaryAsJSON(roundHistory) {
+    const payload = buildHistorySummaryExportData(roundHistory);
+    const filename = buildHistorySummaryFilename("json");
+    const content = JSON.stringify(payload, null, 2);
+    downloadBlob(filename, content, "application/json;charset=utf-8");
+  }
+
+  function downloadHistorySummaryAsCSV(roundHistory) {
+    const payload = buildHistorySummaryExportData(roundHistory);
+    const filename = buildHistorySummaryFilename("csv");
+    const headers = [
+      "Record Type",
+      "Total Rounds Saved",
+      "Round ID",
+      "Round Name",
+      "Course Name",
+      "Date",
+      "Holes",
+      "Winner Names",
+      "Player Name",
+      "Rounds Played",
+      "Wins",
+      "Average Score",
+      "Best Round"
+    ];
+    const rows = [headers];
+
+    payload.rounds.forEach((roundRow) => {
+      rows.push([
+        "round",
+        payload.totalRoundsSaved,
+        roundRow.roundId,
+        roundRow.roundName,
+        roundRow.courseName,
+        roundRow.date,
+        roundRow.holes,
+        Array.isArray(roundRow.winnerNames) && roundRow.winnerNames.length ? roundRow.winnerNames.join(" | ") : "Unavailable",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]);
+    });
+
+    payload.playerProgression.forEach((playerRow) => {
+      rows.push([
+        "player",
+        payload.totalRoundsSaved,
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        playerRow.playerName,
+        playerRow.roundsPlayed,
+        playerRow.wins,
+        playerRow.averageScore,
+        playerRow.bestRound
+      ]);
     });
 
     const csv = rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
@@ -694,10 +857,31 @@
 
     const history = capHistory(Array.isArray(state.roundHistory) ? state.roundHistory : []);
     state.roundHistory = history;
+    const hasHistory = history.length > 0;
+    const summaryActionsMarkup = `
+      <div class="round-history-action-group round-history-summary-actions" role="group" aria-label="Export history summary">
+        <p class="round-history-action-label">History Summary Export</p>
+        <div class="round-history-export-actions round-history-summary-export-actions">
+          <button
+            type="button"
+            class="btn btn-secondary round-history-export-btn"
+            data-action="export-history-summary-json"
+            ${hasHistory ? "" : "disabled"}
+            aria-disabled="${hasHistory ? "false" : "true"}">Export History JSON</button>
+          <button
+            type="button"
+            class="btn btn-secondary round-history-export-btn"
+            data-action="export-history-summary-csv"
+            ${hasHistory ? "" : "disabled"}
+            aria-disabled="${hasHistory ? "false" : "true"}">Export History CSV</button>
+        </div>
+        <p class="muted tiny round-history-summary-note">${hasHistory ? "Includes all saved rounds and current player progression." : "History export unavailable until at least one round is saved."}</p>
+      </div>
+    `;
 
     if (!history.length) {
       statsWrap.innerHTML = '<p class="muted tiny round-history-empty-state">No player trends yet. Finish a round to start tracking wins and averages.</p>';
-      historyList.innerHTML = '<p class="muted tiny round-history-empty-state">No saved rounds yet. Create a round above, then complete it to populate history.</p>';
+      historyList.innerHTML = `${summaryActionsMarkup}<p class="muted tiny round-history-empty-state">No saved rounds yet. Create a round above, then complete it to populate history.</p>`;
       replayWrap.classList.add("hidden");
       replayWrap.innerHTML = "";
       return;
@@ -721,7 +905,7 @@
       }).join("");
     }
 
-    historyList.innerHTML = history.map((entry) => {
+    const rowMarkup = history.map((entry) => {
       const roundId = String(entry && entry.roundId != null ? entry.roundId : "").trim();
       const hasRoundId = roundId.length > 0;
       const isExpanded = String(state.roundHistoryExpandedRoundId) === roundId;
@@ -781,6 +965,7 @@
         </article>
       `;
     }).join("");
+    historyList.innerHTML = `${summaryActionsMarkup}${rowMarkup}`;
 
     const replayEntry = history.find((entry) => String(entry.roundId) === String(state.roundHistoryReplayRoundId));
     if (!replayEntry) {
@@ -1055,8 +1240,11 @@
     setCourseSearchStatus,
     updateUIStatus,
     buildRoundExportData,
+    buildHistorySummaryExportData,
     downloadRoundAsJSON,
     downloadRoundAsCSV,
+    downloadHistorySummaryAsJSON,
+    downloadHistorySummaryAsCSV,
     showError,
     showFeedback
   };
