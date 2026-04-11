@@ -1,255 +1,172 @@
-# PocketCaddy – Master Context, Workflow, and Roadmap
+# PocketCaddy - Master Context, Workflow, and Priorities
 
 ## PURPOSE
 
-This document enforces strict workflow continuity, development standards, and execution speed for the PocketCaddy project.
+This document enforces workflow continuity, execution standards, and current product direction for PocketCaddy.
 
-Any new ChatGPT session MUST:
+Any new session MUST:
 
-1. Read this document fully
-2. Confirm understanding
-3. Continue execution without re-planning or unnecessary discussion
-
----
-
-# CORE RULES (NON-NEGOTIABLE)
-
-## 1. NO PAUSES / NO DRIFT
-
-* Do NOT preview future phases
-* Do NOT explain what’s coming next unless asked
-* Do NOT slow workflow with commentary
-* Only:
-
-  * Review → Approve/Fix → Provide Commit → Provide Next Phase Prompt
+1. Read this file fully.
+2. Confirm understanding.
+3. Continue execution without re-planning drift.
 
 ---
 
-## 2. RESPONSE FORMAT (STRICT)
+## CORE RULES (NON-NEGOTIABLE)
 
-Every cycle must follow:
+### 1. NO PAUSES / NO DRIFT
 
-1. Review submitted files
-2. If issues:
+- Do NOT preview speculative future phases.
+- Do NOT add extra narration.
+- Do NOT slow the cycle with unnecessary commentary.
+- Operate in this order only: `Review -> Fix/Approve -> Commit package -> Next prompt`.
 
-   * Provide EXACT FIX (copy/paste OR surgical prompt)
-3. If clean:
+### 2. RESPONSE FORMAT (STRICT)
 
-   * Approve for commit
-4. Provide:
+Every cycle must:
 
-   * GitHub Commit Summary
-   * GitHub Commit Description
-5. Immediately provide:
+1. Review the submitted/attached files first.
+2. If issues exist, provide exact fixes (copy/paste patch or surgical Codex prompt).
+3. If clean, explicitly approve for commit.
+4. Return BOTH GitHub fields as copy/paste-ready blocks:
 
-   * NEXT PHASE PROMPT (Codex-ready)
+```text
+GitHub Commit Summary
+<one-line summary>
+```
 
-NO EXTRA TEXT
+```text
+GitHub Commit Description
+- <change 1>
+- <change 2>
+- <change 3>
+```
 
----
+5. Immediately return the NEXT PHASE PROMPT as a copy/paste-ready Codex block:
 
-## 3. CODING STYLE REQUIREMENTS
+```text
+<next-phase Codex prompt>
+```
 
-* Preserve CURRENT MAIN as baseline
-* NO rewrites of working systems
-* ONLY additive or surgical changes
-* Maintain:
+No extra text outside required outputs.
 
-  * mobile-first responsiveness
-  * desktop polish
-  * zero regression tolerance
+### 3. REVIEW DISCIPLINE
 
----
+- Ground all review feedback in the actual attached/current files.
+- Do not speculate about code that is not present.
+- Keep fixes surgical and regression-safe.
 
-## 4. DATA POLICY (CRITICAL)
+### 4. CODING STYLE REQUIREMENTS
 
-* NO mock data EVER
-* If data unavailable:
-  → UI must say "Unavailable"
-* All integrations must be:
+- Preserve current `main` behavior as baseline.
+- No rewrites of working systems unless explicitly requested.
+- Prefer additive or surgical updates.
+- Maintain:
+  - mobile-first responsiveness
+  - desktop polish
+  - zero regression tolerance
 
-  * real
-  * free-tier compatible
-  * lightweight
+### 5. DATA POLICY (CRITICAL)
 
----
+- NO mock data.
+- If data is unavailable, UI must show `Unavailable`.
+- Integrations must stay real, lightweight, and free-tier friendly where possible.
 
-## 5. SESSION / STATE RULES
+### 6. SESSION / STATE RULES
 
-* Local session = device only
-* Supabase = shared truth
-* NEVER:
-
-  * delete shared round from local action
-* ALWAYS:
-
-  * clean localStorage properly
-  * avoid ghost identity states
-
----
-
-## CURRENT IMPLEMENTATION STATUS
-
-## ✅ COMPLETED
-
-### Core App
-
-* Round creation
-* Join via link / ID
-* Realtime sync (Supabase)
-* Identity locking per player
-* Score entry system (per hole)
-
-### Score Intelligence
-
-* Par system per hole
-* Birdie / Eagle / etc detection
-* Relative scoring (+/- vs par)
-* Leaderboard ranking with ties
-
-### UI/UX
-
-* Mobile-first layout
-* Desktop scorecard FIXED (Phase 8)
-* Sticky player column
-* Smooth score input system
-
-### Quick Actions (Phase 8)
-
-* Create Round
-* Join Round
-* Resume Saved Round
-* Cancel Saved Round (UI)
-
-### Session Handling (Phase 9)
-
-* Resume session
-* Cancel saved session (local only)
-* Identity cleanup per round
-* Start new round reset
-
-### Course Intelligence (Phase 7–8)
-
-* Course search (real API)
-* Metadata storage (lat/lng/location)
-* Weather (Open-Meteo)
-* Wind data
-* Static preview map
-* Overpass enrichment (greens, bunkers, etc)
+- Local session state is device-local only.
+- Supabase is shared truth.
+- Never delete shared round data from a local-only action.
+- Always clean localStorage/session state to avoid ghost identities.
 
 ---
 
-## 🔧 CURRENT PHASE
+## CURRENT PROJECT STATUS
 
-PHASE 9 COMPLETE
-(Requires minor UX feedback improvement only)
+### Completed Milestones (Compressed)
 
----
+- Realtime multiplayer scoring platform is live: create/join by link or ID, identity locking, live sync, per-hole entry, leaderboard, and tie-aware ranking.
+- Scoring intelligence is live: par-by-hole, relative-to-par scoring, birdie/eagle-style outcome detection, hole intelligence strip, and shot intelligence surfaces.
+- Course intelligence stack is live: searchable courses, metadata persistence, weather/wind display, static preview map, and Overpass enrichment (greens/bunkers/fairways/tees) with unavailable-state handling.
+- Home/hub system has been fully built and polished: hero + next-best-action framing, quick actions, create/join sections, saved-session card, resume/remove local session flow, and improved navigation clarity.
+- Local history and replay flow is live: completed round snapshots, player progression stats, expandable history rows, replay panel, and device-local history persistence limits.
+- Share system buildout is live: share link UX, native share integration when available, generated round results image card, save image flow, summary copy fallback, and completion gating.
+- Payout/pot controls and lock behavior are integrated into round flow and sync safely with scoring state.
 
-## 🚀 UPCOMING PHASES
+### Current UI/Product State
 
-## PHASE 10 – INTELLIGENCE UPGRADE
+- PocketCaddy now operates as a polished home-first app with a strong create/join/resume/history entry experience and a full live scoring workspace.
+- Original early-phase roadmap goals are largely implemented in production form.
 
-* Improve weather/wind reliability handling
-* Improve course preview robustness
-* Enhance shot intelligence logic
-* Better handling of missing/incomplete data
-* Strengthen "Unavailable" states
+### Active Focus (Now)
 
----
-
-## PHASE 11 – COURSE EXPERIENCE
-
-* Course selection UX improvements
-* Smarter search prioritization
-* Better metadata usage
-* Potential hole-by-hole enhancements
+- Productization pass on the home/hub into a stronger dashboard/welcome screen while preserving existing core flows.
+- Continue tightening reliability and clarity in edge states (`Unavailable`, partial data, and fallback behavior) without regressions.
 
 ---
 
-## PHASE 12 – GAME EXPERIENCE
+## NEXT PRIORITIES (REAL ORDER)
 
-* Round flow polish
-* Visual feedback improvements
-* Interaction speed improvements
-* Reduced friction in scoring
+1. Homepage/Hub Dashboard Productization
+- Elevate the current home hub into a true dashboard/welcome surface.
+- Improve hierarchy of "resume vs create vs join" decisions and contextual guidance.
+- Keep startup actions fast and obvious on iPhone first, desktop polished second.
 
----
+2. Real Golf Content Surfaces
+- Add practical content entry points on the home/dashboard for golf relevance (graphics modules, useful links, articles, live tournament/livestream/news gateways).
+- Integrate only lightweight, maintainable, real-data sources; show `Unavailable` when feeds are missing.
+- Ensure content surfaces complement core round actions rather than distracting from them.
 
-## PHASE 13 – ADVANCED FEATURES
+3. Core Flow Protection During Expansion
+- Preserve and continuously verify create/join/resume/history and live scoring integrity while dashboard/content work expands.
+- No regressions in identity handling, realtime sync, score accuracy, or share output.
 
-* Multi-round handling (optional)
-* Enhanced payouts logic
-* Expanded stats (birdies, streaks, etc)
+4. Targeted UX/Resilience Cleanup
+- Continue small, high-impact polish in feedback states, fallback messaging, and interaction speed.
+- Prioritize fixes that reduce user confusion and session friction.
 
----
-
-## PHASE 14 – HOMEPAGE / HUB
-
-* Golf media-style homepage
-* News integration (if free + viable)
-* Live tournament embeds (if feasible)
-* Visual polish
-
----
-
-## PHASE 15+ (FUTURE)
-
-* AI insights expansion
-* Course-specific intelligence
-* Wind direction modeling
-* Distance + club refinement
-- Repo refactor plan defined in POCKETCADDY_REFACTOR_PLAN.md (DO NOT EXECUTE until triggered)
----
-
-# UX PRINCIPLES
-
-* Fast > Fancy
-* Clear > Clever
-* Real Data > Fake Data
-* Mobile First ALWAYS
-* Desktop = Enhanced, not separate system
+5. Deferred Structural Refactor (Still Deferred)
+- `POCKETCADDY_REFACTOR_PLAN.md` remains defined but not active.
+- Do not execute repo-wide refactor until explicitly triggered.
 
 ---
 
-# ACCEPTANCE CRITERIA (GLOBAL)
+## UX PRINCIPLES
 
-App must ALWAYS:
-
-* Work on iPhone (primary platform)
-* Have no broken flows
-* Have no dead buttons
-* Have no mock data
-* Maintain realtime integrity
-* Maintain identity integrity
-* Maintain score accuracy
+- Fast over fancy.
+- Clear over clever.
+- Real data over fake data.
+- Mobile first always.
+- Desktop is enhancement, not a separate product.
 
 ---
 
-# WORKFLOW CONTINUATION INSTRUCTION
+## GLOBAL ACCEPTANCE CRITERIA
+
+PocketCaddy must always:
+
+- Work on iPhone reliably.
+- Keep create/join/resume/history flows unbroken.
+- Keep live scoring and leaderboard flows unbroken.
+- Have no dead buttons.
+- Use no mock data.
+- Preserve realtime integrity.
+- Preserve identity integrity.
+- Preserve score accuracy.
+
+---
+
+## SESSION CONTINUATION CONTRACT
 
 When a new session begins:
 
-STEP 1:
-User provides this document
+1. User provides this document.
+2. Assistant confirms understanding, summarizes current state, and identifies active focus.
+3. User says `continue`.
+4. Assistant returns `NEXT PHASE PROMPT` only (copy/paste-ready).
 
-STEP 2:
-Assistant MUST:
-
-* Confirm understanding
-* Summarize current state
-* Identify current phase
-
-STEP 3:
-User says:
-"continue"
-
-STEP 4:
-Assistant provides:
-→ NEXT PHASE PROMPT ONLY
-
-NO deviation.
+No deviation.
 
 ---
 
-# END OF DOCUMENT
+## END
