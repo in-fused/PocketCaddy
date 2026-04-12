@@ -1348,3 +1348,416 @@
     grid-column: 9 / -1;
   }
 }
+
+/* Phase 68: immersive polish + micro-interaction system */
+#home-view {
+  --hub-motion-ease: cubic-bezier(0.22, 0.74, 0.24, 1);
+  --hub-motion-press: cubic-bezier(0.3, 0, 0.28, 1);
+  --hub-lift-y: -2px;
+  --hub-press-scale: 0.985;
+  --hub-focus-ring: rgba(236, 247, 240, 0.9);
+}
+
+#home-view :is(
+  .home-hero-actions .btn,
+  .home-saved-session-actions .btn,
+  .home-quick-grid .btn,
+  .continuity-tile .btn,
+  .home-hub-tab,
+  .home-hero-path-link,
+  .action-card
+) {
+  -webkit-tap-highlight-color: rgba(42, 113, 72, 0.2);
+  transform: translate3d(0, 0, 0);
+  transition:
+    transform 180ms var(--hub-motion-ease),
+    box-shadow 210ms var(--hub-motion-ease),
+    border-color 180ms var(--hub-motion-ease),
+    background-color 180ms var(--hub-motion-ease),
+    opacity 180ms var(--hub-motion-ease);
+}
+
+#home-view :is(
+  .home-hero-actions .btn,
+  .home-saved-session-actions .btn,
+  .home-quick-grid .btn,
+  .continuity-tile .btn,
+  .home-hub-tab,
+  .home-hero-path-link,
+  .action-card
+):focus-visible {
+  outline: 2px solid var(--hub-focus-ring);
+  outline-offset: 2px;
+}
+
+#home-view :is(
+  .home-hero-actions .btn,
+  .home-saved-session-actions .btn,
+  .home-quick-grid .btn,
+  .continuity-tile .btn,
+  .home-hub-tab,
+  .home-hero-path-link
+):active:not(:disabled),
+.action-card:active {
+  transform: translate3d(0, 0, 0) scale(var(--hub-press-scale));
+  transition-duration: 90ms;
+}
+
+#home-view > .home-hero.card-sub::after {
+  animation: homeHeroAmbientOrbit 17s var(--hub-motion-ease) infinite alternate;
+  will-change: transform, opacity;
+}
+
+.home-hero-pill {
+  transition: transform 200ms var(--hub-motion-ease), opacity 180ms var(--hub-motion-ease);
+}
+
+.home-hero-pill.is-live {
+  position: relative;
+  overflow: hidden;
+  animation: homeHeroLivePulsePremium 4.6s var(--hub-motion-ease) infinite;
+}
+
+.home-hero-pill.is-live::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 250, 236, 0.5) 44%,
+    rgba(255, 255, 255, 0) 72%
+  );
+  transform: translateX(-120%);
+  animation: homeHeroLiveSweep 5.4s var(--hub-motion-ease) infinite;
+}
+
+.home-hero-actions .btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.home-hero-actions .btn::after {
+  content: "";
+  position: absolute;
+  left: -34%;
+  top: -4px;
+  width: 30%;
+  height: calc(100% + 8px);
+  pointer-events: none;
+  background: linear-gradient(110deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.34) 58%, rgba(255, 255, 255, 0) 100%);
+  opacity: 0;
+  transform: translateX(0);
+  transition: opacity 180ms var(--hub-motion-ease), transform 420ms var(--hub-motion-ease);
+}
+
+.home-hero-actions .btn:active:not(:disabled)::after {
+  opacity: 0.42;
+  transform: translateX(220%);
+}
+
+.home-hub-tab {
+  position: relative;
+  overflow: hidden;
+}
+
+.home-hub-tab::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0) 48%);
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 180ms var(--hub-motion-ease), transform 180ms var(--hub-motion-ease);
+}
+
+#home-view.home-mode-home .home-hub-tab[data-home-mode="home"]::after,
+#home-view.home-mode-operations .home-hub-tab[data-home-mode="operations"]::after,
+#home-view.home-mode-history .home-hub-tab[data-home-mode="history"]::after,
+#home-view.home-mode-golf .home-hub-tab[data-home-mode="golf"]::after {
+  opacity: 0.35;
+  transform: translateY(0);
+}
+
+.home-continuity-grid .continuity-tile {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 180ms var(--hub-motion-ease),
+    box-shadow 210ms var(--hub-motion-ease),
+    border-color 180ms var(--hub-motion-ease),
+    background-color 180ms var(--hub-motion-ease);
+}
+
+.home-continuity-grid .continuity-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0) 50%);
+  opacity: 0;
+  transform: translateX(-8%);
+  transition: opacity 210ms var(--hub-motion-ease), transform 260ms var(--hub-motion-ease);
+}
+
+.action-card {
+  transition:
+    transform 190ms var(--hub-motion-ease),
+    box-shadow 220ms var(--hub-motion-ease),
+    border-color 190ms var(--hub-motion-ease),
+    opacity 180ms var(--hub-motion-ease);
+}
+
+.action-card::after {
+  opacity: 0.82;
+  transform: translate3d(0, 0, 0) scale(1);
+  transition: opacity 220ms var(--hub-motion-ease), transform 260ms var(--hub-motion-ease);
+}
+
+.home-active-round-item {
+  animation: homeBoardRowRefresh 420ms var(--hub-motion-ease) both;
+  transition:
+    transform 170ms var(--hub-motion-ease),
+    box-shadow 210ms var(--hub-motion-ease),
+    border-color 180ms var(--hub-motion-ease),
+    opacity 180ms var(--hub-motion-ease);
+}
+
+.home-active-round-item:nth-child(2) {
+  animation-delay: 28ms;
+}
+
+.home-active-round-item:nth-child(3) {
+  animation-delay: 56ms;
+}
+
+.home-active-round-item:nth-child(4) {
+  animation-delay: 84ms;
+}
+
+.home-active-round-item::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 52%);
+  opacity: 0;
+  transform: translateX(-18%);
+}
+
+.home-active-round-item.is-live {
+  border-color: #a7c2b0;
+  box-shadow: 0 14px 22px rgba(5, 21, 12, 0.22);
+}
+
+.home-active-round-item.is-live::after {
+  opacity: 0.38;
+  animation: homeLiveRowSweep 6.2s var(--hub-motion-ease) infinite;
+}
+
+.home-active-round-item.is-paused {
+  border-color: #ccb88d;
+  background: linear-gradient(180deg, rgba(255, 251, 240, 0.98) 0%, rgba(244, 236, 217, 0.94) 100%);
+  box-shadow: 0 12px 20px rgba(32, 23, 9, 0.16);
+}
+
+.home-active-round-item.is-paused::after {
+  opacity: 0.2;
+}
+
+.home-active-round-state {
+  transition:
+    transform 170ms var(--hub-motion-ease),
+    box-shadow 180ms var(--hub-motion-ease),
+    border-color 180ms var(--hub-motion-ease),
+    background-color 180ms var(--hub-motion-ease);
+}
+
+.home-active-round-state::before {
+  animation: homeStateBeacon 2.8s var(--hub-motion-ease) infinite;
+}
+
+.home-active-round-state.is-paused::before {
+  animation: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #home-view :is(.home-hero-actions .btn, .home-saved-session-actions .btn, .home-quick-grid .btn, .home-hero-path-link):hover:not(:disabled) {
+    transform: translate3d(0, var(--hub-lift-y), 0);
+  }
+
+  .home-hub-tab:hover,
+  .home-hub-tab:focus-visible {
+    transform: translate3d(0, -1px, 0);
+  }
+
+  .home-hub-tab:hover::after,
+  .home-hub-tab:focus-visible::after {
+    opacity: 0.28;
+    transform: translateY(0);
+  }
+
+  .home-continuity-grid .continuity-tile:hover,
+  .home-continuity-grid .continuity-tile:focus-within {
+    transform: translate3d(0, -1px, 0);
+    border-color: #b4c8b9;
+    box-shadow: 0 12px 20px rgba(9, 28, 17, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .home-continuity-grid .continuity-tile:hover::after,
+  .home-continuity-grid .continuity-tile:focus-within::after {
+    opacity: 0.52;
+    transform: translateX(0);
+  }
+
+  .action-card:hover,
+  .action-card:focus-visible {
+    transform: translate3d(0, -3px, 0);
+    box-shadow: 0 22px 36px rgba(7, 22, 13, 0.28);
+  }
+
+  .action-card:hover::after,
+  .action-card:focus-visible::after {
+    opacity: 1;
+    transform: translate3d(-6px, -4px, 0) scale(1.05);
+  }
+
+  .home-active-round-item:not(.is-unavailable):hover {
+    transform: translate3d(0, -1px, 0);
+    box-shadow: 0 16px 24px rgba(5, 21, 12, 0.24);
+  }
+
+  .home-active-round-item:not(.is-unavailable):hover .home-active-round-state {
+    transform: translate3d(0, -1px, 0);
+  }
+
+  .home-hero-actions .btn:hover:not(:disabled)::after,
+  .home-hero-actions .btn:focus-visible:not(:disabled)::after {
+    opacity: 0.24;
+    transform: translateX(190%);
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  #home-view :is(
+    .home-hero-actions .btn,
+    .home-saved-session-actions .btn,
+    .home-quick-grid .btn,
+    .continuity-tile .btn,
+    .home-hub-tab,
+    .home-hero-path-link,
+    .action-card
+  ):active {
+    transition-duration: 80ms;
+  }
+}
+
+@keyframes homeHeroAmbientOrbit {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.68;
+  }
+  100% {
+    transform: translate3d(-8px, 7px, 0) scale(1.06);
+    opacity: 0.82;
+  }
+}
+
+@keyframes homeHeroLivePulsePremium {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+  50% {
+    transform: translate3d(0, -1px, 0);
+    opacity: 0.96;
+  }
+}
+
+@keyframes homeHeroLiveSweep {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  24% {
+    opacity: 0.46;
+  }
+  62% {
+    transform: translateX(130%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(130%);
+    opacity: 0;
+  }
+}
+
+@keyframes homeBoardRowRefresh {
+  0% {
+    opacity: 0.84;
+    transform: translate3d(0, 4px, 0) scale(0.996);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes homeLiveRowSweep {
+  0% {
+    transform: translateX(-22%);
+    opacity: 0.18;
+  }
+  22% {
+    opacity: 0.38;
+  }
+  58% {
+    transform: translateX(10%);
+    opacity: 0.2;
+  }
+  100% {
+    transform: translateX(10%);
+    opacity: 0.18;
+  }
+}
+
+@keyframes homeStateBeacon {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+  50% {
+    transform: scale(1.14);
+    opacity: 0.72;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #home-view :is(
+    .home-hero-actions .btn,
+    .home-saved-session-actions .btn,
+    .home-quick-grid .btn,
+    .continuity-tile .btn,
+    .home-hub-tab,
+    .home-hero-path-link,
+    .action-card,
+    .home-continuity-grid .continuity-tile,
+    .home-active-round-item,
+    .home-active-round-state
+  ) {
+    transition-duration: 1ms !important;
+  }
+
+  #home-view > .home-hero.card-sub::after,
+  .home-hero-pill.is-live,
+  .home-hero-pill.is-live::after,
+  .home-active-round-item,
+  .home-active-round-item.is-live::after,
+  .home-active-round-state::before {
+    animation: none !important;
+  }
+}
