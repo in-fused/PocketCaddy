@@ -394,3 +394,218 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.92);
   }
 }
+
+/* Phase 70 replacement: home hub composed layout system rebuild */
+#home-view {
+  --home-hub-gap-mobile: 10px;
+  --home-hub-gap-desktop: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--home-hub-gap-mobile);
+  align-items: stretch;
+}
+
+#home-view > .card-sub {
+  margin-top: 0;
+  min-width: 0;
+}
+
+#home-view > .home-hero {
+  order: 10;
+}
+
+#home-view > .home-hub-nav {
+  order: 20;
+  padding: 9px;
+  border-color: #b7ccc0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.985) 0%, rgba(244, 248, 243, 0.975) 100%),
+    radial-gradient(circle at 100% 0%, rgba(201, 166, 89, 0.1) 0%, rgba(201, 166, 89, 0) 40%);
+}
+
+#home-view > #home-active-rounds-section {
+  order: 30;
+  min-height: 270px;
+}
+
+#home-view > #home-saved-session-card {
+  order: 40;
+}
+
+#home-view > .home-continuity {
+  order: 50;
+}
+
+#home-view > #home-golf-dashboard {
+  order: 60;
+}
+
+#home-view > #home-operations-section {
+  order: 70;
+}
+
+#home-view > #create-round-section {
+  order: 80;
+}
+
+#home-view > #join-round-section {
+  order: 90;
+}
+
+#home-view > #round-history-section {
+  order: 100;
+}
+
+.home-hub-nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.home-hub-tab {
+  min-height: 42px;
+  border-radius: 12px;
+}
+
+#home-view > :is(.home-hero, .home-hub-nav, #home-active-rounds-section, #home-saved-session-card, .home-continuity) {
+  border-radius: 18px;
+}
+
+#home-view > #home-active-rounds-section {
+  padding: 14px;
+}
+
+.home-active-rounds-list {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+}
+
+.home-active-round-item {
+  min-height: 112px;
+}
+
+.home-active-round-title {
+  line-height: 1.2;
+}
+
+.home-active-round-progress {
+  line-height: 1.35;
+}
+
+.home-continuity-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 9px;
+}
+
+.continuity-tile {
+  min-height: 142px;
+}
+
+.home-saved-session-progress {
+  min-height: 98px;
+}
+
+@media (min-width: 760px) {
+  #home-view {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: var(--home-hub-gap-desktop);
+  }
+
+  #home-view > .home-hero {
+    grid-column: 1 / 8;
+    min-height: 356px;
+  }
+
+  #home-view > #home-active-rounds-section {
+    grid-column: 8 / -1;
+    min-height: 356px;
+  }
+
+  #home-view > .home-hub-nav {
+    grid-column: 1 / -1;
+    align-self: stretch;
+  }
+
+  #home-view > #home-saved-session-card {
+    grid-column: 1 / 5;
+    align-self: stretch;
+  }
+
+  #home-view > .home-continuity {
+    grid-column: 5 / -1;
+    align-self: stretch;
+  }
+
+  #home-view > #home-golf-dashboard {
+    grid-column: 1 / -1;
+  }
+
+  #home-view > #home-operations-section {
+    grid-column: 1 / -1;
+  }
+
+  #home-view > #create-round-section {
+    grid-column: 1 / 7;
+  }
+
+  #home-view > #join-round-section {
+    grid-column: 7 / -1;
+  }
+
+  #home-view > #round-history-section {
+    grid-column: 1 / -1;
+  }
+
+  .home-hub-nav {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .home-hub-tab {
+    min-height: 46px;
+  }
+
+  .home-active-rounds-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .home-continuity-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+@media (min-width: 1100px) {
+  #home-view > .home-hero {
+    grid-column: 1 / 9;
+    min-height: 372px;
+  }
+
+  #home-view > #home-active-rounds-section {
+    grid-column: 9 / -1;
+    min-height: 372px;
+  }
+
+  #home-view > #home-saved-session-card {
+    grid-column: 1 / 5;
+  }
+
+  #home-view > .home-continuity {
+    grid-column: 5 / -1;
+  }
+
+  #home-view > #create-round-section {
+    grid-column: 1 / 9;
+  }
+
+  #home-view > #join-round-section {
+    grid-column: 9 / -1;
+  }
+}
+
+@media (min-width: 1320px) {
+  .home-active-rounds-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
