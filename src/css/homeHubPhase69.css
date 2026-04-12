@@ -395,10 +395,10 @@
   }
 }
 
-/* Phase 70 replacement: home hub composed layout system rebuild */
+/* Phase 71: empty-state rebalance + composition cleanup */
 #home-view {
-  --home-hub-gap-mobile: 10px;
-  --home-hub-gap-desktop: 14px;
+  --home-hub-gap-mobile: 12px;
+  --home-hub-gap-desktop: 16px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--home-hub-gap-mobile);
@@ -412,27 +412,30 @@
 
 #home-view > .home-hero {
   order: 10;
+  min-height: 0;
 }
 
 #home-view > .home-hub-nav {
   order: 20;
-  padding: 9px;
-  border-color: #b7ccc0;
+  padding: 10px;
+  border-color: #b2c7bb;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.985) 0%, rgba(244, 248, 243, 0.975) 100%),
-    radial-gradient(circle at 100% 0%, rgba(201, 166, 89, 0.1) 0%, rgba(201, 166, 89, 0) 40%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.992) 0%, rgba(244, 248, 243, 0.978) 100%),
+    radial-gradient(circle at 100% 0%, rgba(202, 167, 90, 0.14) 0%, rgba(202, 167, 90, 0) 42%);
 }
 
 #home-view > #home-active-rounds-section {
   order: 30;
-  min-height: 270px;
-}
-
-#home-view > #home-saved-session-card {
-  order: 40;
+  min-height: 320px;
+  padding: 15px;
 }
 
 #home-view > .home-continuity {
+  order: 40;
+  min-height: 286px;
+}
+
+#home-view > #home-saved-session-card {
   order: 50;
 }
 
@@ -459,29 +462,33 @@
 .home-hub-nav {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+  gap: 8px;
 }
 
 .home-hub-tab {
-  min-height: 42px;
+  min-height: 44px;
   border-radius: 12px;
 }
 
-#home-view > :is(.home-hero, .home-hub-nav, #home-active-rounds-section, #home-saved-session-card, .home-continuity) {
-  border-radius: 18px;
-}
-
-#home-view > #home-active-rounds-section {
-  padding: 14px;
+#home-view > :is(.home-hero, .home-hub-nav, #home-active-rounds-section, .home-continuity, #home-saved-session-card) {
+  border-radius: 19px;
 }
 
 .home-active-rounds-list {
   grid-template-columns: minmax(0, 1fr);
   align-content: start;
+  gap: 11px;
+}
+
+#home-view > #home-active-rounds-section {
+  display: grid;
+  align-content: start;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 8px;
 }
 
 .home-active-round-item {
-  min-height: 112px;
+  min-height: 116px;
 }
 
 .home-active-round-title {
@@ -492,17 +499,108 @@
   line-height: 1.35;
 }
 
+#home-view.home-no-live #home-active-rounds-section {
+  min-height: 356px;
+}
+
+#home-view.home-no-live #home-active-rounds-list {
+  display: flex;
+  min-height: 0;
+}
+
+#home-view.home-no-live #home-active-rounds-list > .home-active-round-item.is-unavailable {
+  flex: 1 1 auto;
+  min-height: 218px;
+  border-style: solid;
+  border-color: rgba(205, 221, 211, 0.84);
+  background:
+    radial-gradient(circle at 102% 0%, rgba(242, 225, 186, 0.28) 0%, rgba(242, 225, 186, 0) 40%),
+    linear-gradient(180deg, rgba(252, 254, 251, 0.985) 0%, rgba(239, 245, 240, 0.968) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 16px 28px rgba(6, 20, 12, 0.18);
+  padding: 16px 15px;
+  display: grid;
+  align-content: center;
+  gap: 10px;
+}
+
+#home-view.home-no-live #home-active-rounds-list > .home-active-round-item.is-unavailable::before {
+  width: 5px;
+  background: linear-gradient(180deg, #b9c9bc 0%, #90a896 100%);
+}
+
+#home-view.home-no-live .home-active-round-item.is-unavailable .home-active-round-main {
+  display: grid;
+  gap: 3px;
+}
+
+#home-view.home-no-live .home-active-round-item.is-unavailable .home-active-round-title {
+  font-size: 1rem;
+  color: #163526;
+}
+
+#home-view.home-no-live .home-active-round-item.is-unavailable .home-active-round-subtitle {
+  margin-top: 0;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4e6759;
+  font-weight: 800;
+}
+
+#home-view.home-no-live .home-active-round-item.is-unavailable .home-active-round-progress {
+  font-size: 0.86rem;
+  color: #1d4330;
+  max-width: 42ch;
+}
+
 .home-continuity-grid {
   grid-template-columns: minmax(0, 1fr);
-  gap: 9px;
+  gap: 10px;
 }
 
 .continuity-tile {
-  min-height: 142px;
+  min-height: 146px;
 }
 
 .home-saved-session-progress {
   min-height: 98px;
+}
+
+#home-operations-section.home-quick {
+  border-color: #c6d4ca;
+  background:
+    radial-gradient(circle at 0% 100%, rgba(181, 214, 193, 0.1) 0%, rgba(181, 214, 193, 0) 44%),
+    linear-gradient(180deg, #fffefc 0%, #f5f8f2 100%);
+}
+
+.home-operations-preview-list {
+  margin-top: 10px;
+  gap: 8px;
+}
+
+.home-operations-preview-item {
+  border-color: rgba(189, 205, 194, 0.68);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(246, 250, 245, 0.76) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  padding: 10px 11px 10px 13px;
+}
+
+.home-operations-preview-item::before {
+  width: 3px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(48, 136, 84, 0.88) 0%, rgba(33, 94, 59, 0.82) 100%);
+}
+
+.home-operations-preview-label {
+  color: #244a36;
+}
+
+.home-operations-preview-copy {
+  color: #3f5a4d;
 }
 
 @media (min-width: 760px) {
@@ -512,13 +610,8 @@
   }
 
   #home-view > .home-hero {
-    grid-column: 1 / 8;
-    min-height: 356px;
-  }
-
-  #home-view > #home-active-rounds-section {
-    grid-column: 8 / -1;
-    min-height: 356px;
+    grid-column: 1 / -1;
+    min-height: 330px;
   }
 
   #home-view > .home-hub-nav {
@@ -526,13 +619,20 @@
     align-self: stretch;
   }
 
-  #home-view > #home-saved-session-card {
-    grid-column: 1 / 5;
+  #home-view > #home-active-rounds-section {
+    grid-column: 1 / 8;
+    min-height: 338px;
     align-self: stretch;
   }
 
   #home-view > .home-continuity {
-    grid-column: 5 / -1;
+    grid-column: 8 / -1;
+    min-height: 338px;
+    align-self: stretch;
+  }
+
+  #home-view > #home-saved-session-card {
+    grid-column: 1 / -1;
     align-self: stretch;
   }
 
@@ -558,41 +658,47 @@
 
   .home-hub-nav {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
+    gap: 9px;
   }
 
   .home-hub-tab {
-    min-height: 46px;
+    min-height: 47px;
+  }
+
+  #home-view.home-no-live #home-active-rounds-section {
+    min-height: 372px;
+  }
+
+  #home-view.home-no-live #home-active-rounds-list > .home-active-round-item.is-unavailable {
+    min-height: 248px;
   }
 
   .home-active-rounds-list {
     grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
   }
 
   .home-continuity-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
   }
 }
 
 @media (min-width: 1100px) {
   #home-view > .home-hero {
-    grid-column: 1 / 9;
-    min-height: 372px;
+    min-height: 344px;
   }
 
   #home-view > #home-active-rounds-section {
-    grid-column: 9 / -1;
-    min-height: 372px;
+    grid-column: 1 / 8;
+    min-height: 356px;
+  }
+
+  #home-view > .home-continuity {
+    grid-column: 8 / -1;
+    min-height: 356px;
   }
 
   #home-view > #home-saved-session-card {
     grid-column: 1 / 5;
-  }
-
-  #home-view > .home-continuity {
-    grid-column: 5 / -1;
   }
 
   #home-view > #create-round-section {
@@ -608,9 +714,17 @@
   .home-active-rounds-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  #home-view.home-no-live #home-active-rounds-list {
+    display: grid;
+  }
+
+  #home-view.home-no-live #home-active-rounds-list > .home-active-round-item.is-unavailable {
+    grid-column: 1 / -1;
+  }
 }
 
-/* Phase 70: live value + smart hub emphasis */
+/* Phase 71: live value + smart hub emphasis */
 #home-view.home-has-live #home-active-rounds-section.home-priority-live {
   border-color: #9cc8ac;
   box-shadow:
@@ -666,6 +780,60 @@
 @media (min-width: 760px) {
   .home-active-round-intel-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  #home-view {
+    --home-hub-gap-mobile: 10px;
+  }
+
+  #home-view > .home-hero.card-sub {
+    margin-bottom: 1px;
+  }
+
+  #home-view > .home-hub-nav {
+    padding: 8px;
+  }
+
+  .home-hub-nav {
+    gap: 7px;
+  }
+
+  .home-hub-tab {
+    min-height: 41px;
+  }
+
+  #home-view > #home-active-rounds-section {
+    min-height: 292px;
+    padding: 13px;
+  }
+
+  #home-view.home-no-live #home-active-rounds-section {
+    min-height: 312px;
+  }
+
+  #home-view.home-no-live #home-active-rounds-list > .home-active-round-item.is-unavailable {
+    min-height: 192px;
+    padding: 13px 12px;
+    gap: 9px;
+  }
+
+  #home-view.home-no-live .home-active-round-item.is-unavailable .home-active-round-title {
+    font-size: 0.94rem;
+  }
+
+  #home-view.home-no-live .home-active-round-item.is-unavailable .home-active-round-progress {
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+
+  #home-view > .home-continuity {
+    min-height: 0;
+  }
+
+  .home-operations-preview-item {
+    padding: 9px 10px 9px 12px;
   }
 }
 
