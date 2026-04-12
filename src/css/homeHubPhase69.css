@@ -619,7 +619,7 @@
     inset 0 1px 0 rgba(236, 248, 240, 0.26);
 }
 
-#home-view.home-has-saved #home-saved-session-card.home-priority-resume {
+#home-view.home-has-saved #home-saved-session-card {
   border-color: #9ebfae;
   box-shadow:
     0 22px 36px rgba(8, 28, 16, 0.16),
@@ -668,3 +668,4 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+

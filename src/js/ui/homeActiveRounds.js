@@ -1,9 +1,16 @@
 (function () {
   "use strict";
 
+  const RENDER_DEBOUNCE_MS = 80;
+
   const state = {
     wired: false,
-    observer: null
+    observer: null,
+    isRendering: false,
+    renderQueued: false,
+    debounceTimer: 0,
+    needsRender: false,
+    lastSnapshot: ""
   };
 
   function byId(id) {
@@ -34,6 +41,18 @@
     pill.className = "home-active-round-pill";
     pill.textContent = text;
     return pill;
+  }
+
+  function setText(node, text) {
+    if (!node) return;
+    if (node.textContent !== text) {
+      node.textContent = text;
+    }
+  }
+
+  function setUnavailableClass(node, isUnavailableValue) {
+    if (!node) return;
+    node.classList.toggle("is-unavailable", Boolean(isUnavailableValue));
   }
 
   function getSessionSnapshot() {
@@ -212,16 +231,14 @@
   function setBoardPriorityClasses(hasLiveRound, hasSavedRound) {
     const homeView = byId("home-view");
     const liveBoard = byId("home-active-rounds-section");
-    const savedCard = byId("home-saved-session-card");
     if (homeView) {
       homeView.classList.toggle("home-has-live", hasLiveRound);
       homeView.classList.toggle("home-no-live", !hasLiveRound);
+      homeView.classList.toggle("home-has-saved", hasSavedRound);
+      homeView.classList.toggle("home-no-saved", !hasSavedRound);
     }
     if (liveBoard) {
       liveBoard.classList.toggle("home-priority-live", hasLiveRound);
-    }
-    if (savedCard) {
-      savedCard.classList.toggle("home-priority-resume", hasSavedRound);
     }
   }
 
@@ -237,24 +254,24 @@
     if (statusActiveRound) {
       const activeEntry = entries.find((entry) => entry.stateLabel === "In Progress");
       if (activeEntry && !isUnavailable(activeEntry.title)) {
-        statusActiveRound.textContent = activeEntry.title;
-        statusActiveRound.classList.remove("is-unavailable");
+        setText(statusActiveRound, activeEntry.title);
+        setUnavailableClass(statusActiveRound, false);
       } else if (isUnavailable(readText(statusActiveRound))) {
-        statusActiveRound.textContent = "Unavailable";
-        statusActiveRound.classList.add("is-unavailable");
+        setText(statusActiveRound, "Unavailable");
+        setUnavailableClass(statusActiveRound, true);
       }
     }
 
     if (statusLocalSession) {
       if (hasSavedRound) {
         const savedEntry = entries.find((entry) => entry.stateLabel === "Paused");
-        statusLocalSession.textContent = savedEntry && !isUnavailable(savedEntry.title)
+        setText(statusLocalSession, savedEntry && !isUnavailable(savedEntry.title)
           ? `Saved: ${savedEntry.title}`
-          : "Resume available";
-        statusLocalSession.classList.remove("is-unavailable");
+          : "Resume available");
+        setUnavailableClass(statusLocalSession, false);
       } else {
-        statusLocalSession.textContent = "No saved session";
-        statusLocalSession.classList.remove("is-unavailable");
+        setText(statusLocalSession, "No saved session");
+        setUnavailableClass(statusLocalSession, false);
       }
     }
 
@@ -264,30 +281,30 @@
       if (countMatch) {
         const count = parsePositiveInt(countMatch[1]);
         if (count != null) {
-          statusHistory.textContent = `${count} ${count === 1 ? "completed round" : "completed rounds"}`;
-          statusHistory.classList.remove("is-unavailable");
+          setText(statusHistory, `${count} ${count === 1 ? "completed round" : "completed rounds"}`);
+          setUnavailableClass(statusHistory, false);
         }
       } else {
-        statusHistory.textContent = "No completed rounds yet";
-        statusHistory.classList.remove("is-unavailable");
+        setText(statusHistory, "No completed rounds yet");
+        setUnavailableClass(statusHistory, false);
       }
     }
 
     if (nextActionNote) {
       if (hasSavedRound) {
-        nextActionNote.textContent = "Next best action: Resume Saved Round to continue where you left off.";
+        setText(nextActionNote, "Next best action: Resume Saved Round to continue where you left off.");
       } else if (hasLiveRound) {
-        nextActionNote.textContent = "Next best action: Check Live Clubhouse Board for current hole pace and leader context.";
+        setText(nextActionNote, "Next best action: Check Live Clubhouse Board for current hole pace and leader context.");
       } else {
-        nextActionNote.textContent = "Next best action: Create Round to launch a new scorecard.";
+        setText(nextActionNote, "Next best action: Create Round to launch a new scorecard.");
       }
     }
   }
 
   function renderEmptyState(listNode, statusNode) {
     if (statusNode) {
-      statusNode.textContent = "No active rounds yet";
-      statusNode.classList.remove("is-unavailable");
+      setText(statusNode, "No active rounds yet");
+      setUnavailableClass(statusNode, false);
     }
     setBoardPriorityClasses(false, false);
     updateHeroIntelligence([]);
@@ -335,14 +352,14 @@
     return item;
   }
 
-  function renderEntries() {
+  function renderEntriesNow(entries) {
     const listNode = byId("home-active-rounds-list");
     const statusNode = byId("home-active-rounds-status");
     if (!listNode) return;
 
-    const entries = buildEntries();
     const hasLiveRound = entries.some((entry) => entry.stateLabel === "In Progress");
     const hasSavedRound = entries.some((entry) => entry.stateLabel === "Paused");
+
     if (!entries.length) {
       renderEmptyState(listNode, statusNode);
       return;
@@ -351,8 +368,8 @@
     setBoardPriorityClasses(hasLiveRound, hasSavedRound);
     updateHeroIntelligence(entries);
     if (statusNode) {
-      statusNode.textContent = `${entries.length} ${entries.length === 1 ? "round" : "rounds"} tracked`;
-      statusNode.classList.remove("is-unavailable");
+      setText(statusNode, `${entries.length} ${entries.length === 1 ? "round" : "rounds"} tracked`);
+      setUnavailableClass(statusNode, false);
     }
 
     listNode.innerHTML = "";
@@ -417,49 +434,109 @@
     });
   }
 
-  function watchNode(observer, node, options) {
-    if (!node) return;
-    observer.observe(node, options);
+  function disconnectObserver() {
+    if (state.observer) {
+      state.observer.disconnect();
+    }
+  }
+
+  function watchNode(node, options) {
+    if (!state.observer || !node) return;
+    state.observer.observe(node, options);
+  }
+
+  function reconnectObserver() {
+    if (!state.observer) return;
+
+    const textWatch = { childList: true, characterData: true, subtree: true };
+    watchNode(byId("home-status-sync"), textWatch);
+    watchNode(byId("home-saved-round-name"), textWatch);
+
+    const savedCard = byId("home-saved-session-card");
+    watchNode(savedCard, { attributes: true, attributeFilter: ["class"] });
+  }
+
+  function renderEntries() {
+    if (state.isRendering) {
+      state.needsRender = true;
+      return;
+    }
+
+    state.isRendering = true;
+    disconnectObserver();
+
+    try {
+      const entries = buildEntries();
+      const nextSnapshot = JSON.stringify(entries);
+      if (nextSnapshot === state.lastSnapshot) {
+        return;
+      }
+
+      state.lastSnapshot = nextSnapshot;
+      renderEntriesNow(entries);
+    } finally {
+      state.isRendering = false;
+      reconnectObserver();
+      if (state.needsRender) {
+        state.needsRender = false;
+        scheduleRender();
+      }
+    }
+  }
+
+  function scheduleRender() {
+    if (state.isRendering) {
+      state.needsRender = true;
+      return;
+    }
+
+    if (state.debounceTimer) {
+      window.clearTimeout(state.debounceTimer);
+      state.debounceTimer = 0;
+    }
+
+    state.renderQueued = true;
+
+    state.debounceTimer = window.setTimeout(() => {
+      state.debounceTimer = 0;
+      state.renderQueued = false;
+      renderEntries();
+    }, RENDER_DEBOUNCE_MS);
   }
 
   function wireObservers() {
     if (state.observer) state.observer.disconnect();
     state.observer = new MutationObserver(() => {
-      renderEntries();
+      if (state.isRendering) return;
+      scheduleRender();
     });
 
-    const observer = state.observer;
-    const textWatch = { childList: true, characterData: true, subtree: true };
-    watchNode(observer, byId("home-status-active-round"), textWatch);
-    watchNode(observer, byId("home-status-sync"), textWatch);
-    watchNode(observer, byId("home-status-history"), textWatch);
-    watchNode(observer, byId("home-saved-round-name"), textWatch);
-    watchNode(observer, byId("home-saved-player-count"), textWatch);
-    watchNode(observer, byId("home-saved-hole-progress"), textWatch);
-    watchNode(observer, byId("meta-player-count"), textWatch);
-    watchNode(observer, byId("leaderboard-body"), textWatch);
-
-    const savedCard = byId("home-saved-session-card");
-    watchNode(observer, savedCard, { attributes: true, attributeFilter: ["class"] });
-
-    const homeView = byId("home-view");
-    watchNode(observer, homeView, { attributes: true, attributeFilter: ["class"] });
+    reconnectObserver();
   }
 
   function init() {
     if (state.wired) return;
     state.wired = true;
-    renderEntries();
+
     wireObservers();
+    renderEntries();
 
     window.addEventListener("pocketcaddy:runtime-ready", () => {
-      renderEntries();
+      scheduleRender();
     });
   }
 
+  function safeInit() {
+    try {
+      init();
+    } catch (_err) {
+      // Stability lock: never allow home board init failures to block page load.
+    }
+  }
+
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init, { once: true });
+    document.addEventListener("DOMContentLoaded", safeInit, { once: true });
   } else {
-    init();
+    safeInit();
   }
 })();
