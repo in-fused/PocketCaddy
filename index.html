@@ -6,6 +6,7 @@
   <title>PocketCaddy</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="src/css/branding.css">
+  <link rel="stylesheet" href="src/css/homeHubPhase65.css">
 </head>
 <body>
   <div class="app">
@@ -24,12 +25,17 @@
     <main>
       <section id="home-view" class="card section hidden">
         <section class="home-hero card-sub">
-          <p class="home-kicker">Dashboard</p>
+          <p class="home-kicker">Broadcast Hub</p>
           <h2 id="home-title" class="home-title">Start or Rejoin a Round</h2>
           <p id="home-tagline" class="home-tagline">Create a new round, join one already in play, or continue saved progress from this device.</p>
           <p id="home-next-action-note" class="home-next-action-note muted tiny">Next best action: Create a round to start scoring.</p>
+          <div class="home-hero-broadcast-line" aria-hidden="true">
+            <span class="home-hero-pill is-live">Live Hub</span>
+            <span class="home-hero-pill">Clubhouse Mode</span>
+            <span class="home-hero-pill">Realtime Ready</span>
+          </div>
           <section class="home-status-strip" aria-label="Dashboard status">
-            <h3 id="home-status-title" class="home-status-title">PocketCaddy Status</h3>
+            <h3 id="home-status-title" class="home-status-title">Clubhouse Status</h3>
             <div class="home-status-grid">
               <article class="home-status-item">
                 <p class="home-status-label">Active Round</p>
@@ -54,9 +60,9 @@
             <button id="hub-create-btn" class="btn btn-primary" type="button">Start Round</button>
             <button id="hub-join-btn" class="btn btn-secondary" type="button">Join Round</button>
           </div>
-          <p class="home-hero-guidance muted tiny">Use continuity and quick actions below to resume, review history, or jump into a new scorecard.</p>
+          <p class="home-hero-guidance muted tiny">Launch directly into play, check live clubhouse momentum, or route into operations and history from one premium hub.</p>
           <div class="home-hero-path">
-            <button class="home-hero-path-link" type="button" data-home-mode="golf">Explore Golf</button>
+            <button class="home-hero-path-link" type="button" data-home-mode="golf">Explore Golf Destinations</button>
             <button class="home-hero-path-link" type="button" data-home-mode="operations" data-focus-target="home-operations-section">Go to Round Operations</button>
             <button class="home-hero-path-link" type="button" data-home-mode="history" data-focus-target="round-history-section">Open Round History</button>
           </div>
@@ -86,8 +92,8 @@
 
         <section class="home-continuity card-sub home-hub-panel">
           <div class="home-section-head">
-            <h3>Dashboard Previews</h3>
-            <p class="muted tiny">Open key dashboard destinations with clear context before you jump in.</p>
+            <h3>Clubhouse Continuity</h3>
+            <p class="muted tiny">Keep your momentum with direct access to core surfaces and status context.</p>
           </div>
           <div class="home-continuity-grid">
             <article class="continuity-tile dashboard-preview-card">
@@ -105,32 +111,53 @@
           </div>
         </section>
 
+        <section id="home-active-rounds-section" class="home-active-rounds card-sub home-hub-panel" aria-label="Active rounds leaderboard preview">
+          <div class="home-section-head home-active-rounds-head">
+            <h3>Live Clubhouse Board</h3>
+            <p class="muted tiny">Track in-progress rounds at a glance from the hub.</p>
+          </div>
+          <p class="home-active-rounds-meta muted tiny">Board status: <span id="home-active-rounds-status" class="continuity-status-value is-unavailable">Unavailable</span></p>
+          <div id="home-active-rounds-list" class="home-active-rounds-list" role="list">
+            <article class="home-active-round-item is-unavailable" role="listitem">
+              <div class="home-active-round-main">
+                <p class="home-active-round-title">Live round preview</p>
+                <p class="home-active-round-subtitle">Unavailable</p>
+              </div>
+              <p class="home-active-round-progress">No in-progress leaderboard data is currently available.</p>
+            </article>
+          </div>
+        </section>
+
         <section id="home-golf-dashboard" class="home-golf-dashboard card-sub home-hub-panel" aria-label="Explore golf resources">
           <div class="home-section-head home-golf-head">
-            <h3>Explore Golf</h3>
-            <p class="muted tiny">Quick-launch cards for live golf information while you manage your round.</p>
+            <h3>Explore Golf Destinations</h3>
+            <p class="muted tiny">Launch premium golf resources while managing your round flow.</p>
           </div>
           <p class="home-golf-status-inline muted tiny">Dashboard status: <span class="continuity-status-value">Unavailable</span></p>
           <div class="action-card-grid" role="list" aria-label="Explore golf links">
             <a class="action-card action-card-weather" href="https://www.weather.com" target="_blank" rel="noopener noreferrer" role="listitem">
               <span class="action-card-icon" aria-hidden="true">☁️</span>
+              <p class="action-card-kicker">Forecast</p>
               <p class="action-card-title">Weather</p>
-              <p class="action-card-subtitle">Check local conditions before the first tee.</p>
+              <p class="action-card-subtitle">Dial in wind, temperature, and conditions before you tee off.</p>
             </a>
             <a class="action-card action-card-tee-times" href="https://www.golfnow.com/tee-times" target="_blank" rel="noopener noreferrer" role="listitem">
               <span class="action-card-icon" aria-hidden="true">⛳</span>
+              <p class="action-card-kicker">Booking</p>
               <p class="action-card-title">Tee Times</p>
-              <p class="action-card-subtitle">Find and book available rounds quickly.</p>
+              <p class="action-card-subtitle">Find openings, compare options, and lock your next round.</p>
             </a>
             <a class="action-card action-card-news" href="https://www.golfdigest.com/story/latest-golf-news" target="_blank" rel="noopener noreferrer" role="listitem">
               <span class="action-card-icon" aria-hidden="true">📰</span>
+              <p class="action-card-kicker">Coverage</p>
               <p class="action-card-title">Golf News</p>
-              <p class="action-card-subtitle">Get current golf headlines and tour updates.</p>
+              <p class="action-card-subtitle">Follow tour movement, major headlines, and current storylines.</p>
             </a>
             <a class="action-card action-card-courses" href="https://www.google.com/maps/search/golf+courses+near+me/" target="_blank" rel="noopener noreferrer" role="listitem">
               <span class="action-card-icon" aria-hidden="true">📍</span>
+              <p class="action-card-kicker">Local Play</p>
               <p class="action-card-title">Course Finder</p>
-              <p class="action-card-subtitle">Discover courses and navigate nearby options.</p>
+              <p class="action-card-subtitle">Scout nearby layouts and route to your next stop.</p>
             </a>
           </div>
         </section>
@@ -429,6 +456,7 @@
   <script src="src/js/core/state.js"></script>
   <script src="src/js/core/roundLifecycle.js"></script>
   <script src="src/js/ui/render.js"></script>
+  <script src="src/js/ui/homeActiveRounds.js"></script>
   <script src="src/js/core/appRuntimeLegacy.js"></script>
   <script src="src/js/ui/branding.js"></script>
   <script src="app.js"></script>

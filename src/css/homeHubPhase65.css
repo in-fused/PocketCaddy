@@ -1,0 +1,458 @@
+/* Phase 65: Broadcast hub + clubhouse luxury surfaces + active rounds preview */
+#home-view {
+  background:
+    radial-gradient(circle at 0% -10%, rgba(202, 167, 104, 0.18) 0%, rgba(202, 167, 104, 0) 36%),
+    radial-gradient(circle at 100% 0%, rgba(20, 79, 48, 0.22) 0%, rgba(20, 79, 48, 0) 42%),
+    linear-gradient(180deg, #fbfaf6 0%, #f3f2ec 56%, #eef3ec 100%);
+  border-color: #c8d5c9;
+  box-shadow: 0 18px 44px rgba(11, 31, 18, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+#home-view > .card-sub {
+  border-color: #d7dfd6;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(247, 248, 243, 0.96) 100%);
+  box-shadow: 0 14px 28px rgba(14, 32, 20, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+#home-view > .card-sub::before {
+  background: linear-gradient(90deg, rgba(34, 96, 58, 0.46), rgba(195, 169, 111, 0.32));
+}
+
+#home-view > .home-hero.card-sub {
+  padding: 20px 16px 16px;
+  border-color: rgba(168, 191, 174, 0.72);
+  background-image:
+    linear-gradient(128deg, rgba(8, 27, 16, 0.88) 0%, rgba(11, 44, 27, 0.83) 46%, rgba(16, 62, 36, 0.74) 100%),
+    radial-gradient(circle at 89% 12%, rgba(218, 199, 149, 0.3) 0%, rgba(218, 199, 149, 0) 34%),
+    url("https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?auto=format&fit=crop&w=1920&q=80");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  box-shadow: 0 20px 36px rgba(7, 24, 14, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+#home-view > .home-hero.card-sub::before {
+  background: linear-gradient(90deg, rgba(233, 245, 238, 0.9), rgba(233, 245, 238, 0.26));
+}
+
+#home-view > .home-hero.card-sub::after {
+  width: 220px;
+  height: 220px;
+  right: -34px;
+  top: -30px;
+  background: radial-gradient(circle at center, rgba(225, 240, 231, 0.34), rgba(225, 240, 231, 0));
+  opacity: 0.66;
+}
+
+.home-title {
+  max-width: 16ch;
+  letter-spacing: -0.03em;
+}
+
+.home-tagline {
+  color: rgba(238, 248, 242, 0.95);
+}
+
+.home-next-action-note {
+  border-color: rgba(228, 239, 232, 0.42);
+  background: rgba(249, 253, 251, 0.17);
+}
+
+.home-hero-broadcast-line {
+  margin-top: 9px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.home-hero-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(227, 239, 232, 0.38);
+  background: rgba(245, 251, 247, 0.14);
+  color: rgba(242, 251, 246, 0.95);
+  font-size: 0.66rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.home-hero-pill.is-live {
+  border-color: rgba(246, 213, 132, 0.72);
+  background: linear-gradient(180deg, rgba(255, 232, 176, 0.35) 0%, rgba(243, 192, 75, 0.24) 100%);
+  color: #fff8e5;
+}
+
+.home-status-strip {
+  margin-top: 11px;
+  border-color: rgba(224, 238, 228, 0.38);
+  background: rgba(248, 252, 250, 0.12);
+}
+
+.home-status-item {
+  border-color: rgba(222, 237, 228, 0.34);
+  background: rgba(246, 251, 248, 0.14);
+}
+
+.home-status-value {
+  color: #f9fffb;
+}
+
+.home-hub-nav {
+  border-color: #d4dbd2;
+  background: linear-gradient(180deg, #fffefa 0%, #f7f8f3 100%);
+}
+
+.home-hub-tab {
+  border-radius: 12px;
+  border-color: #ccd5cc;
+  background: linear-gradient(180deg, #ffffff 0%, #f4f6f2 100%);
+  color: #22382a;
+}
+
+#home-view.home-mode-home .home-hub-tab[data-home-mode="home"],
+#home-view.home-mode-operations .home-hub-tab[data-home-mode="operations"],
+#home-view.home-mode-history .home-hub-tab[data-home-mode="history"],
+#home-view.home-mode-golf .home-hub-tab[data-home-mode="golf"] {
+  border-color: #255f3d;
+  background: linear-gradient(180deg, #2a7245 0%, #1f5a36 100%);
+}
+
+.home-saved-session,
+.home-continuity,
+.home-quick,
+#create-round-section,
+#join-round-section,
+#round-history-section,
+.home-golf-dashboard {
+  border-color: #d6ddd4;
+  background: linear-gradient(180deg, #fffef9 0%, #f6f7f2 100%);
+  box-shadow: 0 16px 28px rgba(13, 31, 19, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.home-continuity,
+.home-golf-dashboard,
+.home-quick {
+  border-color: #cfd9cf;
+}
+
+.home-continuity-grid .continuity-tile,
+.home-operations-preview-item,
+.home-saved-session-progress {
+  border-color: #d5ddd4;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f8f3 100%);
+}
+
+.home-active-rounds {
+  position: relative;
+  overflow: hidden;
+  border-color: #b8ccbe;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(198, 159, 75, 0.22) 0%, rgba(198, 159, 75, 0) 42%),
+    linear-gradient(150deg, #f2f9f4 0%, #e8f0ea 48%, #e0ece4 100%);
+  box-shadow: 0 18px 34px rgba(12, 37, 22, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.home-active-rounds::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(120deg, rgba(18, 62, 37, 0.08) 0%, rgba(18, 62, 37, 0) 34%);
+}
+
+.home-active-rounds > * {
+  position: relative;
+  z-index: 1;
+}
+
+.home-active-rounds-head h3 {
+  color: #18412a;
+}
+
+.home-active-rounds-meta {
+  margin-top: -1px;
+  color: #33503f;
+}
+
+.home-active-rounds-list {
+  display: grid;
+  gap: 8px;
+}
+
+.home-active-round-item {
+  border: 1px solid #c6d6ca;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f5faf6 100%);
+  padding: 10px;
+  display: grid;
+  gap: 7px;
+  box-shadow: 0 10px 18px rgba(14, 40, 24, 0.1);
+}
+
+.home-active-round-item.is-unavailable {
+  border-style: dashed;
+  border-color: #b6c6bb;
+  background: linear-gradient(180deg, #f9fbf8 0%, #eef2ec 100%);
+}
+
+.home-active-round-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.home-active-round-main {
+  min-width: 0;
+}
+
+.home-active-round-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(198, 159, 75, 0.68);
+  background: linear-gradient(180deg, #fdf5db 0%, #f2dfaa 100%);
+  color: #59451e;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.home-active-round-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid #9ebca8;
+  background: linear-gradient(180deg, #2b7b4a 0%, #245f3a 100%);
+  color: #edfff3;
+  font-size: 0.67rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.home-active-round-state.is-paused {
+  border-color: #c2b28a;
+  background: linear-gradient(180deg, #7a683f 0%, #5f4f2f 100%);
+  color: #fff8e7;
+}
+
+.home-active-round-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #163a27;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-active-round-subtitle {
+  margin-top: 3px;
+  font-size: 0.78rem;
+  color: #315141;
+}
+
+.home-active-round-progress {
+  margin: 0;
+  color: #173928;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.home-active-round-meta {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.home-active-round-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid #c5d2c9;
+  background: #f6faf7;
+  color: #274637;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.action-card-grid {
+  gap: 12px;
+}
+
+.action-card {
+  min-height: 158px;
+  border-color: rgba(224, 235, 227, 0.95);
+  box-shadow: 0 14px 28px rgba(8, 24, 14, 0.2);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.action-card::before {
+  background:
+    linear-gradient(180deg, rgba(5, 17, 10, 0.16) 0%, rgba(5, 17, 10, 0.72) 100%),
+    linear-gradient(120deg, rgba(12, 35, 21, 0.48) 0%, rgba(12, 35, 21, 0.08) 52%, rgba(12, 35, 21, 0.54) 100%);
+}
+
+.action-card-icon {
+  font-size: 1.2rem;
+}
+
+.action-card-kicker {
+  margin: 1px 0 0;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(236, 247, 241, 0.88);
+  font-weight: 700;
+}
+
+.action-card-title {
+  font-size: 1.06rem;
+}
+
+.action-card-subtitle {
+  font-size: 0.8rem;
+  max-width: 31ch;
+}
+
+.action-card-weather {
+  background-image:
+    linear-gradient(150deg, rgba(18, 47, 32, 0.48) 0%, rgba(18, 47, 32, 0.68) 100%),
+    url("https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=1400&q=80");
+}
+
+.action-card-tee-times {
+  background-image:
+    linear-gradient(150deg, rgba(15, 41, 28, 0.48) 0%, rgba(15, 41, 28, 0.68) 100%),
+    url("https://images.unsplash.com/photo-1459865264687-595d652de67e?auto=format&fit=crop&w=1400&q=80");
+}
+
+.action-card-news {
+  background-image:
+    linear-gradient(150deg, rgba(13, 35, 24, 0.48) 0%, rgba(13, 35, 24, 0.72) 100%),
+    url("https://images.unsplash.com/photo-1473116763249-2faaef81ccda?auto=format&fit=crop&w=1400&q=80");
+}
+
+.action-card-courses {
+  background-image:
+    linear-gradient(150deg, rgba(17, 44, 30, 0.48) 0%, rgba(17, 44, 30, 0.7) 100%),
+    url("https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=1400&q=80");
+}
+
+#home-view.home-mode-operations #home-active-rounds-section,
+#home-view.home-mode-history #home-active-rounds-section,
+#home-view.home-mode-golf #home-active-rounds-section {
+  display: none;
+}
+
+@media (max-width: 560px) {
+  .home-hero-broadcast-line {
+    gap: 5px;
+  }
+
+  .home-hero-pill {
+    min-height: 22px;
+    padding: 2px 8px;
+    font-size: 0.62rem;
+  }
+
+  .home-active-round-item {
+    padding: 9px;
+  }
+
+  .home-active-round-title {
+    font-size: 0.88rem;
+  }
+
+  .home-active-round-subtitle,
+  .home-active-round-progress {
+    font-size: 0.75rem;
+  }
+
+  .home-active-round-pill {
+    font-size: 0.66rem;
+  }
+
+  .action-card {
+    min-height: 138px;
+    padding: 12px;
+  }
+
+  .action-card-title {
+    font-size: 0.98rem;
+  }
+
+  .action-card-subtitle {
+    font-size: 0.76rem;
+  }
+}
+
+@media (min-width: 760px) {
+  #home-view .home-hero {
+    grid-column: 1 / 8;
+  }
+
+  #home-view #home-saved-session-card {
+    grid-column: 8 / -1;
+  }
+
+  #home-view .home-active-rounds {
+    grid-column: 1 / 8;
+    align-self: start;
+  }
+
+  #home-view .home-continuity {
+    grid-column: 8 / -1;
+    align-self: start;
+  }
+
+  #home-view .home-golf-dashboard {
+    grid-column: 1 / -1;
+  }
+
+  .home-active-rounds-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  #home-view .home-hero {
+    grid-column: 1 / 9;
+  }
+
+  #home-view #home-saved-session-card {
+    grid-column: 9 / -1;
+  }
+
+  #home-view .home-active-rounds {
+    grid-column: 1 / 8;
+  }
+
+  #home-view .home-continuity {
+    grid-column: 8 / -1;
+  }
+
+  .action-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+}
