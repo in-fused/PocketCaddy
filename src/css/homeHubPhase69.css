@@ -1,0 +1,396 @@
+/* Phase 69: signature visual identity + wow factor layer */
+#home-view {
+  --pc-signature-emerald-900: #0f2f1e;
+  --pc-signature-emerald-700: #1d5f3a;
+  --pc-signature-emerald-500: #2f8b55;
+  --pc-signature-gold-500: #d9b46c;
+  --pc-signature-gold-300: #ecd4a2;
+  --pc-signature-ice: #eef8f2;
+  --pc-signature-shadow-deep: rgba(7, 22, 13, 0.34);
+  --pc-signature-shadow-soft: rgba(9, 30, 18, 0.16);
+  background:
+    radial-gradient(circle at 9% -16%, rgba(228, 195, 124, 0.2) 0%, rgba(228, 195, 124, 0) 40%),
+    radial-gradient(circle at 103% 2%, rgba(24, 91, 56, 0.34) 0%, rgba(24, 91, 56, 0) 46%),
+    linear-gradient(168deg, rgba(252, 252, 247, 0) 0%, rgba(241, 247, 240, 0.58) 100%),
+    repeating-linear-gradient(
+      135deg,
+      rgba(19, 68, 41, 0.024) 0px,
+      rgba(19, 68, 41, 0.024) 1px,
+      rgba(255, 255, 255, 0) 1px,
+      rgba(255, 255, 255, 0) 15px
+    ),
+    linear-gradient(180deg, #fcfbf8 0%, #f1f4ee 52%, #e9efe7 100%);
+  border-color: #bfd0c3;
+  box-shadow: 0 22px 44px rgba(8, 26, 15, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+#home-view > .card-sub {
+  border-color: #d0ddd2;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.985) 0%, rgba(245, 248, 243, 0.975) 100%);
+  box-shadow:
+    0 16px 30px var(--pc-signature-shadow-soft),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(202, 220, 208, 0.36);
+}
+
+#home-view > .card-sub::after {
+  background:
+    linear-gradient(142deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 36%),
+    radial-gradient(circle at 105% 0%, rgba(217, 180, 108, 0.14) 0%, rgba(217, 180, 108, 0) 40%);
+}
+
+#home-view > :is(.home-hero, .home-saved-session, .home-active-rounds) {
+  border-color: #b5cbbc;
+  box-shadow:
+    0 20px 36px var(--pc-signature-shadow-deep),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+#home-view > :is(.home-continuity, .home-quick, .home-golf-dashboard, .home-hub-nav) {
+  border-color: #c5d6c9;
+  box-shadow:
+    0 15px 28px rgba(10, 30, 18, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+#home-view > .home-hero.card-sub {
+  border-color: rgba(176, 201, 182, 0.84);
+  background-image:
+    linear-gradient(136deg, rgba(7, 23, 14, 0.9) 0%, rgba(11, 43, 26, 0.84) 42%, rgba(16, 65, 38, 0.74) 100%),
+    radial-gradient(circle at 84% 9%, rgba(240, 217, 163, 0.45) 0%, rgba(240, 217, 163, 0) 34%),
+    radial-gradient(circle at 17% 84%, rgba(145, 209, 168, 0.23) 0%, rgba(145, 209, 168, 0) 44%),
+    linear-gradient(116deg, rgba(8, 35, 21, 0) 0%, rgba(8, 35, 21, 0.34) 100%),
+    url("https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?auto=format&fit=crop&w=2000&q=80");
+  box-shadow:
+    0 28px 48px rgba(4, 16, 10, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(189, 215, 196, 0.26);
+}
+
+#home-view > .home-hero.card-sub::before {
+  height: 6px;
+  background:
+    linear-gradient(90deg, rgba(243, 252, 247, 0.9) 0%, rgba(235, 215, 164, 0.72) 56%, rgba(208, 169, 89, 0.34) 100%);
+}
+
+#home-view > .home-hero.card-sub::after {
+  width: 320px;
+  height: 320px;
+  right: -68px;
+  top: -84px;
+  background:
+    radial-gradient(circle at 33% 36%, rgba(252, 255, 253, 0.35), rgba(252, 255, 253, 0) 58%),
+    radial-gradient(circle at center, rgba(232, 202, 132, 0.27), rgba(232, 202, 132, 0) 72%);
+  opacity: 0.88;
+}
+
+.home-kicker {
+  border-color: rgba(238, 248, 242, 0.58);
+  background: linear-gradient(180deg, rgba(248, 253, 250, 0.22) 0%, rgba(238, 248, 242, 0.14) 100%);
+  color: rgba(246, 253, 249, 0.96);
+}
+
+.home-title {
+  color: #f8fffb;
+  text-shadow: 0 10px 22px rgba(2, 9, 6, 0.42);
+}
+
+.home-tagline {
+  color: rgba(238, 248, 242, 0.97);
+  text-shadow: 0 5px 15px rgba(3, 12, 8, 0.3);
+}
+
+.home-next-action-note {
+  border-color: rgba(223, 238, 230, 0.48);
+  background: linear-gradient(180deg, rgba(247, 253, 249, 0.26) 0%, rgba(238, 248, 242, 0.16) 100%);
+}
+
+.home-status-strip {
+  border-color: rgba(224, 238, 230, 0.46);
+  background:
+    linear-gradient(180deg, rgba(247, 253, 249, 0.2) 0%, rgba(238, 248, 242, 0.14) 100%);
+}
+
+.home-status-item {
+  border-color: rgba(225, 239, 231, 0.42);
+  background:
+    linear-gradient(180deg, rgba(248, 253, 250, 0.23) 0%, rgba(236, 247, 241, 0.14) 100%);
+}
+
+.home-status-value {
+  color: #f8fffb;
+}
+
+.home-hub-nav {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 254, 0.99) 0%, rgba(245, 248, 242, 0.98) 100%),
+    radial-gradient(circle at 100% 0%, rgba(215, 180, 102, 0.1) 0%, rgba(215, 180, 102, 0) 40%);
+}
+
+.home-hub-tab {
+  border-color: #c7d6ca;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f2f6f1 100%);
+  color: #1f3b2b;
+}
+
+#home-view.home-mode-home .home-hub-tab[data-home-mode="home"],
+#home-view.home-mode-operations .home-hub-tab[data-home-mode="operations"],
+#home-view.home-mode-history .home-hub-tab[data-home-mode="history"],
+#home-view.home-mode-golf .home-hub-tab[data-home-mode="golf"] {
+  border-color: #266f44;
+  background:
+    linear-gradient(180deg, #2f8655 0%, #205f3a 100%);
+  box-shadow:
+    0 12px 20px rgba(8, 35, 21, 0.24),
+    inset 0 1px 0 rgba(245, 255, 249, 0.22);
+}
+
+#home-view > #home-saved-session-card.home-saved-session {
+  border-color: #b4cab9;
+  background:
+    radial-gradient(circle at 100% -5%, rgba(233, 204, 139, 0.29) 0%, rgba(233, 204, 139, 0) 40%),
+    radial-gradient(circle at -8% 104%, rgba(112, 178, 133, 0.22) 0%, rgba(112, 178, 133, 0) 48%),
+    linear-gradient(180deg, #fffefb 0%, #f1f7ef 100%);
+}
+
+.home-continuity {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(199, 218, 164, 0.17) 0%, rgba(199, 218, 164, 0) 42%),
+    linear-gradient(180deg, #fefefb 0%, #f3f6ef 100%);
+}
+
+.home-quick {
+  background:
+    radial-gradient(circle at 0% 104%, rgba(170, 206, 184, 0.16) 0%, rgba(170, 206, 184, 0) 44%),
+    linear-gradient(180deg, #fffefc 0%, #f3f6f0 100%);
+}
+
+.home-continuity-grid .continuity-tile,
+.home-operations-preview-item,
+.home-saved-session-progress {
+  border-color: #cad8cc;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f5f8f3 100%);
+  box-shadow: 0 10px 16px rgba(10, 30, 18, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.home-active-rounds {
+  border-color: #87a595;
+  background:
+    radial-gradient(circle at 106% -8%, rgba(228, 196, 124, 0.34) 0%, rgba(228, 196, 124, 0) 40%),
+    radial-gradient(circle at -6% 104%, rgba(84, 145, 108, 0.28) 0%, rgba(84, 145, 108, 0) 48%),
+    linear-gradient(154deg, #0f2f1e 0%, #154028 40%, #1c5032 100%);
+  box-shadow: 0 26px 42px rgba(4, 15, 9, 0.42), inset 0 1px 0 rgba(233, 247, 238, 0.22);
+}
+
+.home-active-rounds::before {
+  background:
+    linear-gradient(90deg, rgba(236, 248, 241, 0.12) 0%, rgba(236, 248, 241, 0) 16%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(228, 244, 234, 0.06) 0px,
+      rgba(228, 244, 234, 0.06) 1px,
+      rgba(228, 244, 234, 0) 1px,
+      rgba(228, 244, 234, 0) 11px
+    ),
+    linear-gradient(180deg, rgba(12, 41, 25, 0.24) 0%, rgba(12, 41, 25, 0.42) 100%);
+}
+
+.home-active-rounds::after {
+  background-image:
+    radial-gradient(circle at 20% 0%, rgba(241, 252, 246, 0.12) 0%, rgba(241, 252, 246, 0) 36%),
+    linear-gradient(134deg, rgba(7, 28, 18, 0.28) 0%, rgba(7, 28, 18, 0) 52%);
+}
+
+.home-active-rounds-head h3 {
+  color: #f2fff7;
+  text-shadow: 0 8px 18px rgba(1, 9, 5, 0.36);
+}
+
+.home-active-rounds-meta {
+  color: rgba(232, 246, 237, 0.9);
+}
+
+#home-active-rounds-status {
+  border-color: rgba(188, 218, 198, 0.6);
+  background: linear-gradient(180deg, rgba(235, 248, 241, 0.2) 0%, rgba(218, 240, 226, 0.14) 100%);
+}
+
+.home-active-round-item {
+  border-color: #afc6b7;
+  border-radius: 15px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 254, 0.99) 0%, rgba(241, 248, 243, 0.97) 100%);
+  box-shadow:
+    0 14px 22px rgba(4, 17, 10, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.94);
+}
+
+.home-active-round-item::before {
+  width: 5px;
+  background: linear-gradient(180deg, #41a665 0%, #2e7b4b 100%);
+}
+
+.home-active-round-item.is-live {
+  border-color: #a3c0ae;
+  box-shadow: 0 16px 24px rgba(4, 18, 10, 0.26);
+}
+
+.home-active-round-item.is-live::after {
+  opacity: 0.42;
+}
+
+.home-active-round-item.is-paused {
+  border-color: #ccb98f;
+  background: linear-gradient(180deg, rgba(255, 252, 243, 0.99) 0%, rgba(245, 238, 221, 0.95) 100%);
+}
+
+.home-active-round-rank {
+  border-color: rgba(190, 152, 74, 0.78);
+  background: linear-gradient(180deg, #fff5d9 0%, #ebd29a 100%);
+  box-shadow: 0 7px 12px rgba(80, 58, 16, 0.16);
+}
+
+.home-active-round-state {
+  border-color: #8db59b;
+  background: linear-gradient(180deg, #318a56 0%, #245f3b 100%);
+  box-shadow: 0 7px 13px rgba(7, 32, 19, 0.24);
+}
+
+.home-active-round-state.is-paused {
+  border-color: #bfad83;
+  background: linear-gradient(180deg, #866f41 0%, #5e4e2d 100%);
+}
+
+#home-golf-dashboard.home-golf-dashboard {
+  border-color: #c1d4c7;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(201, 169, 91, 0.17) 0%, rgba(201, 169, 91, 0) 40%),
+    radial-gradient(circle at 0% 100%, rgba(145, 194, 162, 0.13) 0%, rgba(145, 194, 162, 0) 42%),
+    linear-gradient(180deg, #fbfcf8 0%, #eff4ec 100%);
+}
+
+.action-card {
+  --destination-overlay-ink: rgba(7, 22, 13, 0.72);
+  --destination-edge: rgba(233, 245, 237, 0.98);
+  --destination-glow: rgba(228, 196, 124, 0.28);
+  border-color: rgba(231, 243, 235, 0.94);
+  box-shadow:
+    0 20px 34px rgba(7, 22, 13, 0.28),
+    inset 0 1px 0 rgba(243, 251, 247, 0.36),
+    inset 0 0 0 1px rgba(236, 247, 241, 0.12);
+}
+
+.action-card::before {
+  background:
+    radial-gradient(circle at 20% 12%, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 34%),
+    radial-gradient(circle at 88% 0%, rgba(255, 246, 223, 0.19) 0%, rgba(255, 246, 223, 0) 36%),
+    linear-gradient(180deg, rgba(5, 16, 10, 0.16) 0%, var(--destination-overlay-ink) 100%),
+    linear-gradient(118deg, rgba(10, 34, 21, 0.62) 0%, rgba(10, 34, 21, 0.09) 52%, rgba(10, 34, 21, 0.58) 100%);
+}
+
+.action-card::after {
+  background:
+    radial-gradient(circle at 90% 14%, var(--destination-glow) 0%, rgba(255, 255, 255, 0) 44%),
+    linear-gradient(138deg, rgba(239, 252, 244, 0.07) 0%, rgba(239, 252, 244, 0) 64%);
+  opacity: 0.9;
+}
+
+.action-card:hover,
+.action-card:focus-visible {
+  border-color: var(--destination-edge);
+  box-shadow:
+    0 24px 40px rgba(6, 20, 12, 0.33),
+    inset 0 1px 0 rgba(246, 253, 249, 0.42),
+    inset 0 0 0 1px rgba(243, 251, 247, 0.18);
+}
+
+.action-card-icon {
+  border-color: rgba(241, 250, 245, 0.48);
+  background: linear-gradient(180deg, rgba(243, 251, 247, 0.21) 0%, rgba(230, 245, 236, 0.15) 100%);
+  box-shadow: 0 8px 14px rgba(5, 17, 11, 0.26);
+}
+
+.action-card-kicker {
+  border-color: rgba(238, 248, 242, 0.5);
+  background: linear-gradient(180deg, rgba(244, 251, 247, 0.19) 0%, rgba(230, 244, 236, 0.1) 100%);
+}
+
+.action-card-title {
+  text-shadow: 0 8px 16px rgba(1, 8, 5, 0.44);
+}
+
+.action-card-weather {
+  --destination-overlay-ink: rgba(9, 28, 18, 0.74);
+  --destination-glow: rgba(154, 206, 236, 0.35);
+}
+
+.action-card-tee-times {
+  --destination-overlay-ink: rgba(9, 25, 16, 0.75);
+  --destination-glow: rgba(245, 210, 132, 0.34);
+}
+
+.action-card-news {
+  --destination-overlay-ink: rgba(8, 24, 15, 0.78);
+  --destination-glow: rgba(141, 199, 168, 0.31);
+}
+
+.action-card-courses {
+  --destination-overlay-ink: rgba(9, 26, 16, 0.74);
+  --destination-glow: rgba(199, 224, 153, 0.32);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .action-card:hover,
+  .action-card:focus-visible {
+    transform: translate3d(0, -4px, 0);
+  }
+
+  .home-active-round-item:not(.is-unavailable):hover {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+
+@media (max-width: 560px) {
+  #home-view {
+    background:
+      radial-gradient(circle at 6% -12%, rgba(225, 193, 121, 0.18) 0%, rgba(225, 193, 121, 0) 38%),
+      radial-gradient(circle at 102% 2%, rgba(24, 89, 54, 0.3) 0%, rgba(24, 89, 54, 0) 44%),
+      linear-gradient(180deg, #fcfbf8 0%, #eef3eb 100%);
+  }
+
+  #home-view > .home-hero.card-sub {
+    padding: 19px 14px 15px;
+  }
+
+  #home-view > .home-hero.card-sub::after {
+    width: 244px;
+    height: 244px;
+    right: -62px;
+    top: -78px;
+  }
+
+  .home-status-item {
+    min-height: 52px;
+  }
+
+  .action-card {
+    min-height: 148px;
+    box-shadow:
+      0 16px 28px rgba(6, 20, 12, 0.26),
+      inset 0 1px 0 rgba(243, 251, 247, 0.34),
+      inset 0 0 0 1px rgba(236, 247, 241, 0.1);
+  }
+
+  .action-card-title {
+    font-size: 1rem;
+  }
+
+  .home-active-round-item {
+    box-shadow:
+      0 12px 20px rgba(4, 17, 10, 0.22),
+      inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  }
+}
