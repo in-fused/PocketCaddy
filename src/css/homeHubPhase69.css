@@ -179,43 +179,63 @@
 .home-active-rounds {
   border-color: #87a595;
   background:
-    radial-gradient(circle at 106% -8%, rgba(228, 196, 124, 0.34) 0%, rgba(228, 196, 124, 0) 40%),
-    radial-gradient(circle at -6% 104%, rgba(84, 145, 108, 0.28) 0%, rgba(84, 145, 108, 0) 48%),
-    linear-gradient(154deg, #0f2f1e 0%, #154028 40%, #1c5032 100%);
+    radial-gradient(circle at 106% -8%, rgba(228, 196, 124, 0.26) 0%, rgba(228, 196, 124, 0) 38%),
+    radial-gradient(circle at -6% 104%, rgba(84, 145, 108, 0.2) 0%, rgba(84, 145, 108, 0) 46%),
+    linear-gradient(154deg, #0d291a 0%, #123a24 42%, #19492e 100%);
   box-shadow: 0 26px 42px rgba(4, 15, 9, 0.42), inset 0 1px 0 rgba(233, 247, 238, 0.22);
 }
 
 .home-active-rounds::before {
   background:
-    linear-gradient(90deg, rgba(236, 248, 241, 0.12) 0%, rgba(236, 248, 241, 0) 16%),
+    linear-gradient(180deg, rgba(6, 20, 12, 0.45) 0%, rgba(6, 20, 12, 0.65) 100%),
+    linear-gradient(90deg, rgba(236, 248, 241, 0.06) 0%, rgba(236, 248, 241, 0) 16%),
     repeating-linear-gradient(
       0deg,
-      rgba(228, 244, 234, 0.06) 0px,
-      rgba(228, 244, 234, 0.06) 1px,
+      rgba(228, 244, 234, 0.025) 0px,
+      rgba(228, 244, 234, 0.025) 1px,
       rgba(228, 244, 234, 0) 1px,
       rgba(228, 244, 234, 0) 11px
-    ),
-    linear-gradient(180deg, rgba(12, 41, 25, 0.24) 0%, rgba(12, 41, 25, 0.42) 100%);
+    );
 }
 
 .home-active-rounds::after {
   background-image:
-    radial-gradient(circle at 20% 0%, rgba(241, 252, 246, 0.12) 0%, rgba(241, 252, 246, 0) 36%),
-    linear-gradient(134deg, rgba(7, 28, 18, 0.28) 0%, rgba(7, 28, 18, 0) 52%);
+    radial-gradient(circle at 20% 0%, rgba(241, 252, 246, 0.07) 0%, rgba(241, 252, 246, 0) 34%),
+    linear-gradient(134deg, rgba(7, 28, 18, 0.34) 0%, rgba(7, 28, 18, 0) 52%);
 }
 
 .home-active-rounds-head h3 {
-  color: #f2fff7;
-  text-shadow: 0 8px 18px rgba(1, 9, 5, 0.36);
+  color: #ffffff;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.35),
+    0 0 1px rgba(0, 0, 0, 0.4);
 }
 
 .home-active-rounds-meta {
-  color: rgba(232, 246, 237, 0.9);
+  color: rgba(240, 255, 246, 0.96);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.28);
 }
 
 #home-active-rounds-status {
-  border-color: rgba(188, 218, 198, 0.6);
-  background: linear-gradient(180deg, rgba(235, 248, 241, 0.2) 0%, rgba(218, 240, 226, 0.14) 100%);
+  border-color: rgba(210, 235, 220, 0.7);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 255, 255, 0.08) 100%
+  );
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 6px 12px rgba(4, 18, 10, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .home-active-round-item {
