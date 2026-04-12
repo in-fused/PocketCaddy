@@ -127,6 +127,11 @@
       const row = document.createElement("article");
       row.className = "home-active-round-item";
       row.setAttribute("role", "listitem");
+      if (entry.stateLabel === "Paused") {
+        row.classList.add("is-paused");
+      } else {
+        row.classList.add("is-live");
+      }
 
       const head = document.createElement("div");
       head.className = "home-active-round-row-head";
