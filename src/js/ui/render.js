@@ -981,6 +981,7 @@
     const insights = buildHistoryInsights(history);
     if (insightsWrap) {
       if (insights.empty) {
+        insightsWrap.classList.add("hidden");
         insightsWrap.innerHTML = `
           <div class="round-history-insights">
             <h4 class="round-history-insights-title">History Insights</h4>
@@ -988,6 +989,7 @@
           </div>
         `;
       } else {
+        insightsWrap.classList.remove("hidden");
         insightsWrap.innerHTML = `
           <div class="round-history-insights">
             <h4 class="round-history-insights-title">History Insights</h4>
@@ -1044,13 +1046,24 @@
     `;
 
     if (!history.length) {
-      statsWrap.innerHTML = '<p class="muted tiny round-history-empty-state">No player trends yet. Finish a round to start tracking wins and averages.</p>';
-      historyList.innerHTML = `${summaryActionsMarkup}<p class="muted tiny round-history-empty-state">No saved rounds yet. Create a round above, then complete it to populate history.</p>`;
+      if (insightsWrap) {
+        insightsWrap.classList.add("hidden");
+        insightsWrap.innerHTML = "";
+      }
+      statsWrap.classList.add("hidden");
+      statsWrap.innerHTML = "";
+      historyList.innerHTML = `
+        <div class="round-history-empty-state-card" role="status" aria-live="polite">
+          <p class="round-history-empty-state-title">No saved rounds yet</p>
+          <p class="muted tiny round-history-empty-state">Start a round, finish scoring, and your history, replay, and exports will appear here.</p>
+        </div>
+      `;
       replayWrap.classList.add("hidden");
       replayWrap.innerHTML = "";
       return;
     }
 
+    statsWrap.classList.remove("hidden");
     const stats = computeStats(history);
     if (!stats.length) {
       statsWrap.innerHTML = '<p class="muted tiny round-history-empty-state">No player trends available for these saved rounds yet.</p>';
@@ -1076,8 +1089,15 @@
       const isReplay = String(state.roundHistoryReplayRoundId) === roundId;
       const winnerNames = winnerResolver(entry);
       const winnerText = winnerNames.length ? winnerNames.map((name) => htmlEscaper(name)).join(", ") : "-";
+      const dateText = toSafeName(historyDateFormatter(entry && entry.date));
+      const roundNameText = toSafeName(entry && entry.roundName);
+      const standingsCount = Array.isArray(entry && entry.standings) ? entry.standings.length : 0;
+      const playersCount = Array.isArray(entry && entry.players) ? entry.players.length : standingsCount;
+      const hasPlayerCount = Number.isInteger(playersCount) && playersCount > 0;
+      const playerCountText = hasPlayerCount
+        ? `${playersCount} ${playersCount === 1 ? "player" : "players"}`
+        : "Player count unavailable";
       const summaryMeta = [
-        entry.roundName ? htmlEscaper(entry.roundName) : null,
         entry.courseName ? htmlEscaper(entry.courseName) : null,
         entry.tee ? `Tee ${htmlEscaper(entry.tee)}` : null,
         entry.holes ? `${entry.holes} holes` : null
@@ -1090,40 +1110,39 @@
             data-action="toggle-history-row"
             data-round-id="${htmlEscaper(roundId)}"
             aria-expanded="${isExpanded ? "true" : "false"}">
-            <span class="round-history-date">${htmlEscaper(historyDateFormatter(entry.date))}</span>
-            <span class="round-history-winner">${htmlEscaper(entry.winnerLabel || "Winner")}: ${winnerText}</span>
+            <span class="round-history-headline-row">
+              <span class="round-history-name">${htmlEscaper(roundNameText)}</span>
+              <span class="round-history-date">${htmlEscaper(dateText)}</span>
+            </span>
+            <span class="round-history-subline">
+              <span class="round-history-players">${htmlEscaper(playerCountText)}</span>
+              <span class="round-history-winner">${htmlEscaper(entry.winnerLabel || "Winner")}: ${winnerText}</span>
+            </span>
           </button>
           <div class="round-history-detail ${isExpanded ? "" : "hidden"}">
             <p class="round-history-meta">${summaryMeta || "Round summary unavailable"}</p>
-            <div class="round-history-actions">
-              <div class="round-history-action-group round-history-action-group-replay">
-                <button
-                  type="button"
-                  class="btn btn-secondary round-history-replay-btn"
-                  data-action="replay-history-round"
-                  data-round-id="${htmlEscaper(roundId)}"
-                  ${hasRoundId ? "" : "disabled"}
-                  aria-disabled="${hasRoundId ? "false" : "true"}">${isReplay ? "Hide Replay" : "View Replay"}</button>
-              </div>
-              <div class="round-history-action-group round-history-action-group-export" role="group" aria-label="Export round history">
-                <p class="round-history-action-label">Export</p>
-                <div class="round-history-export-actions">
-                  <button
-                    type="button"
-                    class="btn btn-secondary round-history-export-btn"
-                    data-action="export-history-json"
-                    data-round-id="${htmlEscaper(roundId)}"
-                    ${hasRoundId ? "" : "disabled"}
-                    aria-disabled="${hasRoundId ? "false" : "true"}">JSON</button>
-                  <button
-                    type="button"
-                    class="btn btn-secondary round-history-export-btn"
-                    data-action="export-history-csv"
-                    data-round-id="${htmlEscaper(roundId)}"
-                    ${hasRoundId ? "" : "disabled"}
-                    aria-disabled="${hasRoundId ? "false" : "true"}">CSV</button>
-                </div>
-              </div>
+            <div class="round-history-actions round-history-actions-row" role="group" aria-label="Round actions">
+              <button
+                type="button"
+                class="btn btn-secondary round-history-replay-btn"
+                data-action="replay-history-round"
+                data-round-id="${htmlEscaper(roundId)}"
+                ${hasRoundId ? "" : "disabled"}
+                aria-disabled="${hasRoundId ? "false" : "true"}">${isReplay ? "Hide Replay" : "Replay"}</button>
+              <button
+                type="button"
+                class="btn btn-secondary round-history-export-btn"
+                data-action="export-history-json"
+                data-round-id="${htmlEscaper(roundId)}"
+                ${hasRoundId ? "" : "disabled"}
+                aria-disabled="${hasRoundId ? "false" : "true"}">Export JSON</button>
+              <button
+                type="button"
+                class="btn btn-secondary round-history-export-btn"
+                data-action="export-history-csv"
+                data-round-id="${htmlEscaper(roundId)}"
+                ${hasRoundId ? "" : "disabled"}
+                aria-disabled="${hasRoundId ? "false" : "true"}">Export CSV</button>
             </div>
           </div>
         </article>
