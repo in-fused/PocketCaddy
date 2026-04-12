@@ -792,3 +792,559 @@
     gap: 14px;
   }
 }
+
+/* Phase 67: homepage experience rebalance + premium action surface upgrade */
+#home-view {
+  row-gap: 11px;
+}
+
+#home-view > .card-sub {
+  border-radius: 18px;
+  padding: 15px;
+}
+
+#home-view > .home-hero.card-sub {
+  padding: 24px 18px 20px;
+  border-color: rgba(170, 195, 175, 0.82);
+  box-shadow: 0 26px 44px rgba(5, 20, 12, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.26);
+}
+
+.home-kicker {
+  padding: 4px 10px;
+  border-color: rgba(234, 245, 238, 0.54);
+  background: rgba(248, 253, 250, 0.18);
+}
+
+.home-title {
+  font-size: clamp(1.58rem, 2.8vw, 2.24rem);
+}
+
+.home-tagline {
+  max-width: 58ch;
+  font-size: 0.92rem;
+}
+
+.home-next-action-note {
+  margin-top: 11px;
+  border-color: rgba(234, 244, 238, 0.5);
+  background: linear-gradient(180deg, rgba(248, 253, 250, 0.22) 0%, rgba(242, 250, 246, 0.14) 100%);
+  font-weight: 800;
+}
+
+.home-status-strip {
+  margin-top: 13px;
+  border-color: rgba(228, 239, 233, 0.48);
+  background: linear-gradient(180deg, rgba(247, 253, 250, 0.18) 0%, rgba(241, 249, 245, 0.13) 100%);
+}
+
+.home-hero-actions {
+  margin-top: 13px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.home-hero-actions .btn {
+  min-height: 48px;
+  border-radius: 14px;
+  border-width: 1px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.home-hero-actions #hub-resume-btn:not(.hidden) {
+  order: -1;
+  grid-column: 1 / -1;
+}
+
+.home-hero-actions #hub-create-btn {
+  border-color: rgba(198, 223, 206, 0.82);
+  background: linear-gradient(180deg, #2f8752 0%, #25683f 100%);
+  color: #f4fff8;
+  box-shadow: 0 12px 24px rgba(9, 42, 24, 0.34);
+}
+
+.home-hero-actions #hub-create-btn:hover,
+.home-hero-actions #hub-create-btn:focus-visible {
+  filter: brightness(1.04);
+  box-shadow: 0 14px 26px rgba(10, 49, 28, 0.38);
+}
+
+.home-hero-actions #hub-resume-btn {
+  border-color: rgba(244, 222, 166, 0.84);
+  background: linear-gradient(180deg, rgba(255, 244, 214, 0.34) 0%, rgba(236, 190, 86, 0.25) 100%);
+  color: #fff9ea;
+  box-shadow: 0 12px 24px rgba(72, 53, 19, 0.32);
+}
+
+.home-hero-actions #hub-resume-btn:hover,
+.home-hero-actions #hub-resume-btn:focus-visible {
+  background: linear-gradient(180deg, rgba(255, 247, 223, 0.38) 0%, rgba(238, 194, 92, 0.28) 100%);
+}
+
+.home-hero-actions #hub-join-btn {
+  border-color: rgba(219, 235, 226, 0.76);
+  background: linear-gradient(180deg, rgba(248, 253, 251, 0.96) 0%, rgba(236, 245, 240, 0.92) 100%);
+  color: #1d3f2e;
+  box-shadow: 0 9px 18px rgba(8, 28, 18, 0.2);
+}
+
+.home-hero-actions #hub-join-btn:hover,
+.home-hero-actions #hub-join-btn:focus-visible {
+  border-color: rgba(233, 245, 238, 0.9);
+  background: linear-gradient(180deg, rgba(251, 254, 252, 0.98) 0%, rgba(240, 248, 243, 0.94) 100%);
+}
+
+.home-hero-guidance {
+  margin-top: 12px;
+  max-width: 62ch;
+}
+
+.home-hero-path {
+  margin-top: 12px;
+  gap: 9px;
+}
+
+.home-hero-path-link {
+  min-height: 34px;
+  padding: 7px 11px;
+  border-color: rgba(229, 243, 235, 0.56);
+  background: rgba(246, 252, 248, 0.18);
+  font-weight: 800;
+}
+
+#home-view > #home-saved-session-card.home-saved-session {
+  border-color: #b9cdbe;
+  background:
+    radial-gradient(circle at 102% -4%, rgba(222, 196, 133, 0.24) 0%, rgba(222, 196, 133, 0) 42%),
+    radial-gradient(circle at -8% 100%, rgba(115, 174, 134, 0.2) 0%, rgba(115, 174, 134, 0) 48%),
+    linear-gradient(180deg, #fffefb 0%, #f2f7f0 100%);
+  box-shadow: 0 20px 34px rgba(10, 31, 19, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+#home-view > #home-saved-session-card.home-saved-session::before {
+  background: linear-gradient(90deg, rgba(36, 110, 66, 0.82), rgba(203, 171, 102, 0.58));
+}
+
+#home-view > #home-saved-session-card.home-saved-session h3 {
+  margin-bottom: 5px;
+  font-size: 1.02rem;
+  line-height: 1.18;
+  color: #173728;
+}
+
+#home-saved-session-copy {
+  color: #355545;
+}
+
+.home-saved-session-progress {
+  margin-top: 11px;
+  border-color: #c7d7cb;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 250, 245, 0.97) 100%);
+  box-shadow: 0 8px 14px rgba(10, 30, 18, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.home-saved-session-progress-row {
+  min-height: 25px;
+  padding: 1px 0;
+}
+
+.saved-session-label {
+  color: #3f5e4d;
+}
+
+.saved-session-value {
+  color: #1d3f2d;
+}
+
+.home-saved-session-actions {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.home-saved-session-actions .btn {
+  min-height: 46px;
+  border-radius: 13px;
+  font-weight: 800;
+}
+
+.home-saved-session-actions #quick-resume-btn {
+  border-color: #2a7648;
+  background: linear-gradient(180deg, #2f8852 0%, #24653e 100%);
+  color: #f2fff8;
+  box-shadow: 0 10px 20px rgba(9, 39, 23, 0.24);
+}
+
+.home-saved-session-actions #quick-resume-btn:hover,
+.home-saved-session-actions #quick-resume-btn:focus-visible {
+  filter: brightness(1.03);
+  box-shadow: 0 12px 22px rgba(11, 46, 27, 0.3);
+}
+
+.home-saved-session-actions #quick-cancel-saved-btn {
+  border-color: #d8c6c6;
+  background: linear-gradient(180deg, #fff9f8 0%, #f6eceb 100%);
+  color: #7b2f2f;
+  box-shadow: 0 8px 14px rgba(42, 15, 15, 0.08);
+}
+
+.home-saved-session-note {
+  margin-top: 10px;
+  padding: 7px 9px;
+  border-radius: 10px;
+  border: 1px solid #d5e1d6;
+  background: linear-gradient(180deg, rgba(252, 254, 252, 0.95) 0%, rgba(245, 249, 245, 0.94) 100%);
+  color: #4f6558;
+}
+
+.home-hub-nav {
+  border-color: #ced8ce;
+  background: linear-gradient(180deg, rgba(255, 255, 254, 0.98) 0%, rgba(245, 247, 241, 0.98) 100%);
+  box-shadow: 0 15px 25px rgba(10, 30, 18, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.home-hub-tab {
+  min-height: 44px;
+}
+
+.home-continuity {
+  border-color: #c8d5ca;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(204, 222, 172, 0.16) 0%, rgba(204, 222, 172, 0) 42%),
+    linear-gradient(180deg, #fefefb 0%, #f4f6ef 100%);
+  box-shadow: 0 16px 28px rgba(12, 31, 19, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.94);
+}
+
+.home-continuity-grid {
+  gap: 10px;
+}
+
+.home-continuity-grid .continuity-tile {
+  border-color: #cfd9d0;
+  border-radius: 13px;
+  padding: 11px 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #f6f8f3 100%);
+  box-shadow: 0 9px 14px rgba(9, 28, 17, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.continuity-label {
+  font-size: 0.7rem;
+}
+
+.continuity-text {
+  font-size: 0.82rem;
+  line-height: 1.38;
+}
+
+.continuity-status-row {
+  margin-top: 1px;
+}
+
+.continuity-tile .btn {
+  min-height: 43px;
+  border-radius: 11px;
+  border-color: #c3d2c6;
+  background: linear-gradient(180deg, #ffffff 0%, #f2f6f1 100%);
+  color: #1f3f2f;
+  font-weight: 800;
+}
+
+.continuity-tile .btn:hover,
+.continuity-tile .btn:focus-visible {
+  border-color: #adc2b2;
+  background: linear-gradient(180deg, #ffffff 0%, #eef4ef 100%);
+}
+
+.home-active-rounds {
+  border-color: #95b29f;
+  box-shadow: 0 24px 40px rgba(6, 21, 12, 0.32), inset 0 1px 0 rgba(236, 248, 240, 0.22);
+}
+
+.home-active-rounds-head h3 {
+  font-size: 1.04rem;
+}
+
+.home-active-rounds-list {
+  gap: 10px;
+}
+
+.home-active-round-item {
+  border-radius: 15px;
+  padding: 12px;
+  gap: 9px;
+  border-color: #b8cbbd;
+}
+
+.home-active-round-title {
+  font-size: 0.98rem;
+}
+
+.home-active-round-subtitle {
+  margin-top: 4px;
+}
+
+.home-active-round-progress {
+  font-size: 0.83rem;
+}
+
+#home-operations-section.home-quick {
+  border-color: #cad7cd;
+  background:
+    radial-gradient(circle at 0% 100%, rgba(177, 212, 191, 0.14) 0%, rgba(177, 212, 191, 0) 42%),
+    linear-gradient(180deg, #fffefc 0%, #f4f6f1 100%);
+}
+
+.home-operations-preview-list {
+  margin-top: 9px;
+  gap: 10px;
+}
+
+.home-operations-preview-item {
+  position: relative;
+  border-color: #d0d9d1;
+  border-radius: 13px;
+  padding: 11px 11px 11px 13px;
+  background: linear-gradient(180deg, #ffffff 0%, #f6f8f3 100%);
+  box-shadow: 0 8px 14px rgba(10, 28, 17, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.home-operations-preview-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 13px 0 0 13px;
+  background: linear-gradient(180deg, #2f8752 0%, #23643c 100%);
+}
+
+.home-operations-preview-copy {
+  font-size: 0.8rem;
+}
+
+.home-quick-grid.home-operations-actions {
+  margin-top: 10px;
+  gap: 9px;
+}
+
+.home-quick-grid.home-operations-actions .btn {
+  position: relative;
+  min-height: 47px;
+  border-radius: 13px;
+  font-weight: 800;
+  overflow: hidden;
+}
+
+.home-quick-grid.home-operations-actions .btn::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: rgba(29, 62, 44, 0.36);
+}
+
+#quick-create-btn {
+  border-color: #2a7547;
+  background: linear-gradient(180deg, #2f8752 0%, #24653e 100%);
+  color: #f3fff8;
+  box-shadow: 0 10px 20px rgba(9, 41, 24, 0.24);
+}
+
+#quick-create-btn::after {
+  background: rgba(241, 255, 247, 0.6);
+}
+
+#quick-join-btn {
+  border-color: #c4d2c8;
+  background: linear-gradient(180deg, #ffffff 0%, #f2f6f1 100%);
+  color: #1f3f2f;
+}
+
+#home-operations-panel-btn,
+#quick-history-btn {
+  border-color: #c7d3ca;
+  background: linear-gradient(180deg, #ffffff 0%, #f3f6f2 100%);
+  color: #214031;
+}
+
+#home-operations-panel-btn:hover,
+#home-operations-panel-btn:focus-visible,
+#quick-history-btn:hover,
+#quick-history-btn:focus-visible,
+#quick-join-btn:hover,
+#quick-join-btn:focus-visible {
+  border-color: #aec0b3;
+  background: linear-gradient(180deg, #ffffff 0%, #edf3ee 100%);
+}
+
+#home-golf-dashboard.home-golf-dashboard {
+  border-color: #c8d6cd;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(194, 161, 84, 0.13) 0%, rgba(194, 161, 84, 0) 42%),
+    linear-gradient(180deg, #fbfcf8 0%, #f1f5ed 100%);
+}
+
+.action-card-grid {
+  gap: 14px;
+}
+
+.action-card {
+  min-height: 174px;
+  border-radius: 20px;
+  padding: 15px;
+  box-shadow: 0 18px 32px rgba(7, 22, 13, 0.24);
+}
+
+.action-card-title {
+  font-size: 1.12rem;
+}
+
+.action-card-subtitle {
+  font-size: 0.81rem;
+  max-width: 35ch;
+}
+
+@media (max-width: 560px) {
+  #home-view {
+    row-gap: 9px;
+  }
+
+  #home-view > .card-sub {
+    padding: 12px;
+    border-radius: 15px;
+  }
+
+  #home-view > .home-hero.card-sub {
+    padding: 18px 13px 14px;
+  }
+
+  .home-title {
+    font-size: 1.39rem;
+  }
+
+  .home-tagline {
+    font-size: 0.85rem;
+  }
+
+  .home-hero-actions {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .home-hero-actions .btn {
+    min-height: 45px;
+  }
+
+  .home-hero-actions #hub-resume-btn:not(.hidden) {
+    order: 0;
+    grid-column: auto;
+  }
+
+  .home-hub-tab {
+    min-height: 40px;
+  }
+
+  .home-saved-session-actions .btn,
+  .home-quick-grid.home-operations-actions .btn,
+  .continuity-tile .btn {
+    min-height: 44px;
+  }
+
+  .home-operations-preview-list,
+  .home-continuity-grid {
+    gap: 8px;
+  }
+
+  .home-operations-preview-item,
+  .home-continuity-grid .continuity-tile {
+    padding: 9px 10px 9px 11px;
+  }
+
+  .home-active-round-item {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .home-active-round-title {
+    font-size: 0.89rem;
+  }
+
+  .home-active-round-subtitle,
+  .home-active-round-progress {
+    font-size: 0.76rem;
+  }
+
+  .action-card {
+    min-height: 146px;
+    padding: 13px;
+    border-radius: 17px;
+  }
+
+  .action-card-title {
+    font-size: 1rem;
+  }
+
+  .action-card-subtitle {
+    font-size: 0.76rem;
+  }
+}
+
+@media (min-width: 760px) {
+  #home-view {
+    row-gap: 12px;
+  }
+
+  #home-view .home-hero {
+    grid-column: 1 / 8;
+  }
+
+  #home-view #home-saved-session-card {
+    grid-column: 8 / -1;
+    align-self: stretch;
+  }
+
+  #home-view .home-active-rounds {
+    grid-column: 1 / 8;
+  }
+
+  #home-view .home-continuity {
+    grid-column: 8 / -1;
+  }
+
+  #home-view .home-golf-dashboard {
+    grid-column: 1 / -1;
+  }
+
+  .home-active-rounds-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  #home-view {
+    row-gap: 13px;
+  }
+
+  #home-view .home-hero {
+    grid-column: 1 / 9;
+  }
+
+  #home-view #home-saved-session-card {
+    grid-column: 9 / -1;
+  }
+
+  #home-view .home-active-rounds {
+    grid-column: 1 / 9;
+  }
+
+  #home-view .home-continuity {
+    grid-column: 9 / -1;
+  }
+}
