@@ -50,13 +50,13 @@
             </div>
           </section>
           <div class="actions home-hero-actions">
-            <button id="hub-resume-btn" class="btn btn-primary hidden" type="button">Resume Session</button>
-            <button id="hub-create-btn" class="btn btn-primary" type="button">Create Round</button>
+            <button id="hub-resume-btn" class="btn btn-primary hidden" type="button">Resume Round</button>
+            <button id="hub-create-btn" class="btn btn-primary" type="button">Start Round</button>
             <button id="hub-join-btn" class="btn btn-secondary" type="button">Join Round</button>
           </div>
           <p class="home-hero-guidance muted tiny">Use continuity and quick actions below to resume, review history, or jump into a new scorecard.</p>
           <div class="home-hero-path">
-            <button class="home-hero-path-link" type="button" data-home-mode="golf">Explore Golf Dashboard</button>
+            <button class="home-hero-path-link" type="button" data-home-mode="golf">Explore Golf</button>
             <button class="home-hero-path-link" type="button" data-home-mode="operations" data-focus-target="home-operations-section">Go to Round Operations</button>
             <button class="home-hero-path-link" type="button" data-home-mode="history" data-focus-target="round-history-section">Open Round History</button>
           </div>
@@ -105,69 +105,33 @@
           </div>
         </section>
 
-        <section id="home-golf-dashboard" class="home-golf-dashboard card-sub home-hub-panel" aria-label="Golf dashboard resources">
+        <section id="home-golf-dashboard" class="home-golf-dashboard card-sub home-hub-panel" aria-label="Explore golf resources">
           <div class="home-section-head home-golf-head">
-            <h3>Golf Dashboard</h3>
-            <p class="muted tiny">Featured golf surface plus at-a-glance module status and trusted links you can use right now.</p>
+            <h3>Explore Golf</h3>
+            <p class="muted tiny">Quick-launch cards for live golf information while you manage your round.</p>
           </div>
-          <section class="golf-dashboard-featured" aria-label="Featured golf spotlight">
-            <p class="golf-dashboard-subhead">Featured Surface</p>
-            <h4 class="golf-featured-title">Live Tour Hub</h4>
-            <p class="golf-featured-copy">Stay in golf mode while running your round. Follow official tours, check live event context, and keep scoring momentum.</p>
-            <div class="golf-featured-status-row">
-              <p class="golf-status-kicker">PocketCaddy Live Tour Module</p>
-              <p class="golf-status-value is-unavailable">Unavailable</p>
-            </div>
-            <p class="muted tiny">Live tournament feed integration is not connected in this release. Use official resources below.</p>
-            <div class="golf-featured-links">
-              <a class="golf-featured-link" href="https://www.pgatour.com/" target="_blank" rel="noopener noreferrer">Follow PGA TOUR</a>
-              <a class="golf-featured-link" href="https://www.lpga.com/" target="_blank" rel="noopener noreferrer">Follow LPGA</a>
-              <a class="golf-featured-link" href="https://www.europeantour.com/dpworld-tour/" target="_blank" rel="noopener noreferrer">Follow DP World Tour</a>
-            </div>
-          </section>
-          <div class="golf-dashboard-secondary-grid">
-            <section class="golf-dashboard-block golf-dashboard-status">
-              <h4 class="golf-dashboard-subhead">Module Status</h4>
-              <p class="muted tiny">Modules not connected in this release are marked as <strong>Unavailable</strong>.</p>
-              <div class="golf-dashboard-status-grid">
-                <article class="golf-status-card">
-                  <p class="golf-status-kicker">Live Scoring Feed</p>
-                  <p class="golf-status-value is-unavailable">Unavailable</p>
-                  <p class="muted tiny">PocketCaddy live pro-feed integration is not connected in this release.</p>
-                </article>
-                <article class="golf-status-card">
-                  <p class="golf-status-kicker">Latest Golf News</p>
-                  <p class="golf-status-value is-unavailable">Unavailable</p>
-                  <p class="muted tiny">News feed integration is not connected in this release.</p>
-                </article>
-                <article class="golf-status-card">
-                  <p class="golf-status-kicker">Watch / Broadcast</p>
-                  <p class="golf-status-value is-unavailable">Unavailable</p>
-                  <p class="muted tiny">Live watch schedule integration is not connected in this release.</p>
-                </article>
-              </div>
-            </section>
-            <section class="golf-dashboard-block golf-resource-links">
-              <h4 class="golf-dashboard-subhead">Ready-To-Use Golf Links</h4>
-              <div class="golf-link-grid">
-                <a class="golf-link-tile" href="https://www.pgatour.com/" target="_blank" rel="noopener noreferrer">
-                  <p class="golf-link-title">PGA TOUR</p>
-                  <p class="golf-link-copy">Tour leaderboard, schedules, and event coverage.</p>
-                </a>
-                <a class="golf-link-tile" href="https://www.lpga.com/" target="_blank" rel="noopener noreferrer">
-                  <p class="golf-link-title">LPGA</p>
-                  <p class="golf-link-copy">Women’s tour schedules, standings, and updates.</p>
-                </a>
-                <a class="golf-link-tile" href="https://www.usga.org/" target="_blank" rel="noopener noreferrer">
-                  <p class="golf-link-title">USGA</p>
-                  <p class="golf-link-copy">Rules, handicapping, and national golf resources.</p>
-                </a>
-                <a class="golf-link-tile" href="https://www.randa.org/" target="_blank" rel="noopener noreferrer">
-                  <p class="golf-link-title">The R&amp;A</p>
-                  <p class="golf-link-copy">Rules, governance, and global game guidance.</p>
-                </a>
-              </div>
-            </section>
+          <p class="home-golf-status-inline muted tiny">Dashboard status: <span class="continuity-status-value">Unavailable</span></p>
+          <div class="action-card-grid" role="list" aria-label="Explore golf links">
+            <a class="action-card action-card-weather" href="https://www.weather.com" target="_blank" rel="noopener noreferrer" role="listitem">
+              <span class="action-card-icon" aria-hidden="true">☁️</span>
+              <p class="action-card-title">Weather</p>
+              <p class="action-card-subtitle">Check local conditions before the first tee.</p>
+            </a>
+            <a class="action-card action-card-tee-times" href="https://www.golfnow.com/tee-times" target="_blank" rel="noopener noreferrer" role="listitem">
+              <span class="action-card-icon" aria-hidden="true">⛳</span>
+              <p class="action-card-title">Tee Times</p>
+              <p class="action-card-subtitle">Find and book available rounds quickly.</p>
+            </a>
+            <a class="action-card action-card-news" href="https://www.golfdigest.com/story/latest-golf-news" target="_blank" rel="noopener noreferrer" role="listitem">
+              <span class="action-card-icon" aria-hidden="true">📰</span>
+              <p class="action-card-title">Golf News</p>
+              <p class="action-card-subtitle">Get current golf headlines and tour updates.</p>
+            </a>
+            <a class="action-card action-card-courses" href="https://www.google.com/maps/search/golf+courses+near+me/" target="_blank" rel="noopener noreferrer" role="listitem">
+              <span class="action-card-icon" aria-hidden="true">📍</span>
+              <p class="action-card-title">Course Finder</p>
+              <p class="action-card-subtitle">Discover courses and navigate nearby options.</p>
+            </a>
           </div>
         </section>
 

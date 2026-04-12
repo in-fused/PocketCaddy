@@ -4161,3 +4161,143 @@ input:focus, select:focus {
     min-width: 78px;
   }
 }
+
+/* Phase 64: Homepage hub redesign (immersive action card system) */
+#home-view > .home-hero.card-sub {
+  background-image:
+    linear-gradient(135deg, rgba(8, 34, 18, 0.84) 0%, rgba(17, 62, 34, 0.76) 48%, rgba(24, 76, 43, 0.62) 100%),
+    url("https://images.unsplash.com/photo-1465101178521-c1a9136a3b41?auto=format&fit=crop&w=1600&q=80");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  border-color: rgba(150, 189, 163, 0.55);
+}
+
+.home-golf-dashboard {
+  border-color: #abc6b3;
+  background: linear-gradient(165deg, #f6fbf8 0%, #e9f4ee 100%);
+  box-shadow: 0 16px 30px rgba(11, 38, 23, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+.home-golf-status-inline {
+  margin-top: -2px;
+}
+
+.action-card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  width: 100%;
+}
+
+.action-card {
+  position: relative;
+  display: grid;
+  align-content: end;
+  gap: 5px;
+  width: 100%;
+  min-height: 130px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(214, 230, 219, 0.85);
+  color: #f3fbf6;
+  text-decoration: none;
+  overflow: hidden;
+  box-shadow: 0 10px 24px rgba(8, 24, 14, 0.18);
+  transition: transform 170ms ease, box-shadow 180ms ease, border-color 180ms ease, filter 170ms ease;
+}
+
+.action-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(9, 31, 18, 0.26) 0%, rgba(9, 31, 18, 0.64) 100%);
+}
+
+.action-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.action-card:hover,
+.action-card:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px rgba(9, 28, 16, 0.24);
+  border-color: rgba(230, 241, 235, 0.92);
+  filter: saturate(1.05);
+}
+
+.action-card:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.action-card:focus-visible {
+  outline: 2px solid rgba(231, 245, 236, 0.94);
+  outline-offset: 2px;
+}
+
+.action-card-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.action-card-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.action-card-subtitle {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: rgba(239, 249, 242, 0.95);
+}
+
+.action-card-weather {
+  background: linear-gradient(150deg, #356c4d 0%, #173a27 100%);
+}
+
+.action-card-tee-times {
+  background: linear-gradient(150deg, #1c5f45 0%, #0f2f24 100%);
+}
+
+.action-card-news {
+  background: linear-gradient(150deg, #20573b 0%, #10281d 100%);
+}
+
+.action-card-courses {
+  background: linear-gradient(150deg, #2c6349 0%, #133023 100%);
+}
+
+@media (max-width: 560px) {
+  .action-card {
+    min-height: 118px;
+    padding: 12px;
+  }
+
+  .action-card-title {
+    font-size: 0.95rem;
+  }
+
+  .action-card-subtitle {
+    font-size: 0.78rem;
+  }
+}
+
+@media (min-width: 760px) {
+  #home-view .home-golf-dashboard {
+    grid-column: 1 / -1;
+  }
+
+  .action-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .action-card {
+    min-height: 146px;
+  }
+}
